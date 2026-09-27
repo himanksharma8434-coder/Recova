@@ -5,6 +5,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../components/daily_activity_pod.dart';
 import '../components/glass_card.dart';
+import '../components/liquid_glass.dart';
 import '../components/motion.dart';
 import '../components/radial_score_gauge.dart';
 import '../components/sleep_performance_card.dart';
@@ -125,39 +126,14 @@ class PulseScreen extends StatelessWidget {
                     'Today, ${_currentDateFormatted()}',
                     style: TokType.heading,
                   ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Container(
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: summary != null
-                              ? Tok.neonAccent
-                              : Tok.textMuted,
-                          boxShadow: summary != null
-                              ? [
-                                  BoxShadow(
-                                    color: Tok.neonAccent.withValues(alpha: 0.5),
-                                    blurRadius: 6,
-                                    spreadRadius: 1,
-                                  ),
-                                ]
-                              : [],
-                        ),
-                      ),
-                      const SizedBox(width: Tok.space6),
-                      Text(
-                        summary != null
-                            ? 'Synced with wearable'
-                            : 'Awaiting wearable sync',
-                        style: TokType.bodySmall.copyWith(
-                          fontSize: 11,
-                          color: Tok.textTertiary,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 6),
+                  LiquidGlassPill(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Tok.space12,
+                      vertical: Tok.space4,
+                    ),
+                    indicatorColor: summary != null ? Tok.neonAccent : Tok.textMuted,
+                    label: summary != null ? 'WEARABLE SYNCED' : 'AWAITING SYNC',
                   ),
                 ],
               ),
@@ -166,8 +142,8 @@ class PulseScreen extends StatelessWidget {
                 buildWhen: (prev, current) =>
                     (prev is HealthSyncing) != (current is HealthSyncing),
                 builder: (context, state) {
-                  return GlassCard(
-                    borderRadius: Tok.radiusSm,
+                  return LiquidGlass(
+                    borderRadius: BorderRadius.circular(Tok.radiusSm),
                     padding: const EdgeInsets.all(Tok.space12),
                     onTap: state is HealthSyncing ? null : onSyncTap,
                     child: state is HealthSyncing

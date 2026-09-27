@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
+import 'liquid_glass.dart';
 
 /// Signature Biometric Recovery Gauge
 /// Glassmorphic concentric rings with neon accent glow,
@@ -143,19 +144,12 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
                 AnimatedBuilder(
                   animation: _pulseAnimation,
                   builder: (context, child) {
-                    return Container(
+                    return LiquidGlass(
                       padding: const EdgeInsets.symmetric(
                         horizontal: Tok.space12,
                         vertical: Tok.space4,
                       ),
-                      decoration: BoxDecoration(
-                        color: Tok.glassFill,
-                        border: Border.all(
-                          color: Tok.glassBorder.withValues(alpha: 0.1),
-                          width: 0.5,
-                        ),
-                        borderRadius: BorderRadius.circular(Tok.radiusFull),
-                      ),
+                      customBottomReflection: tier.color.withValues(alpha: 0.2),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
