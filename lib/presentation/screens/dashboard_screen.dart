@@ -29,7 +29,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recovery Dashboard'),
+        title: const Text('Recovery'),
         centerTitle: true,
         actions: [
           BlocBuilder<HealthSyncCubit, HealthSyncState>(
@@ -50,7 +50,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           context.read<DashboardCubit>().refresh();
                         }
                       },
-                tooltip: 'Sync Now',
+                tooltip: 'Sync',
               );
             },
           ),

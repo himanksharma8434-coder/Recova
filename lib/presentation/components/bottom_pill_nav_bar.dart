@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/design_tokens.dart';
 
@@ -21,48 +20,30 @@ class BottomPillNavBar extends StatelessWidget {
           left: Tok.space24,
           right: Tok.space24,
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(36),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-            child: Container(
-              height: 64,
-              padding: const EdgeInsets.symmetric(horizontal: Tok.space8),
-              decoration: BoxDecoration(
-                color: Tok.canvasBase.withValues(alpha: 0.75),
-                borderRadius: BorderRadius.circular(36),
-                border: Border(
-                  top: BorderSide(
-                    color: Tok.glassBorderBright,
-                    width: 0.5,
-                  ),
-                  left: BorderSide(
-                    color: Tok.glassBorder.withValues(alpha: 0.08),
-                    width: 0.5,
-                  ),
-                  right: BorderSide(
-                    color: Tok.glassBorder.withValues(alpha: 0.08),
-                    width: 0.5,
-                  ),
-                  bottom: BorderSide(
-                    color: Tok.glassBorder.withValues(alpha: 0.04),
-                    width: 0.5,
-                  ),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                  // Subtle neon glow under the bar
-                  BoxShadow(
-                    color: Tok.neonAccent.withValues(alpha: 0.06),
-                    blurRadius: 32,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+        child: Container(
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: Tok.space8),
+          decoration: BoxDecoration(
+            color: const Color(0xF5101520),
+            borderRadius: BorderRadius.circular(36),
+            border: Border.all(
+              color: Tok.glassBorderBright.withValues(alpha: 0.2),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.6),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
               ),
+              // Subtle neon glow under the bar
+              BoxShadow(
+                color: Tok.neonAccent.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -94,10 +75,8 @@ class BottomPillNavBar extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
+        );
+      }
 
   Widget _buildNavItem({
     required int index,
