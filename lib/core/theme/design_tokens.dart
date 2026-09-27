@@ -1,49 +1,31 @@
 import 'package:flutter/material.dart';
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// RECOVA DESIGN TOKENS — Single Source of Truth
-// Dark Glassmorphic · Neon-Accented · Apple Liquid Glass Inspired
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/// All color tokens for the app. No hardcoded colors outside this file.
 class Tok {
   Tok._();
 
-  // ── Canvas & Background ─────────────────────────────────────────────────
-  /// Near-black charcoal-navy, not pure #000. More premium depth.
   static const Color canvasBase = Color(0xFF0A0E14);
   static const Color canvasDeep = Color(0xFF060A10);
 
-  // ── Glass Surface System ────────────────────────────────────────────────
-  /// Translucent fills for glassmorphic cards at different elevations.
-  static const Color glassFill = Color(0x14FFFFFF);        // ~8% white
-  static const Color glassFillElevated = Color(0x1AFFFFFF); // ~10% white
-  static const Color glassFillRecessed = Color(0x0AFFFFFF); // ~4% white
+  static const Color glassFill = Color(0x14FFFFFF);        
+  static const Color glassFillElevated = Color(0x1AFFFFFF); 
+  static const Color glassFillRecessed = Color(0x0AFFFFFF); 
 
-  /// Borders: soft light-catching highlight for glass edges.
   static const Color glassBorder = Color(0x1AFFFFFF);       // 10% white
   static const Color glassBorderBright = Color(0x33FFFFFF);  // 20% white — top edge specular
 
-  /// Outer glow for glass cards (replaces Material elevation shadow).
-  static const Color glassGlow = Color(0x0DFFFFFF);          // 5% white
+  static const Color glassGlow = Color(0x0DFFFFFF);        // 5% white
 
-  /// Backdrop blur sigma for glass surfaces.
   static const double glassBlurSigma = 24.0;
   static const double glassBlurSigmaLight = 12.0;
 
-  // ── Primary Neon Accent ─────────────────────────────────────────────────
-  /// Cyan-teal neon — used SPARINGLY for one focal point per screen.
   static const Color neonAccent = Color(0xFF00E5CC);
   static const Color neonAccentDim = Color(0xFF00B8A3);
   static const Color neonAccentGlow = Color(0x3300E5CC);     // 20% for glows
   static const Color neonAccentSurface = Color(0x1A00E5CC);  // 10% for containers
 
-  // ── Secondary Accents (minimal usage) ───────────────────────────────────
   static const Color accentBlue = Color(0xFF4A9EFF);         // Informational
   static const Color accentBlueSurface = Color(0x1A4A9EFF);
 
-  // ── Recovery Score Semantic Colors ──────────────────────────────────────
-  /// Palette-harmonized — NOT generic red/yellow/green.
   static const Color recoveryOptimal = Color(0xFF00E5CC);    // Matches neon accent
   static const Color recoveryOptimalGlow = Color(0x3300E5CC);
   static const Color recoveryOptimalSurface = Color(0x1A00E5CC);
@@ -92,10 +74,6 @@ class Tok {
   /// Stagger delay between sequential card entrances.
   static const Duration staggerDelay = Duration(milliseconds: 60);
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// TYPOGRAPHY SCALE
-// ═══════════════════════════════════════════════════════════════════════════════
 
 class TokType {
   TokType._();
