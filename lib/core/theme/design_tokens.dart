@@ -18,6 +18,24 @@ class Tok {
   static const double glassBlurSigma = 24.0;
   static const double glassBlurSigmaLight = 12.0;
 
+  // ── Liquid Glassmorphism Standard Tokens ──────────────────────────────────
+  // Strict standard matching CSS reference:
+  // - Background: rgba(255, 255, 255, 0.08)
+  // - Backdrop blur: 16px, saturation: 180%
+  // - Border: 1px solid rgba(255, 255, 255, 0.25)
+  // - Shadows: outer drop 0 4px 24px rgba(0, 0, 0, 0.15)
+  //            inner top 0 1px 1px rgba(255, 255, 255, 0.40)
+  //            inner bottom 0 -1px 1px rgba(255, 0, 128, 0.10)
+  // - Radius: 100px (pill shape)
+  static const Color liquidGlassFill = Color(0x14FFFFFF);              // rgba(255, 255, 255, 0.08)
+  static const Color liquidGlassBorder = Color(0x40FFFFFF);            // rgba(255, 255, 255, 0.25)
+  static const Color liquidGlassTopHighlight = Color(0x66FFFFFF);      // rgba(255, 255, 255, 0.40)
+  static const Color liquidGlassBottomReflection = Color(0x1AFF0080);  // rgba(255, 0, 128, 0.10)
+  static const Color liquidGlassOuterShadow = Color(0x26000000);       // rgba(0, 0, 0, 0.15)
+  static const double liquidGlassBlurSigma = 16.0;
+  static const double liquidGlassSaturation = 1.8;
+  static const double liquidGlassRadiusPill = 100.0;
+
   static const Color neonAccent = Color(0xFF00E5CC);
   static const Color neonAccentDim = Color(0xFF00B8A3);
   static const Color neonAccentGlow = Color(0x3300E5CC);     // 20% for glows
@@ -73,6 +91,24 @@ class Tok {
 
   /// Stagger delay between sequential card entrances.
   static const Duration staggerDelay = Duration(milliseconds: 60);
+
+  /// Generates a 4x5 ColorFilter matrix for saturation scaling (1.8 = 180%).
+  static List<double> saturationMatrix(double saturation) {
+    const double r = 0.2126;
+    const double g = 0.7152;
+    const double b = 0.0722;
+    final double invSat = 1.0 - saturation;
+    final double rInv = invSat * r;
+    final double gInv = invSat * g;
+    final double bInv = invSat * b;
+
+    return <double>[
+      rInv + saturation, gInv, bInv, 0, 0,
+      rInv, gInv + saturation, bInv, 0, 0,
+      rInv, gInv, bInv + saturation, 0, 0,
+      0, 0, 0, 1, 0,
+    ];
+  }
 }
 
 class TokType {
