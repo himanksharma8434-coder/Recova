@@ -22,6 +22,13 @@ class RecovaColors {
   static const Color borderHover = Tok.glassBorderBright;
   static const Color surfaceOverlay = Tok.glassFillRecessed;
 
+  // ── Liquid Glass Standard Colors ───────────────────────────────────────
+  static const Color liquidGlassFill = Tok.liquidGlassFill;
+  static const Color liquidGlassBorder = Tok.liquidGlassBorder;
+  static const Color liquidGlassTopHighlight = Tok.liquidGlassTopHighlight;
+  static const Color liquidGlassBottomReflection = Tok.liquidGlassBottomReflection;
+  static const Color liquidGlassOuterShadow = Tok.liquidGlassOuterShadow;
+
   // ── Typography ─────────────────────────────────────────────────────────
   static const Color onSurface = Tok.textPrimary;
   static const Color onSurfaceVariant = Tok.textSecondary;
