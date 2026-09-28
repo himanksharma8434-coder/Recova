@@ -120,16 +120,17 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
 
       if (records.isNotEmpty) {
         if (filter == HrvFilter.today) {
+          int index = 0;
           for (final r in records) {
-            final hourFraction = r.startTime.hour + (r.startTime.minute / 60.0);
             final timeStr =
                 '${r.startTime.hour.toString().padLeft(2, '0')}:${r.startTime.minute.toString().padLeft(2, '0')}';
             points.add(_HrvDataPoint(
-              x: hourFraction,
+              x: index.toDouble(),
               y: r.value,
               label: timeStr,
               timestamp: r.startTime,
             ));
+            index++;
           }
         } else {
           final byDay = <String, List<({DateTime time, double val})>>{};
@@ -161,15 +162,17 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
         if (filter == HrvFilter.today) {
           final hours = [2.0, 4.0, 6.0, 7.5];
           final offsets = [12.0, 16.0, 8.0, 2.0];
+          int index = 0;
           for (int i = 0; i < hours.length; i++) {
             final t = todayStart.add(Duration(minutes: (hours[i] * 60).toInt()));
             if (t.isBefore(now) || i <= 2) {
               points.add(_HrvDataPoint(
-                x: hours[i],
+                x: index.toDouble(),
                 y: (baseHrv + offsets[i]).clamp(20.0, 150.0),
-                label: '${hours[i].toInt()}:00',
+                label: '${hours[i].toInt()}:${((hours[i] % 1) * 60).toInt().toString().padLeft(2, '0')}',
                 timestamp: t,
               ));
+              index++;
             }
           }
         } else {
@@ -243,11 +246,16 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
     final baseline = widget.summary?.baselineHrv ?? 55.0;
     final avg = _averageHrv;
 
-    String deltaText = 'Baseline Calibrated (55 ms)';
+    // Use current authoritative HRV for Today, and dynamic filter average for 7D / 30D / All Time
+    final displayHrv = _selectedFilter == HrvFilter.today
+        ? (currentHrv ?? avg)
+        : (avg ?? currentHrv);
+
+    String deltaText = 'Baseline Calibrated (${baseline.toInt()} ms)';
     Color deltaColor = RecovaColors.monochromeSilver;
 
-    if (currentHrv != null) {
-      final diff = (currentHrv - baseline).round();
+    if (displayHrv != null) {
+      final diff = (displayHrv - baseline).round();
       if (diff > 5) {
         deltaText = '+$diff ms vs baseline (Parasympathetic Tone High)';
         deltaColor = RecovaColors.textSecondary;
@@ -416,11 +424,9 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          currentHrv != null
-                              ? '${currentHrv.toInt()}'
-                              : avg != null
-                                  ? '${avg.toInt()}'
-                                  : '--',
+                          displayHrv != null
+                              ? '${displayHrv.toInt()}'
+                              : '--',
                           style: const TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.w800,
@@ -539,168 +545,6 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-
-              // ── Photoplethysmography (PPG) Architecture Bento ──
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: RecovaColors.surfaceElevation1,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: RecovaColors.borderSubtle),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.sensors,
-                            size: 14, color: RecovaColors.nothingRed),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'HOW WHOOP CAPTURES PPG DATA',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.2,
-                              color: RecovaColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'WHOOP captures your Heart Rate Variability through an optical technology called Photoplethysmography (PPG). '
-                      'An optical array of green and infrared LEDs illuminates the microvascular capillary bed in your dermis. '
-                      'With each cardiac contraction, pulsatile blood volume fluctuates, modulating the intensity of reflected light received by the photodiode.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.5,
-                        color: RecovaColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildPpgStep(
-                      '1. OPTICAL EMISSION',
-                      'High-frequency LEDs project green (525nm) light into microvascular tissue.',
-                    ),
-                    const SizedBox(height: 8),
-                    _buildPpgStep(
-                      '2. PULSE WAVEFORM (PRV)',
-                      'Photodiodes sample volumetric capillary expansion, identifying systolic pulse peaks.',
-                    ),
-                    const SizedBox(height: 8),
-                    _buildPpgStep(
-                      '3. INTER-BEAT INTERVAL (IBI)',
-                      'Calculates precise millisecond intervals between consecutive cardiac beats (IBI = 60000 / BPM).',
-                    ),
-                    const SizedBox(height: 8),
-                    _buildPpgStep(
-                      '4. RMSSD DERIVATION',
-                      'Derives the Root Mean Square of Successive Differences across nocturnal slow-wave sleep.',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // ── rMSSD Mathematical Formula Bento ──
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: RecovaColors.surfaceElevation1,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: RecovaColors.borderSubtle),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'MATHEMATICAL rMSSD FORMULATION',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                        color: RecovaColors.textTertiary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: RecovaColors.canvasBase,
-                        borderRadius: BorderRadius.circular(8),
-                        border:
-                            Border.all(color: RecovaColors.borderMedium),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'rMSSD = √ [ 1/(N-1) × Σ (IBIᵢ₊₁ - IBIᵢ)² ]',
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
-                            color: RecovaColors.monochromeWhite,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'By squaring the successive inter-beat differences, rMSSD specifically isolates the high-frequency parasympathetic vagal activity of the Autonomic Nervous System. '
-                      'Our PpgHrvCalculator filters motion artifacts and ectopic beats (> 300 ms deltas) to guarantee medical-grade accuracy.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        height: 1.4,
-                        color: RecovaColors.textTertiary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // ── Slow-Wave Sleep & ANS Balance Bento ──
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: RecovaColors.surfaceElevation1,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: RecovaColors.borderSubtle),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'WHY MEASURE DURING DEEP SLEEP?',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                        color: RecovaColors.textTertiary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'During waking hours, your heart rate fluctuates due to physical movement, caffeine, emotions, and talking. '
-                      'WHOOP measures your baseline HRV during the final Slow-Wave Sleep (SWS) cycle of the night. '
-                      'In this restorative stage, your body is completely still, and the autonomic nervous system is untethered from external stimuli, providing an uncorrupted snapshot of physical readiness.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.5,
-                        color: RecovaColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 24),
             ],
           ),
@@ -730,40 +574,6 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: valueColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPpgStep(String title, String description) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: RecovaColors.surfaceElevation2,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: RecovaColors.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: RecovaColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            description,
-            style: const TextStyle(
-              fontSize: 11,
-              height: 1.3,
-              color: RecovaColors.textSecondary,
             ),
           ),
         ],
@@ -820,7 +630,7 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
             interval: max(1, (_points.length / 4).floor()).toDouble(),
             getTitlesWidget: (value, meta) {
               final idx = value.toInt();
-              if (idx >= 0 && idx < _points.length) {
+              if (idx >= 0 && idx < _points.length && (value - idx).abs() < 0.1) {
                 return Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(

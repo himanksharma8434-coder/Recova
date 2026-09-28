@@ -488,7 +488,10 @@ void main() {
 
     expect(find.text('HEART RATE VARIABILITY'), findsOneWidget);
     expect(find.text('OPTICAL PPG TELEMETRY'), findsOneWidget);
-    expect(find.text('HOW WHOOP CAPTURES PPG DATA'), findsOneWidget);
+    expect(find.text('AUTONOMIC PULSE VARIANCE'), findsOneWidget);
+    expect(find.text('HOW WHOOP CAPTURES PPG DATA'), findsNothing);
+    expect(find.text('MATHEMATICAL rMSSD FORMULATION'), findsNothing);
+    expect(find.text('WHY MEASURE DURING DEEP SLEEP?'), findsNothing);
   });
 
   testWidgets(
@@ -534,7 +537,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('HEART RATE VARIABILITY'), findsOneWidget);
-    expect(find.text('MATHEMATICAL rMSSD FORMULATION'), findsOneWidget);
+    expect(find.text('AUTONOMIC PULSE VARIANCE'), findsOneWidget);
   });
 
   testWidgets(
