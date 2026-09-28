@@ -26,10 +26,12 @@ class ComputeBaselines {
   }
 
   /// Compute sleep duration baseline from nightly durations (in minutes).
+  /// Enforces a physiological baseline floor of 7.0 hours (420 min) and ceiling of 9.5 hours (570 min).
   double? sleepDurationBaseline(List<double> nightlyDurationsMinutes) {
     if (nightlyDurationsMinutes.isEmpty) return null;
-    return nightlyDurationsMinutes.reduce((a, b) => a + b) /
+    final avg = nightlyDurationsMinutes.reduce((a, b) => a + b) /
         nightlyDurationsMinutes.length;
+    return avg.clamp(420.0, 570.0);
   }
 
   /// Compute SpO2 baseline from daily readings (percentage).

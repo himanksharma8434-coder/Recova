@@ -285,7 +285,10 @@ class HealthRepositoryImpl implements HealthSourceRepository {
 
     final baseline = await baselineDao.getBaseline(today);
     final rhrBase = baseline?.restingHrBaseline7d ?? 60.0;
-    final sleepBase = baseline?.sleepDurationBaseline7d ?? 480.0;
+    final sleepBase = (baseline?.sleepDurationBaseline7d != null &&
+            baseline!.sleepDurationBaseline7d! >= 420.0)
+        ? baseline!.sleepDurationBaseline7d!
+        : 480.0;
     final spo2Base = baseline?.spo2Baseline7d ?? 97.0;
 
     // ── VO2max ──
@@ -639,7 +642,10 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final rhrBaseline = baseline?.restingHrBaseline30d ??
         baseline?.restingHrBaseline7d ??
         60.0;
-    final sleepBaselineMinutes = baseline?.sleepDurationBaseline7d ?? 480.0;
+    final sleepBaselineMinutes = (baseline?.sleepDurationBaseline7d != null &&
+            baseline!.sleepDurationBaseline7d! >= 420.0)
+        ? baseline!.sleepDurationBaseline7d!
+        : 480.0;
     final spo2Baseline = baseline?.spo2Baseline7d ?? 97.0;
 
     // ── Live Real-Time Multi-Pillar Recovery Score ──
