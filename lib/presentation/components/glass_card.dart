@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/design_tokens.dart';
+import 'liquid_glass.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GLASS CARD — Reusable Glassmorphic Surface Widget
@@ -125,6 +126,12 @@ class GlassCardLight extends StatelessWidget {
 }
 
 /// Glass Pill — for status badges, tags, and filter chips.
+/// Powered by the strict Liquid Glassmorphism Standard:
+/// - Base: rgba(255, 255, 255, 0.08)
+/// - Blur: 16px, saturation: 180%
+/// - Elevation shadow: 0 4px 24px rgba(0, 0, 0, 0.15)
+/// - Dual Insets: top white highlight + bottom neon-pink liquid reflection
+/// - Outer border: 1px solid rgba(255, 255, 255, 0.25)
 class GlassPill extends StatelessWidget {
   final Widget child;
   final Color? accentColor;
@@ -139,17 +146,11 @@ class GlassPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return LiquidGlass(
       padding: padding,
-      decoration: BoxDecoration(
-        color: accentColor?.withValues(alpha: 0.12) ?? Tok.glassFillRecessed,
-        borderRadius: BorderRadius.circular(Tok.radiusFull),
-        border: Border.all(
-          color: accentColor?.withValues(alpha: 0.25) ??
-              Tok.glassBorder.withValues(alpha: 0.1),
-          width: 0.5,
-        ),
-      ),
+      customBottomReflection: accentColor != null
+          ? accentColor!.withValues(alpha: 0.15)
+          : null,
       child: child,
     );
   }

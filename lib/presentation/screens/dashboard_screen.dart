@@ -7,6 +7,8 @@ import '../cubits/dashboard/dashboard_state.dart';
 import '../cubits/health_sync/health_sync_cubit.dart';
 import '../cubits/health_sync/health_sync_state.dart';
 import '../../domain/repositories/health_source_repository.dart';
+import '../../core/theme/design_tokens.dart';
+import '../components/liquid_glass.dart';
 
 /// Main recovery dashboard screen.
 class DashboardScreen extends StatefulWidget {
@@ -124,15 +126,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
           ),
           const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: () async {
+          LiquidGlassButton(
+            onTap: () async {
               await context.read<HealthSyncCubit>().syncNow();
               if (context.mounted) {
                 context.read<DashboardCubit>().refresh();
               }
             },
-            icon: const Icon(Icons.sync),
-            label: const Text('Sync Now'),
+            icon: const Icon(Icons.sync, color: Tok.neonAccent, size: 20),
+            label: 'Sync Wearable Biometrics',
           ),
         ],
       ),
@@ -140,11 +142,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDashboard(BuildContext context, DerivedMetricSummary summary) {
+    final score = summary.recoveryScore ?? 50;
+    final isOptimal = score >= 67;
+    final isModerate = score >= 34 && score < 67;
+    final statusColor = isOptimal
+        ? Tok.recoveryOptimal
+        : isModerate
+            ? Tok.recoveryModerate
+            : Tok.recoverySuppressed;
+    final statusLabel = isOptimal
+        ? 'OPTIMAL RECOVERY'
+        : isModerate
+            ? 'MODERATE RECOVERY'
+            : 'SUPPRESSED RECOVERY';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Top Liquid Glass Status Pill ──
+          Center(
+            child: LiquidGlassPill(
+              label: statusLabel,
+              indicatorColor: statusColor,
+              trailing: Text(
+                '${score.toInt()}%',
+                style: TokType.badge.copyWith(
+                  color: statusColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Recovery Score Card
           _RecoveryScoreCard(summary: summary),
           const SizedBox(height: 16),
@@ -273,18 +305,13 @@ class _RecoveryScoreCard extends StatelessWidget {
             const SizedBox(height: 12),
 
             // Primary factor
-            if (summary.primaryFactor != null)
-              Text(
-                summary.primaryFactor!,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontStyle: FontStyle.italic,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.7),
-                    ),
-                textAlign: TextAlign.center,
+            if (summary.primaryFactor != null) ...[
+              const SizedBox(height: 14),
+              LiquidGlassPill(
+                label: summary.primaryFactor!.toUpperCase(),
+                indicatorColor: color,
               ),
+            ],
           ],
         ),
       ),
