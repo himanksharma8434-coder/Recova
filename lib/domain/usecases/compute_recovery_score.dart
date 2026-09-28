@@ -110,7 +110,9 @@ class ComputeRecoveryScore {
     // Evaluates duration against baseline (or 480 min standard target),
     // with architecture quality adjustment if stages are present.
     if (lastNightSleepMinutes != null && lastNightSleepMinutes > 0) {
-      final baseSleep = (sleepBaseline7d != null && sleepBaseline7d > 0)
+      // Clinical physiological baseline floor:
+      // An adult human's biological sleep requirement never drops below 7.0 hours (420 min).
+      final baseSleep = (sleepBaseline7d != null && sleepBaseline7d >= 420.0)
           ? sleepBaseline7d
           : 480.0; // 8.0 hours default baseline
       final ratio = lastNightSleepMinutes / baseSleep;
@@ -203,6 +205,22 @@ class ComputeRecoveryScore {
           totalWeight;
     }
 
+    // ── Sleep Deficit Recovery Governor ──
+    // In human athletic physiology, acute sleep debt restricts cellular & neuromuscular
+    // recovery regardless of morning parasympathetic tone.
+    // If sleep duration is under 6.0 hours (360 min), composite recovery cannot be in the peak Green tier (> 66%).
+    bool sleepGovernorApplied = false;
+    if (lastNightSleepMinutes != null &&
+        lastNightSleepMinutes > 0 &&
+        lastNightSleepMinutes < 360.0) {
+      final ceiling = (45.0 + ((lastNightSleepMinutes - 240.0) / 120.0) * 21.0)
+          .clamp(30.0, 66.0);
+      if (finalScore > ceiling) {
+        finalScore = ceiling;
+        sleepGovernorApplied = true;
+      }
+    }
+
     // Determine the primary diagnostic factor
     final primaryFactor = _determinePrimaryFactor(
       hrvScore: hrvScore,
@@ -211,6 +229,8 @@ class ComputeRecoveryScore {
       respScore: respScore,
       spo2Score: spo2Score,
       finalScore: finalScore,
+      sleepGovernorApplied: sleepGovernorApplied,
+      sleepMinutes: lastNightSleepMinutes,
     );
 
     return RecoveryResult(
@@ -231,7 +251,14 @@ class ComputeRecoveryScore {
     double? respScore,
     double? spo2Score,
     required double finalScore,
+    bool sleepGovernorApplied = false,
+    double? sleepMinutes,
   }) {
+    if (sleepGovernorApplied && sleepMinutes != null) {
+      final hours = (sleepMinutes / 60.0).toStringAsFixed(1);
+      return 'Sleep deficit (${hours}h sleep) restricts peak physiological recovery';
+    }
+
     if (finalScore >= 80) {
       return 'Great recovery across all biometric signals';
     }

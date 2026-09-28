@@ -94,7 +94,10 @@ class _SleepArchitectureDetailScreenState
 
   void _populateFallbackDays(DateTime now) {
     final List<_DailySleepBarData> days = [];
-    final baseline = widget.summary?.baselineSleepHours ?? 8.0;
+    final baseline = (widget.summary?.baselineSleepHours != null &&
+            widget.summary!.baselineSleepHours! >= 7.0)
+        ? widget.summary!.baselineSleepHours!
+        : 8.0;
 
     for (int i = 13; i >= 0; i--) {
       final d = AppDateUtils.daysAgo(i, from: now);
@@ -246,7 +249,10 @@ class _SleepArchitectureDetailScreenState
         ? _daysData[_selectedDayIndex]
         : null;
 
-    final baselineHours = widget.summary?.baselineSleepHours ?? 8.0;
+    final baselineHours = (widget.summary?.baselineSleepHours != null &&
+            widget.summary!.baselineSleepHours! >= 7.0)
+        ? widget.summary!.baselineSleepHours!
+        : 8.0;
 
     return Scaffold(
       backgroundColor: RecovaColors.canvasBase,
@@ -481,7 +487,7 @@ class _SingleDaySleepView extends StatelessWidget {
       );
       sleepRecoveryPct = res.sleepComponent;
     } else {
-      sleepRecoveryPct = sleepPerf.toDouble().clamp(40.0, 98.0);
+      sleepRecoveryPct = sleepPerf.toDouble().clamp(20.0, 100.0);
     }
     final int recoveryBySleepInt = sleepRecoveryPct.round().clamp(0, 100);
 
