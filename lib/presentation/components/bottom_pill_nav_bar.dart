@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/design_tokens.dart';
+import 'liquid_glass.dart';
 
 class BottomPillNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -20,31 +21,11 @@ class BottomPillNavBar extends StatelessWidget {
           left: Tok.space24,
           right: Tok.space24,
         ),
-        child: Container(
+        child: LiquidGlass(
           height: 64,
+          borderRadius: BorderRadius.circular(36),
           padding: const EdgeInsets.symmetric(horizontal: Tok.space8),
-          decoration: BoxDecoration(
-            color: const Color(0xF5101520),
-            borderRadius: BorderRadius.circular(36),
-            border: Border.all(
-              color: Tok.glassBorderBright.withValues(alpha: 0.2),
-              width: 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.6),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-              // Subtle neon glow under the bar
-              BoxShadow(
-                color: Tok.neonAccent.withValues(alpha: 0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-              child: Row(
+          child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildNavItem(
