@@ -35,19 +35,6 @@ class SleepPerformanceCard extends StatelessWidget {
     final stages = sleepStages;
     final hasStages = stages != null && stages.hasStageData;
 
-    String debtText = 'AWAITING SLEEP LOG';
-    Color debtColor = Tok.textMuted;
-    if (hasSleep) {
-      final diffMins = ((sleep - baselineH) * 60).round();
-      if (diffMins >= 0) {
-        debtText = '+$diffMins m vs 14D baseline • Fully Restored';
-        debtColor = Tok.textSecondary;
-      } else {
-        debtText = '${diffMins.abs()} m sleep debt • Cellular deficit';
-        debtColor = Tok.recoverySuppressed;
-      }
-    }
-
     return GlassCard(
       onTap: onTap,
       child: Column(
@@ -139,19 +126,8 @@ class SleepPerformanceCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: Tok.space4),
-
-          // ── Debt / Status ──
-          Text(
-            debtText,
-            style: TokType.bodySmall.copyWith(
-              fontSize: 10,
-              fontWeight: FontWeight.w400,
-              color: debtColor,
-            ),
-          ),
           if (sleepSessions.length > 1) ...[
-            const SizedBox(height: Tok.space8),
+            const SizedBox(height: Tok.space12),
             Wrap(
               spacing: Tok.space6,
               runSpacing: Tok.space4,

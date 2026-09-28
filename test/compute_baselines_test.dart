@@ -29,6 +29,12 @@ void main() {
       expect(baseline, 450.0);
     });
 
+    test('sleepDurationBaseline clamps low sleep durations to 420.0m (7h) floor', () {
+      final sleepMinutes = [300.0, 310.0, 290.0]; // ~5h
+      final baseline = computeBaselines.sleepDurationBaseline(sleepMinutes);
+      expect(baseline, 420.0);
+    });
+
     test('spo2Baseline computes average percentage', () {
       final spo2 = [98.0, 97.0, 99.0];
       final baseline = computeBaselines.spo2Baseline(spo2);

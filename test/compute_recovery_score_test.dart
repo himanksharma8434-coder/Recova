@@ -157,5 +157,38 @@ void main() {
       );
       expect(result.rhrComponent, closeTo(100, 1));
     });
+
+    test('5 hours sleep (300 min) with optimal HRV/RHR cannot produce 98% recovery', () {
+      final result = computeRecoveryScore(
+        todayHrv: 70, // optimal (+27%)
+        hrvBaseline: 55,
+        todayRhr: 50, // optimal (below 60)
+        rhrBaseline7d: 60,
+        lastNightSleepMinutes: 300, // 5 hours
+        sleepBaseline7d: 480,
+        todaySpo2: 99,
+        spo2Baseline7d: 97,
+        todayRespiratoryRate: 14.0,
+        respiratoryRateBaseline: 14.0,
+      );
+      // Recovery cannot be green (>=67%) or 98% on only 5 hours of sleep
+      expect(result.score, lessThan(67));
+      expect(result.score, closeTo(56, 1));
+      expect(result.primaryFactor, contains('Sleep deficit'));
+    });
+
+    test('sleep baseline floor prevents 5h sleep from evaluating as 100% sleep performance', () {
+      final result = computeRecoveryScore(
+        todayHrv: 55,
+        hrvBaseline: 55,
+        todayRhr: 60,
+        rhrBaseline7d: 60,
+        lastNightSleepMinutes: 300, // 5 hours
+        sleepBaseline7d: 300, // artificial 5h baseline from recent short nights
+      );
+      // Sleep component must evaluate against physiological floor (>=420m / 7h), not 300m
+      expect(result.sleepComponent, lessThan(60));
+      expect(result.score, lessThan(67));
+    });
   });
 }
