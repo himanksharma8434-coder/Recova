@@ -115,6 +115,20 @@ class WorkoutSessionSummary {
     this.calories,
     required this.startTime,
   });
+
+  DateTime get endTime => startTime.add(Duration(minutes: durationMinutes));
+
+  double get estimatedStrain =>
+      (durationMinutes * 0.15).clamp(1.0, 18.0);
+
+  String get formattedDuration {
+    if (durationMinutes >= 60) {
+      final hours = durationMinutes ~/ 60;
+      final mins = durationMinutes % 60;
+      return mins > 0 ? '${hours}h ${mins}m' : '${hours}h';
+    }
+    return '${durationMinutes}m';
+  }
 }
 
 /// Single point in historical trend.
@@ -158,6 +172,10 @@ class DerivedMetricSummary {
   final int? todaySteps;
   final SleepStageBreakdown? sleepStages;
   final List<WorkoutSessionSummary> workouts;
+  final List<WorkoutSessionSummary> workouts7d;
+  final double? activeCalories7d;
+  final int? steps7d;
+  final List<HistoricalScorePoint> strainHistory7d;
   final List<HistoricalScorePoint> recoveryHistory14d;
   final int totalRecords;
   final DateTime? lastSyncedAt;
@@ -194,6 +212,10 @@ class DerivedMetricSummary {
     this.todaySteps,
     this.sleepStages,
     this.workouts = const [],
+    this.workouts7d = const [],
+    this.activeCalories7d,
+    this.steps7d,
+    this.strainHistory7d = const [],
     this.recoveryHistory14d = const [],
     this.totalRecords = 0,
     this.lastSyncedAt,
