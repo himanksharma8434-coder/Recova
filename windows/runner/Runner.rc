@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.recova" "\0"
-            VALUE "FileDescription", "whoop" "\0"
+            VALUE "FileDescription", "Recova" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "whoop" "\0"
+            VALUE "InternalName", "Recova" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.recova. All rights reserved." "\0"
-            VALUE "OriginalFilename", "whoop.exe" "\0"
-            VALUE "ProductName", "whoop" "\0"
+            VALUE "OriginalFilename", "recova.exe" "\0"
+            VALUE "ProductName", "Recova" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
