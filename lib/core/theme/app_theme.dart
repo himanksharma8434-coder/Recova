@@ -48,6 +48,7 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         backgroundColor: Tok.glassFillElevated,
         behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(bottom: 96, left: 20, right: 20),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Tok.radiusSm),
           side: BorderSide(color: Tok.glassBorder),
