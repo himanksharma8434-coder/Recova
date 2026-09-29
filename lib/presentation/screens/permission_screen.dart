@@ -62,31 +62,42 @@ class _PermissionScreenState extends State<PermissionScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Glowing Icon with neon accent
+                // Glowing Icon with Recova logo & neon accent
                 Container(
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Tok.glassFill,
-                    border: Border.all(color: Tok.glassBorderBright, width: 0.5),
                     boxShadow: [
                       BoxShadow(
-                        color: Tok.neonAccent.withValues(alpha: 0.2),
+                        color: Tok.neonAccent.withValues(alpha: 0.25),
                         blurRadius: 40,
                         spreadRadius: 4,
                       ),
                       BoxShadow(
-                        color: Tok.neonAccent.withValues(alpha: 0.1),
+                        color: Tok.neonAccent.withValues(alpha: 0.12),
                         blurRadius: 16,
                         spreadRadius: 1,
                       ),
                     ],
                   ),
-                  child: Icon(
-                    Icons.bolt,
-                    size: 48,
-                    color: Tok.neonAccent,
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/recova_logo.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Tok.glassFill,
+                          border: Border.all(color: Tok.glassBorderBright, width: 0.5),
+                        ),
+                        child: const Icon(
+                          Icons.bolt,
+                          size: 48,
+                          color: Tok.neonAccent,
+                        ),
+                      ),
+                    ),
                   ),
                 ).animateHero(),
                 const SizedBox(height: Tok.space32),
