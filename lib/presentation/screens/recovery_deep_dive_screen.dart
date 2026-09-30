@@ -267,9 +267,9 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
       case CardioMetric.vo2Max:
         return RecovaColors.recoveryEmerald;
       case CardioMetric.maxHr:
-        return const Color(0xFFFF453A);
+        return const Color(0xFFD1D1D6);
       case CardioMetric.restingHr:
-        return const Color(0xFF38BDF8);
+        return const Color(0xFF8E8E93);
     }
   }
 
@@ -278,9 +278,9 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
       case CardioMetric.vo2Max:
         return RecovaColors.recoveryEmeraldContainer;
       case CardioMetric.maxHr:
-        return const Color(0x26FF453A);
+        return const Color(0x26D1D1D6);
       case CardioMetric.restingHr:
-        return const Color(0x2638BDF8);
+        return const Color(0x268E8E93);
     }
   }
 
@@ -289,9 +289,9 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
       case CardioMetric.vo2Max:
         return RecovaColors.recoveryEmeraldBorder;
       case CardioMetric.maxHr:
-        return const Color(0x4DFF453A);
+        return const Color(0x4DD1D1D6);
       case CardioMetric.restingHr:
-        return const Color(0x4D38BDF8);
+        return const Color(0x4D8E8E93);
     }
   }
 
@@ -1050,7 +1050,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
           children: [
             Row(
               children: const [
-                Icon(Icons.directions_run, size: 13, color: Color(0xFFFF453A)),
+                Icon(Icons.directions_run, size: 13, color: Color(0xFFD1D1D6)),
                 SizedBox(width: 5),
                 Text(
                   'MAX HEART RATE TELEMETRY',
@@ -1090,7 +1090,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
           children: [
             Row(
               children: const [
-                Icon(Icons.nightlight_round, size: 13, color: Color(0xFF38BDF8)),
+                Icon(Icons.nightlight_round, size: 13, color: Color(0xFF8E8E93)),
                 SizedBox(width: 5),
                 Text(
                   'RESTING HEART RATE TELEMETRY',

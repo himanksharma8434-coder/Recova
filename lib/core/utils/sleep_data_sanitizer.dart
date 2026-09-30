@@ -303,6 +303,10 @@ class SleepDataSanitizer {
       }
     }
 
+    // Minimum duration (in minutes) to consider a sleep session real.
+    // Sessions shorter than this are discarded as sensor noise / phantom detections.
+    const int minNapMinutes = 20;
+
     // Process each session with its overlapping stage records
     final analyzedSessions = <CleanDistributedSession>[];
 
@@ -384,6 +388,12 @@ class SleepDataSanitizer {
       final s = analyzedSessions[i];
       final isMain = i == mainIndex;
 
+      // Skip phantom / spurious non-main sessions that are too short to be real naps.
+      // Main sleep is always kept regardless of duration.
+      if (!isMain && s.durationMinutes < minNapMinutes) {
+        continue;
+      }
+
       String title;
       String type;
 
@@ -427,13 +437,20 @@ class SleepDataSanitizer {
     final totalH = nightH + napH;
     final totalM = (totalH * 60).round();
 
+    // Find the main session in the classified list (index may differ from
+    // analyzedSessions after phantom nap filtering).
+    final mainSession = classified.firstWhere(
+      (s) => s.isMainSleep,
+      orElse: () => classified.first,
+    );
+
     return CleanDistributedSleep(
       totalHours: totalH,
       totalMinutes: totalM,
       nightHours: nightH,
       napHours: napH,
       sessions: classified,
-      mainSleep: classified[mainIndex].sleepData,
+      mainSleep: mainSession.sleepData,
     );
   }
 }
