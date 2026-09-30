@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 class Tok {
   Tok._();
 
-  static const Color canvasBase = Color(0xFF0A0E14);
-  static const Color canvasDeep = Color(0xFF060A10);
+  static const Color canvasBase = Color(0xFF0A0A0A);
+  static const Color canvasDeep = Color(0xFF050505);
 
   static const Color glassFill = Color(0x14FFFFFF);        
   static const Color glassFillElevated = Color(0x1AFFFFFF); 
@@ -25,44 +25,46 @@ class Tok {
   // - Border: 1px solid rgba(255, 255, 255, 0.25)
   // - Shadows: outer drop 0 4px 24px rgba(0, 0, 0, 0.15)
   //            inner top 0 1px 1px rgba(255, 255, 255, 0.40)
-  //            inner bottom 0 -1px 1px rgba(255, 0, 128, 0.10)
+  //            inner bottom 0 -1px 1px rgba(255, 255, 255, 0.06) (neutral)
   // - Radius: 100px (pill shape)
   static const Color liquidGlassFill = Color(0x14FFFFFF);              // rgba(255, 255, 255, 0.08)
   static const Color liquidGlassBorder = Color(0x40FFFFFF);            // rgba(255, 255, 255, 0.25)
   static const Color liquidGlassTopHighlight = Color(0x66FFFFFF);      // rgba(255, 255, 255, 0.40)
-  static const Color liquidGlassBottomReflection = Color(0x1AFF0080);  // rgba(255, 0, 128, 0.10)
+  static const Color liquidGlassBottomReflection = Color(0x0FFFFFFF);  // rgba(255, 255, 255, 0.06) — neutral
   static const Color liquidGlassOuterShadow = Color(0x26000000);       // rgba(0, 0, 0, 0.15)
   static const double liquidGlassBlurSigma = 16.0;
   static const double liquidGlassSaturation = 1.8;
   static const double liquidGlassRadiusPill = 100.0;
 
-  static const Color neonAccent = Color(0xFF00E5CC);
-  static const Color neonAccentDim = Color(0xFF00B8A3);
-  static const Color neonAccentGlow = Color(0x3300E5CC);     // 20% for glows
-  static const Color neonAccentSurface = Color(0x1A00E5CC);  // 10% for containers
+  // ── Monochrome Accent System ──────────────────────────────────────────────
+  static const Color neonAccent = Color(0xFFFFFFFF);         // Pure white
+  static const Color neonAccentDim = Color(0xFFD0D0D0);      // Dimmed white
+  static const Color neonAccentGlow = Color(0x33FFFFFF);      // 20% white for glows
+  static const Color neonAccentSurface = Color(0x1AFFFFFF);   // 10% white for containers
 
-  static const Color accentBlue = Color(0xFF4A9EFF);         // Informational
-  static const Color accentBlueSurface = Color(0x1A4A9EFF);
+  static const Color accentBlue = Color(0xFFB0B8C4);          // Silver — informational
+  static const Color accentBlueSurface = Color(0x1AB0B8C4);
 
-  static const Color recoveryOptimal = Color(0xFF00E5CC);    // Matches neon accent
-  static const Color recoveryOptimalGlow = Color(0x3300E5CC);
-  static const Color recoveryOptimalSurface = Color(0x1A00E5CC);
+  // ── Recovery Tiers (monochrome grayscale) ─────────────────────────────────
+  static const Color recoveryOptimal = Color(0xFFFFFFFF);      // White = optimal
+  static const Color recoveryOptimalGlow = Color(0x33FFFFFF);
+  static const Color recoveryOptimalSurface = Color(0x1AFFFFFF);
 
-  static const Color recoveryModerate = Color(0xFFE5A800);   // Warm amber
-  static const Color recoveryModerateGlow = Color(0x33E5A800);
-  static const Color recoveryModerateSurface = Color(0x1AE5A800);
+  static const Color recoveryModerate = Color(0xFF8E8E93);     // Mid-gray = moderate
+  static const Color recoveryModerateGlow = Color(0x338E8E93);
+  static const Color recoveryModerateSurface = Color(0x1A8E8E93);
 
-  static const Color recoverySuppressed = Color(0xFFFF4C6E); // Coral-rose, not raw red
-  static const Color recoverySuppressedGlow = Color(0x33FF4C6E);
-  static const Color recoverySuppressedSurface = Color(0x1AFF4C6E);
+  static const Color recoverySuppressed = Color(0xFF48484A);   // Dark gray = suppressed
+  static const Color recoverySuppressedGlow = Color(0x3348484A);
+  static const Color recoverySuppressedSurface = Color(0x1A48484A);
 
-  static const Color recoveryCalibrating = Color(0xFF5A6070); // Muted steel
+  static const Color recoveryCalibrating = Color(0xFF3A3A3C);  // Muted dark
 
   // ── Typography Colors ───────────────────────────────────────────────────
-  static const Color textPrimary = Color(0xFFF0F2F5);    // Near-white, not pure white
-  static const Color textSecondary = Color(0xFFB0B8C4);   // Silver-blue
-  static const Color textTertiary = Color(0xFF6B7280);    // Cool gray
-  static const Color textMuted = Color(0xFF3D4350);       // Very muted
+  static const Color textPrimary = Color(0xFFF5F5F5);    // Near-white
+  static const Color textSecondary = Color(0xFFAEAEB2);   // Silver
+  static const Color textTertiary = Color(0xFF636366);    // Cool gray
+  static const Color textMuted = Color(0xFF3A3A3C);       // Very muted
 
   // ── Spacing Scale (4px base) ────────────────────────────────────────────
   static const double space2 = 2;

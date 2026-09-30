@@ -14,10 +14,10 @@ class AppTheme {
         onSurface: Tok.textPrimary,
         onSurfaceVariant: Tok.textSecondary,
         primary: Tok.neonAccent,
-        onPrimary: Color(0xFF000000),
+        onPrimary: Color(0xFF0A0A0A),
         primaryContainer: Tok.neonAccentSurface,
         secondary: Tok.accentBlue,
-        onSecondary: Color(0xFF000000),
+        onSecondary: Color(0xFF0A0A0A),
         secondaryContainer: Tok.accentBlueSurface,
         tertiary: Tok.textSecondary,
         error: Tok.recoverySuppressed,
@@ -48,7 +48,7 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         backgroundColor: Tok.glassFillElevated,
         behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.only(bottom: 96, left: 20, right: 20),
+        insetPadding: const EdgeInsets.only(bottom: 96, left: 20, right: 20),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Tok.radiusSm),
           side: BorderSide(color: Tok.glassBorder),
