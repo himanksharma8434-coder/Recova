@@ -5,13 +5,13 @@ import '../../domain/repositories/health_source_repository.dart';
 
 /// Activity categories for classifying workouts and athletic sessions.
 enum ActivityCategory {
-  all('All', Icons.grid_view_rounded, Color(0xFF00E5CC)),
-  cardio('Cardio', Icons.directions_run_rounded, Color(0xFF00E5CC)),
-  strength('Strength', Icons.fitness_center_rounded, Color(0xFFFF8A00)),
-  hiit('HIIT', Icons.bolt_rounded, Color(0xFFFF4C6E)),
-  recovery('Recovery', Icons.self_improvement_rounded, Color(0xFF4A9EFF)),
-  sports('Sports', Icons.sports_basketball_rounded, Color(0xFFC084FC)),
-  general('Other', Icons.sports_rounded, Color(0xFF94A3B8));
+  all('All', Icons.grid_view_rounded, Color(0xFFFFFFFF)),
+  cardio('Cardio', Icons.directions_run_rounded, Color(0xFFFFFFFF)),
+  strength('Strength', Icons.fitness_center_rounded, Color(0xFFD1D1D6)),
+  hiit('HIIT', Icons.bolt_rounded, Color(0xFFAEAEB2)),
+  recovery('Recovery', Icons.self_improvement_rounded, Color(0xFF8E8E93)),
+  sports('Sports', Icons.sports_basketball_rounded, Color(0xFF636366)),
+  general('Other', Icons.sports_rounded, Color(0xFF48484A));
 
   final String label;
   final IconData icon;
