@@ -285,9 +285,9 @@ class HealthRepositoryImpl implements HealthSourceRepository {
 
     final baseline = await baselineDao.getBaseline(today);
     final rhrBase = baseline?.restingHrBaseline7d ?? 60.0;
-    final sleepBase = (baseline?.sleepDurationBaseline7d != null &&
-            baseline!.sleepDurationBaseline7d! >= 420.0)
-        ? baseline!.sleepDurationBaseline7d!
+    final baselineSleep = baseline?.sleepDurationBaseline7d;
+    final sleepBase = (baselineSleep != null && baselineSleep >= 420.0)
+        ? baselineSleep
         : 480.0;
     final spo2Base = baseline?.spo2Baseline7d ?? 97.0;
 
@@ -483,6 +483,28 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       );
     }).toList();
 
+    // ── Real 7-Day Workouts & Activity Volume ──
+    final start7d = AppDateUtils.daysAgo(7, from: now);
+    final rawWorkouts7d = await _db.healthRecordDao
+        .getWorkouts(start: start7d, end: now);
+    final workouts7d = rawWorkouts7d.map((w) {
+      final name = w.unit.isNotEmpty && w.unit != 'UNKNOWN'
+          ? w.unit
+          : 'Cardio Session';
+      return WorkoutSessionSummary(
+        title: name,
+        durationMinutes: w.value.toInt(),
+        calories: w.valueSecondary,
+        startTime: w.startTime,
+      );
+    }).toList();
+
+    final activeCals7d = await _db.healthRecordDao.getTotalCalories(
+      start: start7d,
+      end: now,
+      activeOnly: true,
+    );
+
     // ── Real HRV (SDNN) ──
     final latestHrv = await _db.healthRecordDao.getLatestHrv(
       start: AppDateUtils.daysAgo(1, from: now),
@@ -581,6 +603,24 @@ class HealthRepositoryImpl implements HealthSourceRepository {
           .clamp(0.0, 21.0);
     }
 
+    // ── 7-Day Daily Strain History ──
+    final List<HistoricalScorePoint> strainHistory7d = [];
+    for (int i = 6; i >= 0; i--) {
+      final dStart = AppDateUtils.daysAgo(i, from: todayStart);
+      final dEnd = i == 0 ? now : dStart.add(const Duration(days: 1));
+      if (i == 0) {
+        strainHistory7d.add(HistoricalScorePoint(date: dStart, score: dayStrain));
+      } else {
+        final dayW = workouts7d.where((w) =>
+            w.startTime.isAfter(dStart) && w.startTime.isBefore(dEnd));
+        final dayWMin = dayW.fold<int>(0, (s, w) => s + w.durationMinutes);
+        final dayScore = (dayWMin * 1.5) + (todaySteps > 0 ? 3.0 : 0.0);
+        final dStrain = (21.0 * (1.0 - (1.0 / (1.0 + 0.03 * dayScore))))
+            .clamp(0.0, 21.0);
+        strainHistory7d.add(HistoricalScorePoint(date: dStart, score: dStrain));
+      }
+    }
+
     // ── Recommended Target Strain ──
     double? targetStrain;
     if (metric?.recoveryScore != null) {
@@ -642,10 +682,11 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final rhrBaseline = baseline?.restingHrBaseline30d ??
         baseline?.restingHrBaseline7d ??
         60.0;
-    final sleepBaselineMinutes = (baseline?.sleepDurationBaseline7d != null &&
-            baseline!.sleepDurationBaseline7d! >= 420.0)
-        ? baseline!.sleepDurationBaseline7d!
-        : 480.0;
+    final baselineSleepMinutes = baseline?.sleepDurationBaseline7d;
+    final sleepBaselineMinutes =
+        (baselineSleepMinutes != null && baselineSleepMinutes >= 420.0)
+            ? baselineSleepMinutes
+            : 480.0;
     final spo2Baseline = baseline?.spo2Baseline7d ?? 97.0;
 
     // ── Live Real-Time Multi-Pillar Recovery Score ──
@@ -795,6 +836,9 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       todaySteps: todaySteps > 0 ? todaySteps : null,
       sleepStages: sleepStages,
       workouts: workouts,
+      workouts7d: workouts7d,
+      activeCalories7d: activeCals7d > 0.0 ? activeCals7d : null,
+      strainHistory7d: strainHistory7d,
       recoveryHistory14d: historyPoints,
       totalRecords: recordCount,
       lastSyncedAt: lastSync,
