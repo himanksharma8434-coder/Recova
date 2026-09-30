@@ -1,5 +1,7 @@
 #include "my_application.h"
 
+#if defined(HAVE_GTK)
+
 #include <flutter_linux/flutter_linux.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
@@ -14,9 +16,19 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+#ifndef G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+#define G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+#endif
+#ifndef G_GNUC_END_IGNORE_DEPRECATIONS
+#define G_GNUC_END_IGNORE_DEPRECATIONS
+#endif
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
+  (void)self;
+  G_GNUC_BEGIN_IGNORE_DEPRECATIONS
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+  G_GNUC_END_IGNORE_DEPRECATIONS
 }
 
 // Implements GApplication::activate.
@@ -45,11 +57,11 @@ static void my_application_activate(GApplication* application) {
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "whoop");
+    gtk_header_bar_set_title(header_bar, "Recova");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "whoop");
+    gtk_window_set_title(window, "Recova");
   }
 
   gtk_window_set_default_size(window, 1280, 720);
@@ -84,7 +96,9 @@ static gboolean my_application_local_command_line(GApplication* application,
                                                   int* exit_status) {
   MyApplication* self = MY_APPLICATION(application);
   // Strip out the first argument as it is the binary name.
-  self->dart_entrypoint_arguments = g_strdupv(*arguments + 1);
+  if (arguments != nullptr && *arguments != nullptr) {
+    self->dart_entrypoint_arguments = g_strdupv(*arguments + 1);
+  }
 
   g_autoptr(GError) error = nullptr;
   if (!g_application_register(application, nullptr, &error)) {
@@ -101,7 +115,7 @@ static gboolean my_application_local_command_line(GApplication* application,
 
 // Implements GApplication::startup.
 static void my_application_startup(GApplication* application) {
-  // MyApplication* self = MY_APPLICATION(object);
+  // MyApplication* self = MY_APPLICATION(application);
 
   // Perform any actions required at application startup.
 
@@ -110,7 +124,7 @@ static void my_application_startup(GApplication* application) {
 
 // Implements GApplication::shutdown.
 static void my_application_shutdown(GApplication* application) {
-  // MyApplication* self = MY_APPLICATION(object);
+  // MyApplication* self = MY_APPLICATION(application);
 
   // Perform any actions required at application shutdown.
 
@@ -133,7 +147,13 @@ static void my_application_class_init(MyApplicationClass* klass) {
   G_OBJECT_CLASS(klass)->dispose = my_application_dispose;
 }
 
-static void my_application_init(MyApplication* self) {}
+static void my_application_init(MyApplication* self) {
+  (void)self;
+}
+
+#ifndef APPLICATION_ID
+#define APPLICATION_ID "com.recova.whoop"
+#endif
 
 MyApplication* my_application_new() {
   // Set the program name to the application ID, which helps various systems
@@ -146,3 +166,12 @@ MyApplication* my_application_new() {
                                      "application-id", APPLICATION_ID, "flags",
                                      G_APPLICATION_NON_UNIQUE, nullptr));
 }
+
+#else
+
+// Non-Linux / IDE fallback stub for Windows development environments
+MyApplication* my_application_new() {
+  return nullptr;
+}
+
+#endif  // HAVE_GTK

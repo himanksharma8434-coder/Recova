@@ -1,0 +1,5 @@
+If:
+  PathMatch: .*(linux|macos)/.*
+Diagnostics:
+  Suppress: ['*']
+  UnusedIncludes: None
