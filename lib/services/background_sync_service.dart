@@ -18,6 +18,7 @@ void callbackDispatcher() {
         // Initialize dependencies in the background isolate
         final db = AppDatabase.instance;
         final platform = HealthPlatformDatasource();
+        await platform.configure();
 
         final repository = HealthRepositoryImpl(
           platform: platform,
@@ -49,8 +50,17 @@ void callbackDispatcher() {
         await repository.syncHealthData(taskType: 'background');
       }
       return true;
-    } catch (e) {
-      // Return false to signal failure (Android may retry).
+    } catch (e, st) {
+      try {
+        final db = AppDatabase.instance;
+        await db.syncDao.logSync(
+          taskType: 'background',
+          recordsRead: 0,
+          recordsWritten: 0,
+          success: false,
+          errorMessage: 'Background sync error: $e\n$st',
+        );
+      } catch (_) {}
       return false;
     }
   });
