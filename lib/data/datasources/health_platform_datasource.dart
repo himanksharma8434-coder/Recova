@@ -45,6 +45,12 @@ class HealthPlatformDatasource {
       );
       if (granted == true) {
         _cachedPermissionsGranted = true;
+        // Also request background read authorization on Android 14+ so background sync succeeds
+        if (Platform.isAndroid) {
+          try {
+            await requestBackgroundReadPermission();
+          } catch (_) {}
+        }
         return true;
       }
     } catch (_) {
@@ -57,13 +63,25 @@ class HealthPlatformDatasource {
         );
         if (coreGranted == true) {
           _cachedPermissionsGranted = true;
+          if (Platform.isAndroid) {
+            try {
+              await requestBackgroundReadPermission();
+            } catch (_) {}
+          }
           return true;
         }
       } catch (_) {}
     }
 
     final has = await hasPermissions();
-    if (has) _cachedPermissionsGranted = true;
+    if (has) {
+      _cachedPermissionsGranted = true;
+      if (Platform.isAndroid) {
+        try {
+          await requestBackgroundReadPermission();
+        } catch (_) {}
+      }
+    }
     return has;
   }
 

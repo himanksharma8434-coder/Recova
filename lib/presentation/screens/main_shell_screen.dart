@@ -15,6 +15,7 @@ import 'pulse_screen.dart';
 import 'recovery_deep_dive_screen.dart';
 import 'strain_screen.dart';
 import 'sleep_screen.dart';
+import '../../services/background_sync_service.dart';
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({super.key});
@@ -35,6 +36,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
   void initState() {
     super.initState();
     context.read<DashboardCubit>().load();
+    // Guarantee background periodic sync is registered with the OS
+    registerPeriodicSync();
     // Auto-sync on startup: pull latest wearable data immediately
     _autoSync();
   }

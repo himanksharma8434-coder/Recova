@@ -73,9 +73,10 @@ Future<void> registerPeriodicSync() async {
     healthSyncTaskName,
     healthSyncTaskName,
     frequency: const Duration(minutes: 30),
+    initialDelay: const Duration(minutes: 1),
     constraints: Constraints(
       networkType: NetworkType.notRequired,
-      requiresBatteryNotLow: true,
+      requiresBatteryNotLow: false,
     ),
     existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
   );
