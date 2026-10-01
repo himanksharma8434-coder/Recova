@@ -6,34 +6,33 @@ class Tok {
   static const Color canvasBase = Color(0xFF0A0A0A);
   static const Color canvasDeep = Color(0xFF050505);
 
-  static const Color glassFill = Color(0x14FFFFFF);        
-  static const Color glassFillElevated = Color(0x1AFFFFFF); 
-  static const Color glassFillRecessed = Color(0x0AFFFFFF); 
+  static const Color glassFill = Color(0x1AFFFFFF);          // 10% white base
+  static const Color glassFillElevated = Color(0x24FFFFFF);  // 14% white for elevated glass
+  static const Color glassFillRecessed = Color(0x0FFFFFFF);  // 6% white for recessed items
 
-  static const Color glassBorder = Color(0x1AFFFFFF);       // 10% white
-  static const Color glassBorderBright = Color(0x33FFFFFF);  // 20% white — top edge specular
+  static const Color glassBorder = Color(0x33FFFFFF);        // 20% white translucent edge
+  static const Color glassBorderBright = Color(0x59FFFFFF);  // 35% white — top edge specular reflection
 
-  static const Color glassGlow = Color(0x0DFFFFFF);        // 5% white
+  static const Color glassGlow = Color(0x1AFFFFFF);          // 10% subtle white bloom
 
-  static const double glassBlurSigma = 24.0;
-  static const double glassBlurSigmaLight = 12.0;
+  static const double glassBlurSigma = 28.0;                 // Deep iPhone frosted blur
+  static const double glassBlurSigmaLight = 16.0;
 
-  // ── Liquid Glassmorphism Standard Tokens ──────────────────────────────────
-  // Strict standard matching CSS reference:
-  // - Background: rgba(255, 255, 255, 0.08)
-  // - Backdrop blur: 16px, saturation: 180%
-  // - Border: 1px solid rgba(255, 255, 255, 0.25)
-  // - Shadows: outer drop 0 4px 24px rgba(0, 0, 0, 0.15)
-  //            inner top 0 1px 1px rgba(255, 255, 255, 0.40)
-  //            inner bottom 0 -1px 1px rgba(255, 255, 255, 0.06) (neutral)
+  // ── Liquid Glassmorphism Standard Tokens (iOS inspired) ────────────────────
+  // - Background: rgba(255, 255, 255, 0.10)
+  // - Backdrop blur: 24px, saturation: 190%
+  // - Border: 1px solid rgba(255, 255, 255, 0.32)
+  // - Shadows: outer drop 0 8px 32px rgba(0, 0, 0, 0.28)
+  //            inner top 0 1.5px 1.5px rgba(255, 255, 255, 0.55)
+  //            inner bottom 0 -1px 1px rgba(255, 255, 255, 0.08)
   // - Radius: 100px (pill shape)
-  static const Color liquidGlassFill = Color(0x14FFFFFF);              // rgba(255, 255, 255, 0.08)
-  static const Color liquidGlassBorder = Color(0x40FFFFFF);            // rgba(255, 255, 255, 0.25)
-  static const Color liquidGlassTopHighlight = Color(0x66FFFFFF);      // rgba(255, 255, 255, 0.40)
-  static const Color liquidGlassBottomReflection = Color(0x0FFFFFFF);  // rgba(255, 255, 255, 0.06) — neutral
-  static const Color liquidGlassOuterShadow = Color(0x26000000);       // rgba(0, 0, 0, 0.15)
-  static const double liquidGlassBlurSigma = 16.0;
-  static const double liquidGlassSaturation = 1.8;
+  static const Color liquidGlassFill = Color(0x1FFFFFFF);              // rgba(255, 255, 255, 0.12)
+  static const Color liquidGlassBorder = Color(0x52FFFFFF);            // rgba(255, 255, 255, 0.32)
+  static const Color liquidGlassTopHighlight = Color(0x8CFFFFFF);      // rgba(255, 255, 255, 0.55)
+  static const Color liquidGlassBottomReflection = Color(0x14FFFFFF);  // rgba(255, 255, 255, 0.08)
+  static const Color liquidGlassOuterShadow = Color(0x47000000);       // rgba(0, 0, 0, 0.28)
+  static const double liquidGlassBlurSigma = 24.0;
+  static const double liquidGlassSaturation = 1.9;
   static const double liquidGlassRadiusPill = 100.0;
 
   // ── Monochrome Accent System ──────────────────────────────────────────────
