@@ -93,7 +93,17 @@ class _LiquidGlassState extends State<LiquidGlass> {
                 borderRadius: effectiveRadius,
                 border: Border.all(
                   color: Tok.liquidGlassBorder,
-                  width: 1.0,
+                  width: 0.8,
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.14),
+                    Colors.white.withValues(alpha: 0.04),
+                    Colors.white.withValues(alpha: 0.01),
+                  ],
+                  stops: const [0.0, 0.4, 1.0],
                 ),
               ),
               child: widget.child,

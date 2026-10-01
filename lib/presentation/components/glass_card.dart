@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/design_tokens.dart';
 import 'liquid_glass.dart';
@@ -30,44 +31,94 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveRadius = BorderRadius.circular(borderRadius);
     final fillColor = elevated ? Tok.glassFillElevated : Tok.glassFill;
 
     Widget card = Container(
       width: width,
-      padding: padding,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        color: fillColor,
-        border: Border.all(
-          color: elevated ? Tok.glassBorderBright : Tok.glassBorder,
-          width: 0.5,
-        ),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.05),
-            Colors.white.withValues(alpha: 0.01),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.3, 1.0],
-        ),
+        borderRadius: effectiveRadius,
         boxShadow: [
-          // Outer glow (faint, replaces Material elevation shadow)
+          if (accentGlow != null)
+            BoxShadow(
+              color: accentGlow!,
+              blurRadius: 24,
+              spreadRadius: 1,
+            ),
+          // iOS dynamic drop shadow
           BoxShadow(
-            color: accentGlow ?? Tok.glassGlow,
-            blurRadius: accentGlow != null ? 20 : 12,
-            spreadRadius: accentGlow != null ? 1 : 0,
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
-          // Soft dark shadow for depth
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: child,
+      child: ClipRRect(
+        borderRadius: effectiveRadius,
+        child: Stack(
+          children: [
+            // 1. True iPhone Backdrop Blur
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: elevated ? Tok.glassBlurSigma : Tok.glassBlurSigmaLight,
+                  sigmaY: elevated ? Tok.glassBlurSigma : Tok.glassBlurSigmaLight,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+
+            // 2. Liquid Glass Fill & Specular Gradient Sheen
+            Container(
+              padding: padding,
+              decoration: BoxDecoration(
+                borderRadius: effectiveRadius,
+                color: fillColor,
+                border: Border.all(
+                  color: elevated ? Tok.glassBorderBright : Tok.glassBorder,
+                  width: 0.75,
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withValues(alpha: elevated ? 0.15 : 0.09),
+                    Colors.white.withValues(alpha: 0.03),
+                    Colors.white.withValues(alpha: 0.005),
+                    Colors.white.withValues(alpha: 0.02),
+                  ],
+                  stops: const [0.0, 0.35, 0.75, 1.0],
+                ),
+              ),
+              child: child,
+            ),
+
+            // 3. Top Specular Rim Reflection (iPhone optical edge)
+            Positioned(
+              top: 0,
+              left: 12,
+              right: 12,
+              height: 1.0,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      Colors.white.withValues(alpha: 0.35),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
 
     if (onTap != null) {
@@ -100,17 +151,35 @@ class GlassCardLight extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget card = Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        color: Tok.glassFillRecessed,
-        border: Border.all(
-          color: Tok.glassBorder.withValues(alpha: 0.08),
-          width: 0.5,
-        ),
+    final effectiveRadius = BorderRadius.circular(borderRadius);
+
+    Widget card = ClipRRect(
+      borderRadius: effectiveRadius,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: Tok.glassBlurSigmaLight,
+                sigmaY: Tok.glassBlurSigmaLight,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              borderRadius: effectiveRadius,
+              color: Tok.glassFillRecessed,
+              border: Border.all(
+                color: Tok.glassBorder.withValues(alpha: 0.18),
+                width: 0.5,
+              ),
+            ),
+            child: child,
+          ),
+        ],
       ),
-      child: child,
     );
 
     if (onTap != null) {
