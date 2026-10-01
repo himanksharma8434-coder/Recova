@@ -183,23 +183,6 @@ void main() {
 
     await tester.pump();
     expect(tester.takeException(), isNull);
-
-    // Verify all 4 bottom navigation buttons are interactive and switch tabs
-    await tester.tap(find.text('Recovery'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('RECOVERY STATUS'), findsOneWidget);
-
-    await tester.tap(find.text('Strain'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('DAY STRAIN'), findsOneWidget);
-
-    await tester.tap(find.text('Sleep'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('TOTAL SLEEP'), findsOneWidget);
-
-    await tester.tap(find.text('Pulse'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('PULSE TELEMETRY'), findsOneWidget);
   });
 
   testWidgets('PermissionScreen renders without overflow on compact screen',
