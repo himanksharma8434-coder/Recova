@@ -62,7 +62,7 @@ Future<void> registerPeriodicSync() async {
   await Workmanager().registerPeriodicTask(
     healthSyncTaskName,
     healthSyncTaskName,
-    frequency: const Duration(minutes: 15), // Android minimum
+    frequency: const Duration(minutes: 30),
     constraints: Constraints(
       networkType: NetworkType.notRequired,
       requiresBatteryNotLow: true,
