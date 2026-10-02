@@ -818,5 +818,23 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
       return DailyMetricPoint(date: date, value: val);
     }).toList();
   }
+
+  /// Get the most recent record of a given [recordType] within a date range.
+  /// Returns null if no matching record is found.
+  Future<RawHealthRecord?> getLatestRecordByType({
+    required String recordType,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final results = await (select(rawHealthRecords)
+          ..where((r) =>
+              r.recordType.equals(recordType) &
+              r.startTime.isBiggerOrEqualValue(start) &
+              r.endTime.isSmallerOrEqualValue(end))
+          ..orderBy([(r) => OrderingTerm.desc(r.startTime)])
+          ..limit(1))
+        .get();
+    return results.isNotEmpty ? results.first : null;
+  }
 }
 

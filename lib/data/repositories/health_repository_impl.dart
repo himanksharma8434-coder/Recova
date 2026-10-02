@@ -7,6 +7,8 @@ import '../../domain/repositories/health_source_repository.dart';
 import '../../domain/usecases/compute_baselines.dart';
 import '../../domain/usecases/compute_vo2max.dart';
 import '../../domain/usecases/compute_recovery_score.dart';
+import '../../domain/usecases/compute_body_age.dart';
+import '../../domain/entities/body_age_result.dart';
 import '../../core/utils/sleep_data_sanitizer.dart';
 import '../database/app_database.dart';
 import '../datasources/health_platform_datasource.dart';
@@ -19,6 +21,7 @@ class HealthRepositoryImpl implements HealthSourceRepository {
   final ComputeBaselines _computeBaselines;
   final ComputeVo2Max _computeVo2Max;
   final ComputeRecoveryScore _computeRecoveryScore;
+  final ComputeBodyAge _computeBodyAge;
   DerivedMetricSummary? _cachedSummary;
 
   @override
@@ -30,6 +33,7 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     ComputeBaselines? computeBaselines,
     ComputeVo2Max? computeVo2Max,
     ComputeRecoveryScore? computeRecoveryScore,
+    ComputeBodyAge? computeBodyAge,
   // ignore: prefer_initializing_formals
   })  : _platform = platform,
         // ignore: prefer_initializing_formals
@@ -37,7 +41,8 @@ class HealthRepositoryImpl implements HealthSourceRepository {
         _computeBaselines = computeBaselines ?? const ComputeBaselines(),
         _computeVo2Max = computeVo2Max ?? const ComputeVo2Max(),
         _computeRecoveryScore =
-            computeRecoveryScore ?? const ComputeRecoveryScore();
+            computeRecoveryScore ?? const ComputeRecoveryScore(),
+        _computeBodyAge = computeBodyAge ?? const ComputeBodyAge();
 
   @override
   Future<bool> requestPermissions() async {
@@ -854,5 +859,201 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       if (metric == null) return null;
       return getLatestSummary(persistToday: false);
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BODY AGE ESTIMATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @override
+  Future<BodyAgeResult?> getBodyAge({
+    required int age,
+    String? sex,
+    double? heightCm,
+    double? weightKg,
+  }) async {
+    final now = DateTime.now();
+    final start30d = AppDateUtils.daysAgo(30, from: now);
+    final start14d = AppDateUtils.daysAgo(14, from: now);
+    final start7d = AppDateUtils.daysAgo(7, from: now);
+
+    // ── Resting Heart Rate (30-day average) ──
+    final rhrRecords = await _db.healthRecordDao.getDailyRestingHeartRates(30);
+    double? restingHrAvg30d;
+    if (rhrRecords.isNotEmpty) {
+      restingHrAvg30d =
+          rhrRecords.map((p) => p.value).reduce((a, b) => a + b) /
+              rhrRecords.length;
+    }
+
+    // ── RHR 7-day baseline ──
+    final baseline = await _db.baselineDao.getLatestBaseline();
+    final rhr7d = baseline?.restingHrBaseline7d;
+
+    // ── HRV (30-day average) ──
+    final hrvRecords = await _db.healthRecordDao.getHrvBaselineRecords(
+      start: start30d,
+      end: now,
+    );
+    double? hrvAvg30d;
+    String? hrvMetricType;
+    if (hrvRecords.isNotEmpty) {
+      hrvAvg30d =
+          hrvRecords.map((r) => r.value).reduce((a, b) => a + b) /
+              hrvRecords.length;
+      // Determine HRV metric type from record type name
+      final firstType = hrvRecords.first.recordType;
+      if (firstType.contains('RMSSD')) {
+        hrvMetricType = 'RMSSD';
+      } else if (firstType.contains('SDNN')) {
+        hrvMetricType = 'SDNN';
+      }
+    }
+
+    // ── HRV Trend (compare last 7d vs prior 7d) ──
+    String? hrvTrend;
+    if (hrvRecords.length >= 7) {
+      final recent = hrvRecords.where((r) => r.startTime.isAfter(start7d));
+      final prior = hrvRecords.where(
+          (r) => r.startTime.isAfter(start14d) && r.startTime.isBefore(start7d));
+      if (recent.isNotEmpty && prior.isNotEmpty) {
+        final recentAvg =
+            recent.map((r) => r.value).reduce((a, b) => a + b) /
+                recent.length;
+        final priorAvg =
+            prior.map((r) => r.value).reduce((a, b) => a + b) /
+                prior.length;
+        if (recentAvg > priorAvg * 1.05) {
+          hrvTrend = 'rising';
+        } else if (recentAvg < priorAvg * 0.95) {
+          hrvTrend = 'falling';
+        } else {
+          hrvTrend = 'stable';
+        }
+      }
+    }
+
+    // ── VO2 Max (from latest derived metric) ──
+    final latestMetric = await _db.derivedMetricDao.getLatestMetric();
+    final vo2max = latestMetric?.estimatedVo2Max;
+
+    // ── Sleep (14-day averages) ──
+    double? sleepDurationAvgHours;
+    double? deepSleepPct;
+    double? remSleepPct;
+    double? sleepEfficiency;
+
+    // Use summary's sleep data when available
+    final summary = _cachedSummary ?? await getLatestSummary(persistToday: false);
+    if (summary != null && summary.sleepHours != null) {
+      sleepDurationAvgHours = summary.baselineSleepHours;
+      if (summary.sleepStages != null && summary.sleepStages!.hasStageData) {
+        final stages = summary.sleepStages!;
+        deepSleepPct = stages.deepPercentage;
+        remSleepPct = stages.remPercentage;
+        final totalMin = stages.totalTrackedMinutes;
+        final sleepMin = stages.deepMinutes + stages.remMinutes + stages.lightMinutes;
+        if (totalMin > 0) {
+          sleepEfficiency = (sleepMin / totalMin) * 100;
+        }
+      }
+    }
+
+    // ── SpO2 (average from last 14 days) ──
+    double? spo2Avg;
+    if (summary?.spo2 != null) {
+      spo2Avg = summary!.baselineSpo2 ?? summary.spo2;
+    }
+
+    // ── Respiratory Rate ──
+    double? respRate;
+    if (summary?.respiratoryRate != null) {
+      respRate = summary!.baselineRespiratoryRate ?? summary.respiratoryRate;
+    }
+
+    // ── Daily Steps (7-day average) ──
+    int? dailyStepsAvg;
+    if (summary?.todaySteps != null || (summary?.steps7d ?? 0) > 0) {
+      final steps7dTotal = summary?.steps7d ?? (summary?.todaySteps ?? 0);
+      dailyStepsAvg = steps7dTotal > 0 ? (steps7dTotal / 7).round() : null;
+    }
+
+    // ── Activity Minutes (7d total from workouts) ──
+    int? activityMinutesWeek;
+    if (summary != null && summary.workouts7d.isNotEmpty) {
+      activityMinutesWeek =
+          summary.workouts7d.fold<int>(0, (s, w) => s + w.durationMinutes);
+    }
+
+    // ── Data Days ──
+    // Count distinct days in the last 30 that have health records
+    final dataDays = rhrRecords.length; // approximate by RHR data points
+
+    // ── Height / Weight from Health Connect (if not provided manually) ──
+    double? finalHeight = heightCm;
+    double? finalWeight = weightKg;
+    if (finalHeight == null) {
+      final heightRecords = await _db.healthRecordDao.getLatestRecordByType(
+        recordType: 'HEIGHT',
+        start: start30d,
+        end: now,
+      );
+      if (heightRecords != null && heightRecords.value > 0) {
+        finalHeight = heightRecords.value;
+      }
+    }
+    if (finalWeight == null) {
+      final weightRecords = await _db.healthRecordDao.getLatestRecordByType(
+        recordType: 'WEIGHT',
+        start: start30d,
+        end: now,
+      );
+      if (weightRecords != null && weightRecords.value > 0) {
+        finalWeight = weightRecords.value;
+      }
+    }
+
+    // ── Blood Pressure (if available) ──
+    double? systolic;
+    double? diastolic;
+    final bpSys = await _db.healthRecordDao.getLatestRecordByType(
+      recordType: 'BLOOD_PRESSURE_SYSTOLIC',
+      start: start30d,
+      end: now,
+    );
+    final bpDia = await _db.healthRecordDao.getLatestRecordByType(
+      recordType: 'BLOOD_PRESSURE_DIASTOLIC',
+      start: start30d,
+      end: now,
+    );
+    if (bpSys != null) systolic = bpSys.value;
+    if (bpDia != null) diastolic = bpDia.value;
+
+    // ── Build Input & Compute ──
+    final input = BodyAgeInput(
+      age: age,
+      sex: sex,
+      heightCm: finalHeight,
+      weightKg: finalWeight,
+      vo2maxDevice: vo2max,
+      restingHrAvg30d: restingHrAvg30d,
+      hrvAvg30d: hrvAvg30d,
+      hrvMetricType: hrvMetricType,
+      hrvTrend: hrvTrend,
+      restingHrBaseline7d: rhr7d,
+      sleepDurationAvgHours: sleepDurationAvgHours,
+      sleepEfficiency: sleepEfficiency,
+      deepSleepPct: deepSleepPct,
+      remSleepPct: remSleepPct,
+      spo2AvgSleep: spo2Avg,
+      respiratoryRateSleep: respRate,
+      dailyStepsAvg: dailyStepsAvg,
+      activityMinutesWeek: activityMinutesWeek,
+      dataDays: dataDays,
+      systolicBp: systolic,
+      diastolicBp: diastolic,
+    );
+
+    return _computeBodyAge(input);
   }
 }
