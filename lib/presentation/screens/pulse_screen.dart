@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../components/daily_activity_pod.dart';
+import '../components/glass_card.dart';
 import '../components/liquid_glass.dart';
 import '../components/motion.dart';
 import '../components/radial_score_gauge.dart';
@@ -16,6 +17,7 @@ import 'resting_hr_detail_screen.dart';
 import 'blood_o2_detail_screen.dart';
 import 'sleep_architecture_detail_screen.dart';
 import 'hrv_detail_screen.dart';
+import 'body_age_screen.dart';
 
 class PulseScreen extends StatelessWidget {
   final DerivedMetricSummary? summary;
@@ -63,6 +65,14 @@ class PulseScreen extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SleepArchitectureDetailScreen(summary: summary),
+      ),
+    );
+  }
+
+  void _openBodyAge(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BodyAgeScreen(summary: summary),
       ),
     );
   }
@@ -238,6 +248,12 @@ class PulseScreen extends StatelessWidget {
             activeCalories: summary?.activeCalories,
             totalCalories: summary?.totalCalories,
           ),
+          const SizedBox(height: Tok.space16),
+
+          // ── Body Age Entry ──
+          _BodyAgeEntryCard(
+            onTap: () => _openBodyAge(context),
+          ),
         ],
       ),
     );
@@ -250,5 +266,67 @@ class PulseScreen extends StatelessWidget {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${months[now.month - 1]} ${now.day}';
+  }
+}
+
+/// Entry card for the Body Age Estimation feature.
+class _BodyAgeEntryCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _BodyAgeEntryCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Tok.glassFillElevated,
+              border: Border.all(
+                color: Tok.glassBorderBright,
+                width: 0.5,
+              ),
+            ),
+            child: const Icon(
+              Icons.timer_outlined,
+              size: 20,
+              color: Tok.textPrimary,
+            ),
+          ),
+          const SizedBox(width: Tok.space12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'BODY AGE',
+                  style: TokType.cardTitle.copyWith(
+                    letterSpacing: 1.0,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Estimate your functional fitness age',
+                  style: TokType.bodySmall.copyWith(
+                    color: Tok.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right,
+            size: 18,
+            color: Tok.textTertiary,
+          ),
+        ],
+      ),
+    );
   }
 }
