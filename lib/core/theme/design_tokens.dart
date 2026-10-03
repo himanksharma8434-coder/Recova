@@ -18,21 +18,22 @@ class Tok {
   static const double glassBlurSigma = 28.0;                 // Deep iPhone frosted blur
   static const double glassBlurSigmaLight = 16.0;
 
-  // ── Liquid Glassmorphism Standard Tokens (iOS inspired) ────────────────────
-  // - Background: rgba(255, 255, 255, 0.10)
-  // - Backdrop blur: 24px, saturation: 190%
-  // - Border: 1px solid rgba(255, 255, 255, 0.32)
-  // - Shadows: outer drop 0 8px 32px rgba(0, 0, 0, 0.28)
-  //            inner top 0 1.5px 1.5px rgba(255, 255, 255, 0.55)
-  //            inner bottom 0 -1px 1px rgba(255, 255, 255, 0.08)
-  // - Radius: 100px (pill shape)
-  static const Color liquidGlassFill = Color(0x1FFFFFFF);              // rgba(255, 255, 255, 0.12)
-  static const Color liquidGlassBorder = Color(0x52FFFFFF);            // rgba(255, 255, 255, 0.32)
-  static const Color liquidGlassTopHighlight = Color(0x8CFFFFFF);      // rgba(255, 255, 255, 0.55)
-  static const Color liquidGlassBottomReflection = Color(0x14FFFFFF);  // rgba(255, 255, 255, 0.08)
-  static const Color liquidGlassOuterShadow = Color(0x47000000);       // rgba(0, 0, 0, 0.28)
-  static const double liquidGlassBlurSigma = 24.0;
-  static const double liquidGlassSaturation = 1.9;
+  // ── Liquid Glassmorphism Standard Tokens (Strict CSS Standard) ─────────────
+  // 1. Glass Base: rgba(255, 255, 255, 0.08)
+  // 2. Backdrop Blur & Saturation: blur(16px) saturate(180%)
+  // 3. Liquid Depth (Box Shadows):
+  //    - Outer drop shadow: 0 4px 24px rgba(0, 0, 0, 0.15)
+  //    - Inner top highlight: inset 0 1px 1px rgba(255, 255, 255, 0.4)
+  //    - Inner bottom shadow: inset 0 -1px 1px rgba(255, 0, 128, 0.1) (neon pink)
+  // 4. Border: 1px solid rgba(255, 255, 255, 0.25)
+  // 5. Shape: border-radius: 100px (pill shape)
+  static const Color liquidGlassFill = Color(0x14FFFFFF);              // rgba(255, 255, 255, 0.08)
+  static const Color liquidGlassBorder = Color(0x40FFFFFF);            // rgba(255, 255, 255, 0.25)
+  static const Color liquidGlassTopHighlight = Color(0x66FFFFFF);      // rgba(255, 255, 255, 0.40)
+  static const Color liquidGlassBottomReflection = Color(0x1AFF0080);  // rgba(255, 0, 128, 0.10) (neon pink)
+  static const Color liquidGlassOuterShadow = Color(0x26000000);       // rgba(0, 0, 0, 0.15)
+  static const double liquidGlassBlurSigma = 16.0;
+  static const double liquidGlassSaturation = 1.8;                     // 180%
   static const double liquidGlassRadiusPill = 100.0;
 
   // ── Monochrome Accent System ──────────────────────────────────────────────
