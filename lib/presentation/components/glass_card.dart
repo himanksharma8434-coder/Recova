@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/design_tokens.dart';
 import 'liquid_glass.dart';
@@ -31,110 +30,19 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveRadius = BorderRadius.circular(borderRadius);
-    final fillColor = elevated ? Tok.glassFillElevated : Tok.glassFill;
-
-    Widget card = Container(
+    return LiquidGlass(
+      borderRadius: BorderRadius.circular(borderRadius),
+      padding: padding,
       width: width,
-      decoration: BoxDecoration(
-        borderRadius: effectiveRadius,
-        boxShadow: [
-          if (accentGlow != null)
-            BoxShadow(
-              color: accentGlow!,
-              blurRadius: 24,
-              spreadRadius: 1,
-            ),
-          // iOS dynamic drop shadow
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: effectiveRadius,
-        child: Stack(
-          children: [
-            // 1. True iPhone Backdrop Blur
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: elevated ? Tok.glassBlurSigma : Tok.glassBlurSigmaLight,
-                  sigmaY: elevated ? Tok.glassBlurSigma : Tok.glassBlurSigmaLight,
-                ),
-                child: const SizedBox.expand(),
-              ),
-            ),
-
-            // 2. Liquid Glass Fill & Specular Gradient Sheen
-            Container(
-              padding: padding,
-              decoration: BoxDecoration(
-                borderRadius: effectiveRadius,
-                color: fillColor,
-                border: Border.all(
-                  color: elevated ? Tok.glassBorderBright : Tok.glassBorder,
-                  width: 0.75,
-                ),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withValues(alpha: elevated ? 0.15 : 0.09),
-                    Colors.white.withValues(alpha: 0.03),
-                    Colors.white.withValues(alpha: 0.005),
-                    Colors.white.withValues(alpha: 0.02),
-                  ],
-                  stops: const [0.0, 0.35, 0.75, 1.0],
-                ),
-              ),
-              child: child,
-            ),
-
-            // 3. Top Specular Rim Reflection (iPhone optical edge)
-            Positioned(
-              top: 0,
-              left: 12,
-              right: 12,
-              height: 1.0,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      Colors.white.withValues(alpha: 0.35),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      onTap: onTap,
+      accentGlow: accentGlow,
+      enableInteractiveScale: onTap != null,
+      child: child,
     );
-
-    if (onTap != null) {
-      card = GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: card,
-      );
-    }
-
-    return card;
   }
 }
 
-/// Lighter-weight glass card (less blur, less overhead) for items inside lists
-/// or for secondary surfaces that don't need the full glass treatment.
+/// Lighter-weight glass card for items inside lists or secondary surfaces.
 class GlassCardLight extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -151,46 +59,13 @@ class GlassCardLight extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveRadius = BorderRadius.circular(borderRadius);
-
-    Widget card = ClipRRect(
-      borderRadius: effectiveRadius,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: Tok.glassBlurSigmaLight,
-                sigmaY: Tok.glassBlurSigmaLight,
-              ),
-              child: const SizedBox.expand(),
-            ),
-          ),
-          Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              borderRadius: effectiveRadius,
-              color: Tok.glassFillRecessed,
-              border: Border.all(
-                color: Tok.glassBorder.withValues(alpha: 0.18),
-                width: 0.5,
-              ),
-            ),
-            child: child,
-          ),
-        ],
-      ),
+    return LiquidGlass(
+      borderRadius: BorderRadius.circular(borderRadius),
+      padding: padding,
+      onTap: onTap,
+      enableInteractiveScale: onTap != null,
+      child: child,
     );
-
-    if (onTap != null) {
-      card = GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: card,
-      );
-    }
-
-    return card;
   }
 }
 

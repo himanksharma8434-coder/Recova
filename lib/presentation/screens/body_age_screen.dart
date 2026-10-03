@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -7,14 +6,16 @@ import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
 import '../../domain/entities/body_age_result.dart';
 import '../../domain/repositories/health_source_repository.dart';
+import '../../services/user_profile_service.dart';
 import '../components/glass_card.dart';
 import '../components/liquid_glass.dart';
 import '../cubits/body_age/body_age_cubit.dart';
 import '../cubits/body_age/body_age_state.dart';
+import 'profile_settings_screen.dart';
 
 /// Body Age Estimation Screen.
-/// Automatically pulls all available wearable data and computes
-/// a functional body age vs chronological age.
+/// Automatically pulls wearable data and compares against population norms
+/// using the profile configured once in Settings (BW, Height, Age, Gender).
 class BodyAgeScreen extends StatefulWidget {
   final DerivedMetricSummary? summary;
 
@@ -26,12 +27,9 @@ class BodyAgeScreen extends StatefulWidget {
 
 class _BodyAgeScreenState extends State<BodyAgeScreen>
     with TickerProviderStateMixin {
-  final _ageController = TextEditingController();
-  String? _selectedSex;
+  UserProfile? _profile;
   late BodyAgeCubit _cubit;
-  late AnimationController _pulseController;
   late AnimationController _revealController;
-  late Animation<double> _pulseAnimation;
   late Animation<double> _revealAnimation;
 
   @override
@@ -39,15 +37,6 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
     super.initState();
     final repo = context.read<HealthSourceRepository>();
     _cubit = BodyAgeCubit(repository: repo);
-
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    )..repeat(reverse: true);
-
-    _pulseAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
 
     _revealController = AnimationController(
       vsync: this,
@@ -58,26 +47,43 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
       parent: _revealController,
       curve: Curves.easeOutCubic,
     );
+
+    _initAndCompute();
+  }
+
+  Future<void> _initAndCompute() async {
+    final profile = await UserProfileService.getProfile();
+    if (!mounted) return;
+
+    setState(() => _profile = profile);
+
+    if (profile.hasRequiredForBodyAge) {
+      _cubit.compute(
+        age: profile.age!,
+        sex: profile.gender,
+        heightCm: profile.heightCm,
+        weightKg: profile.weightKg,
+      );
+    }
+  }
+
+  Future<void> _openSettings() async {
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const ProfileSettingsScreen(),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      _initAndCompute();
+    }
   }
 
   @override
   void dispose() {
-    _ageController.dispose();
-    _pulseController.dispose();
     _revealController.dispose();
     _cubit.close();
     super.dispose();
-  }
-
-  void _compute() {
-    final age = int.tryParse(_ageController.text.trim());
-    if (age == null || age < 1 || age > 120) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid age (1–120)')),
-      );
-      return;
-    }
-    _cubit.compute(age: age, sex: _selectedSex);
   }
 
   @override
@@ -114,6 +120,13 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
                     ),
                   ),
                   centerTitle: true,
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.tune_rounded, size: 20),
+                      tooltip: 'Profile Settings',
+                      onPressed: _openSettings,
+                    ),
+                  ],
                 ),
 
                 // ── Content ──
@@ -121,14 +134,21 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
                   padding: const EdgeInsets.symmetric(horizontal: Tok.space20),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      const SizedBox(height: Tok.space16),
-                      if (state is BodyAgeInitial || state is BodyAgeError)
-                        _buildInputForm(state),
-                      if (state is BodyAgeLoading) _buildLoading(),
-                      if (state is BodyAgeUnderage) _buildUnderage(),
-                      if (state is BodyAgeLoaded)
+                      const SizedBox(height: Tok.space12),
+
+                      if (_profile != null && !_profile!.hasRequiredForBodyAge)
+                        _buildSetupRequired()
+                      else if (state is BodyAgeLoading ||
+                          (state is BodyAgeInitial && _profile == null))
+                        _buildLoading()
+                      else if (state is BodyAgeUnderage)
+                        _buildUnderage()
+                      else if (state is BodyAgeError)
+                        _buildError(state.message)
+                      else if (state is BodyAgeLoaded)
                         _buildResults(state.result),
-                      const SizedBox(height: 120), // bottom padding for nav
+
+                      const SizedBox(height: 100),
                     ]),
                   ),
                 ),
@@ -141,338 +161,62 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // INPUT FORM
+  // SETUP REQUIRED PROMPT (Clean, shown only if profile has no age yet)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildInputForm(BodyAgeState state) {
-    return Column(
-      children: [
-        // Hero illustration area
-        GlassCard(
-          elevated: true,
-          padding: const EdgeInsets.all(Tok.space24),
-          child: Column(
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Tok.glassFill,
-                  border: Border.all(
-                    color: Tok.glassBorderBright,
-                    width: 1.5,
-                  ),
-                ),
-                child: AnimatedBuilder(
-                  animation: _pulseAnimation,
-                  builder: (context, child) {
-                    return Icon(
-                      Icons.timer_outlined,
-                      size: 36,
-                      color: Tok.textPrimary.withValues(
-                        alpha: 0.5 + _pulseAnimation.value * 0.5,
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: Tok.space16),
-              Text(
-                'Discover Your Body Age',
-                style: TokType.heading.copyWith(fontSize: 20),
-              ),
-              const SizedBox(height: Tok.space8),
-              Text(
-                'Your wearable data will be analyzed automatically.\nJust tell us your age and biological sex.',
-                textAlign: TextAlign.center,
-                style: TokType.body.copyWith(
-                  color: Tok.textTertiary,
-                  height: 1.6,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: Tok.space20),
-
-        // Age input
-        GlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'YOUR AGE',
-                style: TokType.sectionLabel,
-              ),
-              const SizedBox(height: Tok.space12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(Tok.radiusSm),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                  child: TextField(
-                    controller: _ageController,
-                    keyboardType: TextInputType.number,
-                    style: TokType.metricLarge.copyWith(fontSize: 24),
-                    decoration: InputDecoration(
-                      hintText: '25',
-                      hintStyle: TokType.metricLarge.copyWith(
-                        fontSize: 24,
-                        color: Tok.textMuted,
-                      ),
-                      suffixText: 'years',
-                      suffixStyle: TokType.unit,
-                      filled: true,
-                      fillColor: Tok.glassFillRecessed,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(Tok.radiusSm),
-                        borderSide: BorderSide(
-                          color: Tok.glassBorder,
-                          width: 0.5,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(Tok.radiusSm),
-                        borderSide: BorderSide(
-                          color: Tok.glassBorder,
-                          width: 0.5,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(Tok.radiusSm),
-                        borderSide: BorderSide(
-                          color: Tok.glassBorderBright,
-                          width: 1,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: Tok.space16,
-                        vertical: Tok.space12,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: Tok.space12),
-
-        // Sex selector
-        GlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'BIOLOGICAL SEX',
-                style: TokType.sectionLabel,
-              ),
-              const SizedBox(height: Tok.space4),
-              Text(
-                'Used for population norm comparison',
-                style: TokType.bodySmall.copyWith(color: Tok.textMuted),
-              ),
-              const SizedBox(height: Tok.space12),
-              Row(
-                children: [
-                  _buildSexOption('male', 'Male', Icons.male),
-                  const SizedBox(width: Tok.space12),
-                  _buildSexOption('female', 'Female', Icons.female),
-                  const SizedBox(width: Tok.space12),
-                  _buildSexOption(null, 'Skip', Icons.remove),
-                ],
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: Tok.space20),
-
-        // Error message
-        if (state is BodyAgeError) ...[
-          GlassCard(
-            accentGlow: Tok.recoverySuppressed.withValues(alpha: 0.1),
-            child: Row(
-              children: [
-                const Icon(Icons.error_outline, size: 18,
-                    color: Tok.recoverySuppressed),
-                const SizedBox(width: Tok.space8),
-                Expanded(
-                  child: Text(
-                    state.message,
-                    style: TokType.bodySmall.copyWith(
-                      color: Tok.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: Tok.space16),
-        ],
-
-        // Compute button
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: GestureDetector(
-            onTap: _compute,
-            child: LiquidGlass(
-              borderRadius: BorderRadius.circular(Tok.radiusMd),
-              padding: EdgeInsets.zero,
-              customBottomReflection: Tok.textPrimary.withValues(alpha: 0.08),
-              child: Center(
-                child: Text(
-                  'ESTIMATE BODY AGE',
-                  style: TokType.cardTitle.copyWith(
-                    letterSpacing: 1.6,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: Tok.space12),
-        Text(
-          'All data stays on your device.',
-          textAlign: TextAlign.center,
-          style: TokType.caption.copyWith(color: Tok.textMuted),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSexOption(String? value, String label, IconData icon) {
-    final isSelected = _selectedSex == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedSex = value),
-        child: AnimatedContainer(
-          duration: Tok.animFast,
-          padding: const EdgeInsets.symmetric(
-              vertical: Tok.space12, horizontal: Tok.space8),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Tok.glassFillElevated
-                : Tok.glassFillRecessed,
-            borderRadius: BorderRadius.circular(Tok.radiusSm),
-            border: Border.all(
-              color: isSelected ? Tok.glassBorderBright : Tok.glassBorder,
-              width: isSelected ? 1 : 0.5,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(icon,
-                  size: 20,
-                  color: isSelected ? Tok.textPrimary : Tok.textTertiary),
-              const SizedBox(height: Tok.space4),
-              Text(
-                label,
-                style: TokType.caption.copyWith(
-                  color: isSelected ? Tok.textPrimary : Tok.textTertiary,
-                  letterSpacing: 0.8,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LOADING STATE
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildLoading() {
-    return GlassCard(
-      elevated: true,
-      padding: const EdgeInsets.symmetric(vertical: Tok.space48),
-      child: Column(
-        children: [
-          AnimatedBuilder(
-            animation: _pulseAnimation,
-            builder: (context, child) {
-              return Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Tok.glassFill,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Tok.neonAccent
-                          .withValues(alpha: 0.1 * _pulseAnimation.value),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.biotech_outlined,
-                  color: Tok.textSecondary,
-                  size: 28,
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: Tok.space16),
-          Text(
-            'Analyzing your biometrics...',
-            style: TokType.body.copyWith(color: Tok.textSecondary),
-          ),
-          const SizedBox(height: Tok.space8),
-          Text(
-            'Comparing against population norms',
-            style: TokType.caption.copyWith(color: Tok.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // UNDERAGE STATE
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildUnderage() {
+  Widget _buildSetupRequired() {
     return GlassCard(
       padding: const EdgeInsets.all(Tok.space24),
       child: Column(
         children: [
-          const Icon(Icons.child_care, size: 48, color: Tok.textTertiary),
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Tok.glassFillElevated,
+              border: Border.all(color: Tok.glassBorder, width: 0.5),
+            ),
+            child: const Icon(
+              Icons.tune_rounded,
+              size: 28,
+              color: Tok.neonAccent,
+            ),
+          ),
           const SizedBox(height: Tok.space16),
           Text(
-            'Body Age Norms Apply to Adults',
-            style: TokType.heading,
-            textAlign: TextAlign.center,
+            'Configure Profile in Settings',
+            style: TokType.heading.copyWith(fontSize: 18),
           ),
           const SizedBox(height: Tok.space8),
           Text(
-            'Population norms used for body age estimation are '
-            'calibrated for adults (18+). We recommend tracking '
-            'general healthy habits instead.',
-            style: TokType.body.copyWith(color: Tok.textTertiary),
+            'Body Age compares your wearable data against age and sex cohorts. '
+            'Please add your body weight, height, age, and gender once in settings to calculate your fitness age.',
             textAlign: TextAlign.center,
+            style: TokType.bodySmall.copyWith(
+              color: Tok.textTertiary,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: Tok.space20),
-          GestureDetector(
-            onTap: () => _cubit.reset(),
-            child: LiquidGlass(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Tok.space24,
-                vertical: Tok.space12,
-              ),
-              child: Text(
-                'GO BACK',
-                style: TokType.cardTitle.copyWith(
-                  letterSpacing: 1.4,
-                  fontSize: 11,
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: GestureDetector(
+              onTap: _openSettings,
+              child: LiquidGlass(
+                borderRadius: BorderRadius.circular(Tok.radiusSm),
+                padding: EdgeInsets.zero,
+                customBottomReflection:
+                    Tok.textPrimary.withValues(alpha: 0.12),
+                child: Center(
+                  child: Text(
+                    'CONFIGURE PROFILE',
+                    style: TokType.cardTitle.copyWith(
+                      letterSpacing: 1.4,
+                      fontSize: 11,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -483,7 +227,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // RESULTS
+  // RESULTS DISPLAY (Clean & Focused)
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildResults(BodyAgeResult result) {
@@ -500,52 +244,80 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
       },
       child: Column(
         children: [
+          // Profile summary pill
+          _buildProfilePill(result),
+          const SizedBox(height: Tok.space16),
+
           // Hero body age display
           _buildHeroAge(result),
-          const SizedBox(height: Tok.space20),
+          const SizedBox(height: Tok.space16),
 
           // Component breakdown
           _buildComponentBreakdown(result),
           const SizedBox(height: Tok.space16),
 
-          // Derived metrics
+          // Derived metrics (BMI, VO2 Max, BMR)
           if (result.derivedMetrics.bmi != null ||
-              result.derivedMetrics.vo2maxUsed != null)
+              result.derivedMetrics.vo2maxUsed != null ||
+              result.derivedMetrics.bmrKcal != null)
             _buildDerivedMetrics(result),
 
           if (result.derivedMetrics.bmi != null ||
-              result.derivedMetrics.vo2maxUsed != null)
+              result.derivedMetrics.vo2maxUsed != null ||
+              result.derivedMetrics.bmrKcal != null)
             const SizedBox(height: Tok.space16),
 
-          // Top levers
+          // Top actionable levers
           if (result.topLevers.isNotEmpty) _buildTopLevers(result),
           if (result.topLevers.isNotEmpty) const SizedBox(height: Tok.space16),
 
-          // Data quality & confidence
-          _buildDataQuality(result),
-          const SizedBox(height: Tok.space16),
+          // Data quality & flags (only if any flags exist)
+          if (result.dataQualityFlags.isNotEmpty) ...[
+            _buildDataQuality(result),
+            const SizedBox(height: Tok.space16),
+          ],
 
-          // Disclaimer
+          // Minimal Disclaimer
           _buildDisclaimer(result),
-          const SizedBox(height: Tok.space20),
+        ],
+      ),
+    );
+  }
 
-          // Recalculate button
-          GestureDetector(
-            onTap: () => _cubit.reset(),
-            child: LiquidGlass(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Tok.space24,
-                vertical: Tok.space12,
-              ),
-              child: Text(
-                'RECALCULATE',
-                style: TokType.cardTitle.copyWith(
-                  letterSpacing: 1.4,
-                  fontSize: 11,
-                ),
-              ),
+  // ── Profile Summary Pill ──
+
+  Widget _buildProfilePill(BodyAgeResult result) {
+    final age = _profile?.age ?? result.chronologicalAge;
+    final gender = _profile?.gender == 'female' ? 'Female' : 'Male';
+    final weight = _profile?.weightKg != null
+        ? ' • ${_profile!.weightKg!.toStringAsFixed(1)} kg'
+        : '';
+    final height = _profile?.heightCm != null
+        ? ' • ${_profile!.heightCm!.toStringAsFixed(0)} cm'
+        : '';
+
+    return LiquidGlass(
+      onTap: _openSettings,
+      padding: const EdgeInsets.symmetric(
+        horizontal: Tok.space16,
+        vertical: Tok.space8,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.person_outline,
+              size: 13, color: Tok.textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            '$age yrs • $gender$weight$height',
+            style: TokType.caption.copyWith(
+              color: Tok.textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
             ),
           ),
+          const SizedBox(width: 6),
+          const Icon(Icons.edit_outlined, size: 11, color: Tok.textMuted),
         ],
       ),
     );
@@ -566,24 +338,23 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
 
     return GlassCard(
       elevated: true,
-      accentGlow: tierColor.withValues(alpha: 0.06),
+      accentGlow: tierColor.withValues(alpha: 0.08),
       padding: const EdgeInsets.symmetric(
         horizontal: Tok.space24,
-        vertical: Tok.space32,
+        vertical: Tok.space24,
       ),
       child: Column(
         children: [
-          // Label
           Text(
-            'ESTIMATED BODY AGE',
+            'ESTIMATED FUNCTIONAL AGE',
             style: TokType.sectionLabel.copyWith(
-              letterSpacing: 2.4,
+              letterSpacing: 2.2,
               fontSize: 9.5,
             ),
           ),
           const SizedBox(height: Tok.space12),
 
-          // Big number
+          // Big number gauge
           _buildBodyAgeGauge(result),
 
           const SizedBox(height: Tok.space16),
@@ -598,71 +369,32 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                AnimatedBuilder(
-                  animation: _pulseAnimation,
-                  builder: (context, child) {
-                    return Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: tierColor.withValues(
-                          alpha: _pulseAnimation.value,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: tierColor.withValues(
-                              alpha: _pulseAnimation.value * 0.5,
-                            ),
-                            blurRadius: 6,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                Icon(
+                  isYounger
+                      ? Icons.arrow_downward
+                      : isOlder
+                          ? Icons.arrow_upward
+                          : Icons.check,
+                  size: 14,
+                  color: tierColor,
                 ),
-                const SizedBox(width: Tok.space8),
+                const SizedBox(width: Tok.space4),
                 Text(
                   isYounger
                       ? '${diffAbs.toStringAsFixed(1)} YEARS YOUNGER'
                       : isOlder
-                          ? '${diffAbs.toStringAsFixed(1)} YEARS OLDER'
-                          : 'MATCHES YOUR AGE',
+                          ? '+${diffAbs.toStringAsFixed(1)} YEARS OLDER'
+                          : 'MATCHES CHRONOLOGICAL AGE',
                   style: TokType.caption.copyWith(
-                    color: Tok.textSecondary,
-                    letterSpacing: 1.0,
+                    color: tierColor,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
                     fontSize: 10,
                   ),
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: Tok.space16),
-
-          // Chronological age reference
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Chronological Age: ',
-                style: TokType.bodySmall.copyWith(color: Tok.textTertiary),
-              ),
-              Text(
-                '${result.chronologicalAge}',
-                style: TokType.bodySmall.copyWith(
-                  color: Tok.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: Tok.space8),
-
-          // Confidence badge
-          _buildConfidenceBadge(result.confidence),
         ],
       ),
     );
@@ -670,126 +402,51 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
 
   Widget _buildBodyAgeGauge(BodyAgeResult result) {
     final diff = result.ageDifferenceYears;
-    final tierColor = diff < 0
+    final isYounger = diff < 0;
+    final isOlder = diff > 0;
+    final tierColor = isYounger
         ? Tok.recoveryOptimal
-        : diff > 0
+        : isOlder
             ? Tok.recoverySuppressed
             : Tok.recoveryModerate;
 
-    // Normalize offset for gauge display (-15 to +15 → 0 to 1)
-    final normalizedOffset =
-        ((diff + 15) / 30).clamp(0.0, 1.0);
-    // Invert so that younger (left/green) has higher fill
-    final fillRatio = 1.0 - normalizedOffset;
+    final fillRatio = ((result.chronologicalAge - result.bodyAge + 10) / 20)
+        .clamp(0.05, 1.0);
 
     return SizedBox(
-      width: 200,
-      height: 200,
+      width: 170,
+      height: 170,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Background dark disc
-          AnimatedBuilder(
-            animation: _pulseAnimation,
-            builder: (context, child) {
-              return Container(
-                width: 144,
-                height: 144,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Tok.canvasDeep,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 24,
-                      spreadRadius: 2,
-                    ),
-                    BoxShadow(
-                      color: tierColor.withValues(
-                        alpha: 0.08 * _pulseAnimation.value,
-                      ),
-                      blurRadius: 40,
-                      spreadRadius: 4,
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          // Gauge arcs
-          RepaintBoundary(
-            child: CustomPaint(
-              size: const Size(200, 200),
-              painter: _BodyAgeGaugePainter(
-                fillRatio: fillRatio,
-                accentColor: tierColor,
-              ),
+          CustomPaint(
+            size: const Size(170, 170),
+            painter: _BodyAgeGaugePainter(
+              fillRatio: fillRatio,
+              accentColor: tierColor,
             ),
           ),
-
-          // Center number
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                result.bodyAge % 1 == 0
-                    ? result.bodyAge.toInt().toString()
-                    : result.bodyAge.toStringAsFixed(1),
+                result.bodyAge.toStringAsFixed(1),
                 style: TokType.displayNumber.copyWith(
-                  fontSize: 48,
+                  fontSize: 52,
+                  height: 1.0,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
-                'YEARS',
+                'ACTUAL: ${result.chronologicalAge}',
                 style: TokType.caption.copyWith(
-                  letterSpacing: 2.0,
-                  fontSize: 9,
+                  color: Tok.textMuted,
+                  letterSpacing: 1.0,
+                  fontSize: 9.5,
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildConfidenceBadge(BodyAgeConfidence confidence) {
-    final Color color;
-    switch (confidence) {
-      case BodyAgeConfidence.high:
-        color = Tok.recoveryOptimal;
-      case BodyAgeConfidence.medium:
-        color = Tok.recoveryModerate;
-      case BodyAgeConfidence.low:
-        color = Tok.recoverySuppressed;
-    }
-
-    return GlassPill(
-      accentColor: color,
-      padding: const EdgeInsets.symmetric(
-        horizontal: Tok.space12,
-        vertical: Tok.space4,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: Tok.space6),
-          Text(
-            '${confidence.label} CONFIDENCE',
-            style: TokType.caption.copyWith(
-              color: Tok.textSecondary,
-              letterSpacing: 0.8,
-            ),
           ),
         ],
       ),
@@ -798,128 +455,90 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
 
   // ── Component Breakdown ──
 
+  // ── Component Breakdown (5-Second Glanceable) ──
+
+  static const Color _youngerColor = Color(0xFF30D158);
+  static const Color _olderColor = Color(0xFFFF9F0A);
+  static const Color _onTrackColor = Color(0xFFAEAEB2);
+
   Widget _buildComponentBreakdown(BodyAgeResult result) {
-    if (result.components.isEmpty) return const SizedBox.shrink();
+    final youngerCount =
+        result.components.where((c) => c.offsetYears < -0.2).length;
+    final olderCount =
+        result.components.where((c) => c.offsetYears > 0.2).length;
+    final onTrackCount = result.components.length - youngerCount - olderCount;
 
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('COMPONENT BREAKDOWN', style: TokType.sectionLabel),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('BIOMETRIC BREAKDOWN', style: TokType.sectionLabel),
+              Text(
+                '${result.confidence.label} CONFIDENCE',
+                style: TokType.caption.copyWith(
+                  color: Tok.textMuted,
+                  fontSize: 9,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Tok.space8),
+
+          // 5-Second Glance Scoreboard
+          Wrap(
+            spacing: Tok.space6,
+            runSpacing: Tok.space6,
+            children: [
+              if (youngerCount > 0)
+                _buildGlanceScoreBadge(
+                  '$youngerCount Helping',
+                  _youngerColor,
+                  Icons.trending_down_rounded,
+                ),
+              if (olderCount > 0)
+                _buildGlanceScoreBadge(
+                  '$olderCount Aging',
+                  _olderColor,
+                  Icons.trending_up_rounded,
+                ),
+              if (onTrackCount > 0)
+                _buildGlanceScoreBadge(
+                  '$onTrackCount On Track',
+                  _onTrackColor,
+                  Icons.check_circle_outline_rounded,
+                ),
+            ],
+          ),
           const SizedBox(height: Tok.space16),
-          ...result.components.map((c) => _buildComponentRow(c)),
+
+          ...result.components.map((c) => _buildGlanceableComponentTile(c)),
         ],
       ),
     );
   }
 
-  Widget _buildComponentRow(BodyAgeComponent component) {
-    final isPositive = component.offsetYears < 0;
-    final isNegative = component.offsetYears > 0;
-    final color = isPositive
-        ? Tok.recoveryOptimal
-        : isNegative
-            ? Tok.recoverySuppressed
-            : Tok.recoveryModerate;
-
-    final offsetText = component.offsetYears > 0
-        ? '+${component.offsetYears.toStringAsFixed(1)}'
-        : component.offsetYears.toStringAsFixed(1);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Tok.space12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildGlanceScoreBadge(String label, Color color, IconData icon) {
+    return LiquidGlass(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Tok.space12,
+        vertical: Tok.space6,
+      ),
+      customBottomReflection: color.withValues(alpha: 0.2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              // Category color indicator
-              Container(
-                width: 3,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: Tok.space12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      component.category.toUpperCase(),
-                      style: TokType.caption.copyWith(
-                        color: Tok.textSecondary,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      component.note,
-                      style: TokType.bodySmall.copyWith(
-                        color: Tok.textTertiary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: Tok.space8),
-              // Year offset
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${offsetText}y',
-                    style: TokType.metricMedium.copyWith(
-                      fontSize: 16,
-                      color: color,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    'P${component.percentileEstimate}',
-                    style: TokType.caption.copyWith(
-                      color: Tok.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          // Bar indicator
-          Padding(
-            padding: const EdgeInsets.only(
-                left: 15, top: Tok.space4),
-            child: _buildOffsetBar(component.offsetYears, color),
-          ),
-
-          // Inputs used
-          Padding(
-            padding: const EdgeInsets.only(left: 15, top: Tok.space4),
-            child: Wrap(
-              spacing: Tok.space4,
-              runSpacing: Tok.space4,
-              children: component.inputsUsed.map((input) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Tok.glassFillRecessed,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    input,
-                    style: TokType.caption.copyWith(
-                      fontSize: 8,
-                      color: Tok.textMuted,
-                    ),
-                  ),
-                );
-              }).toList(),
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: Tok.space4),
+          Text(
+            label,
+            style: TokType.caption.copyWith(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -927,79 +546,274 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
     );
   }
 
-  Widget _buildOffsetBar(double offset, Color color) {
-    // Center-anchored bar: 0 is center, -10 is far left, +10 is far right
-    final normalized = (offset / 10).clamp(-1.0, 1.0);
+  Widget _buildGlanceableComponentTile(BodyAgeComponent component) {
+    final meta = _getCategoryMeta(component);
+    final offset = component.offsetYears;
 
-    return SizedBox(
-      height: 4,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final center = width / 2;
-          final barWidth = (normalized.abs() * center).clamp(2.0, center);
-          final left = normalized < 0 ? center - barWidth : center;
+    final isHelping = offset < -0.2;
+    final isAging = offset > 0.2;
+    final isOnTrack = !isHelping && !isAging;
 
-          return Stack(
-            children: [
-              // Track
-              Container(
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Tok.glassFillRecessed,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Center mark
-              Positioned(
-                left: center - 0.5,
-                child: Container(
-                  width: 1,
-                  height: 4,
-                  color: Tok.textMuted,
-                ),
-              ),
-              // Fill bar
-              Positioned(
-                left: left,
-                child: Container(
-                  width: barWidth,
-                  height: 4,
+    final statusColor = isHelping
+        ? _youngerColor
+        : isAging
+            ? _olderColor
+            : _onTrackColor;
+
+    final statusText = isHelping
+        ? '-${offset.abs().toStringAsFixed(1)} yrs'
+        : isAging
+            ? '+${offset.toStringAsFixed(1)} yrs'
+            : 'On Track';
+
+    final statusIcon = isHelping
+        ? Icons.arrow_downward_rounded
+        : isAging
+            ? Icons.arrow_upward_rounded
+            : Icons.check_rounded;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: Tok.space12),
+      child: LiquidGlass(
+        borderRadius: BorderRadius.circular(Tok.radiusMd),
+        padding: const EdgeInsets.all(Tok.space12),
+        customBottomReflection: statusColor.withValues(alpha: 0.18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Row 1: Icon + Title on left, Status Pill on right
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(2),
+                    shape: BoxShape.circle,
+                    color: statusColor.withValues(alpha: 0.12),
+                  ),
+                  child: Icon(meta.icon, size: 15, color: statusColor),
+                ),
+                const SizedBox(width: Tok.space8),
+                Expanded(
+                  child: Text(
+                    meta.title,
+                    style: TokType.cardTitle.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
+                // Status Pill
+                LiquidGlass(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Tok.space8,
+                    vertical: Tok.space4,
+                  ),
+                  customBottomReflection: statusColor.withValues(alpha: 0.2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 11, color: statusColor),
+                      const SizedBox(width: 3),
+                      Text(
+                        statusText,
+                        style: TokType.caption.copyWith(
+                          color: statusColor,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+          const SizedBox(height: Tok.space8),
+
+          // Row 2: 3-Zone Segmented Visual Bar [ YOUNGER | ON TRACK | AGING ]
+          _build3ZoneSegmentedBar(isHelping, isOnTrack, isAging),
+
+          const SizedBox(height: Tok.space8),
+
+          // Row 3: 1-Line Plain English Takeaway
+          Text(
+            meta.takeaway,
+            style: TokType.bodySmall.copyWith(
+              color: Tok.textPrimary.withValues(alpha: 0.9),
+              fontSize: 11.5,
+              height: 1.35,
+            ),
+          ),
+
+          // Row 4: Clean telemetry source tags
+          if (component.inputsUsed.isNotEmpty) ...[
+            const SizedBox(height: Tok.space4),
+            Text(
+              component.inputsUsed.join(' • '),
+              style: TokType.caption.copyWith(
+                color: Tok.textMuted,
+                fontSize: 9.5,
               ),
-            ],
-          );
-        },
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+  Widget _build3ZoneSegmentedBar(
+      bool isHelping, bool isOnTrack, bool isAging) {
+    return Row(
+      children: [
+        // Zone 1: YOUNGER
+        Expanded(
+          child: _buildZoneSegment(
+            label: 'YOUNGER',
+            isActive: isHelping,
+            activeColor: _youngerColor,
+            isLeft: true,
+          ),
+        ),
+        const SizedBox(width: 3),
+        // Zone 2: ON TRACK
+        Expanded(
+          child: _buildZoneSegment(
+            label: 'ON TRACK',
+            isActive: isOnTrack,
+            activeColor: Tok.neonAccent,
+          ),
+        ),
+        const SizedBox(width: 3),
+        // Zone 3: AGING
+        Expanded(
+          child: _buildZoneSegment(
+            label: 'AGING',
+            isActive: isAging,
+            activeColor: _olderColor,
+            isRight: true,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildZoneSegment({
+    required String label,
+    required bool isActive,
+    required Color activeColor,
+    bool isLeft = false,
+    bool isRight = false,
+  }) {
+    return LiquidGlass(
+      height: 22,
+      padding: EdgeInsets.zero,
+      borderRadius: BorderRadius.horizontal(
+        left: isLeft ? const Radius.circular(Tok.radiusSm) : Radius.zero,
+        right: isRight ? const Radius.circular(Tok.radiusSm) : Radius.zero,
+      ),
+      customBottomReflection:
+          isActive ? activeColor.withValues(alpha: 0.25) : null,
+      child: Center(
+        child: Text(
+          label,
+          style: TokType.caption.copyWith(
+            color: isActive ? activeColor : Tok.textMuted.withValues(alpha: 0.6),
+            fontSize: 8.5,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            letterSpacing: 0.6,
+          ),
+        ),
       ),
     );
+  }
+
+  _CategoryGlanceMeta _getCategoryMeta(BodyAgeComponent c) {
+    final cat = c.category.toLowerCase();
+    final offset = c.offsetYears;
+
+    if (cat.contains('cardio')) {
+      final takeaway = offset < -0.2
+          ? 'Strong aerobic capacity subtracts ${offset.abs().toStringAsFixed(1)} yrs'
+          : offset > 0.2
+              ? 'Cardiorespiratory capacity is currently adding ${offset.toStringAsFixed(1)} yrs'
+              : 'Aerobic fitness & resting heart rate match your cohort';
+      return const _CategoryGlanceMeta(
+        title: 'Heart & Cardio',
+        icon: Icons.favorite_rounded,
+      ).copyWith(takeaway: takeaway);
+    } else if (cat.contains('autonomic') || cat.contains('recovery')) {
+      final takeaway = offset < -0.2
+          ? 'High HRV variability takes off ${offset.abs().toStringAsFixed(1)} yrs'
+          : offset > 0.2
+              ? 'Nervous system strain is currently adding ${offset.toStringAsFixed(1)} yrs'
+              : 'Autonomic nervous recovery aligns with your age';
+      return const _CategoryGlanceMeta(
+        title: 'Recovery & HRV',
+        icon: Icons.bolt_rounded,
+      ).copyWith(takeaway: takeaway);
+    } else if (cat.contains('sleep')) {
+      final takeaway = offset < -0.2
+          ? 'Consistent restorative sleep takes off ${offset.abs().toStringAsFixed(1)} yrs'
+          : offset > 0.2
+              ? 'Short sleep duration is currently adding ${offset.toStringAsFixed(1)} yrs'
+              : 'Sleep duration meets recommended nightly target';
+      return const _CategoryGlanceMeta(
+        title: 'Sleep Rest',
+        icon: Icons.bedtime_rounded,
+      ).copyWith(takeaway: takeaway);
+    } else if (cat.contains('body') || cat.contains('comp')) {
+      final takeaway = offset < -0.2
+          ? 'Healthy body composition subtracts ${offset.abs().toStringAsFixed(1)} yrs'
+          : offset > 0.2
+              ? 'Body composition metrics are currently adding ${offset.toStringAsFixed(1)} yrs'
+              : 'BMI and weight ratio are in a healthy zone';
+      return const _CategoryGlanceMeta(
+        title: 'Body & Weight',
+        icon: Icons.fitness_center_rounded,
+      ).copyWith(takeaway: takeaway);
+    } else {
+      final takeaway = offset < -0.2
+          ? 'High daily activity volume knocks off ${offset.abs().toStringAsFixed(1)} yrs'
+          : offset > 0.2
+              ? 'Lower activity volume is currently adding ${offset.toStringAsFixed(1)} yrs'
+              : 'Daily step volume matches recommended activity targets';
+      return const _CategoryGlanceMeta(
+        title: 'Daily Activity',
+        icon: Icons.directions_walk_rounded,
+      ).copyWith(takeaway: takeaway);
+    }
   }
 
   // ── Derived Metrics ──
 
   Widget _buildDerivedMetrics(BodyAgeResult result) {
     final metrics = result.derivedMetrics;
+    final items = <Widget>[];
+
+    if (metrics.bmi != null) {
+      items.add(_buildMetricTile('BMI', metrics.bmi!.toStringAsFixed(1), 'kg/m²'));
+    }
+    if (metrics.vo2maxUsed != null) {
+      items.add(_buildMetricTile(
+          'VO₂MAX', metrics.vo2maxUsed!.toStringAsFixed(1), 'mL/kg/min'));
+    }
+    if (metrics.bmrKcal != null) {
+      items.add(_buildMetricTile(
+          'BMR', metrics.bmrKcal!.toStringAsFixed(0), 'kcal/day'));
+    }
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('DERIVED METRICS', style: TokType.sectionLabel),
-          const SizedBox(height: Tok.space16),
-          Row(
-            children: [
-              if (metrics.bmi != null)
-                _buildMetricTile('BMI', metrics.bmi!.toStringAsFixed(1), ''),
-              if (metrics.vo2maxUsed != null)
-                _buildMetricTile(
-                    'VO₂MAX', metrics.vo2maxUsed!.toStringAsFixed(1), 'mL/kg/min'),
-              if (metrics.bmrKcal != null)
-                _buildMetricTile(
-                    'BMR', metrics.bmrKcal!.toStringAsFixed(0), 'kcal/day'),
-            ],
-          ),
+          const SizedBox(height: Tok.space12),
+          Row(children: items),
         ],
       ),
     );
@@ -1007,17 +821,32 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
 
   Widget _buildMetricTile(String label, String value, String unit) {
     return Expanded(
-      child: Column(
-        children: [
-          Text(label, style: TokType.sectionLabel),
-          const SizedBox(height: Tok.space4),
-          Text(
-            value,
-            style: TokType.metricMedium.copyWith(fontSize: 18),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        child: LiquidGlass(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Tok.space12,
+            vertical: Tok.space12,
           ),
-          if (unit.isNotEmpty)
-            Text(unit, style: TokType.caption.copyWith(color: Tok.textMuted)),
-        ],
+          borderRadius: BorderRadius.circular(100),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(label, style: TokType.sectionLabel.copyWith(fontSize: 9.5)),
+              const SizedBox(height: Tok.space4),
+              Text(
+                value,
+                style: TokType.metricMedium.copyWith(fontSize: 16),
+              ),
+              if (unit.isNotEmpty)
+                Text(
+                  unit,
+                  style: TokType.caption.copyWith(color: Tok.textMuted, fontSize: 8.5),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1031,10 +860,13 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
         children: [
           Row(
             children: [
-              const Icon(Icons.trending_down, size: 16, color: Tok.textSecondary),
+              const Icon(Icons.trending_down,
+                  size: 16, color: Tok.textSecondary),
               const SizedBox(width: Tok.space8),
-              Text('TOP ACTIONS TO LOWER BODY AGE',
-                  style: TokType.sectionLabel),
+              Text(
+                'TOP ACTIONS TO LOWER BODY AGE',
+                style: TokType.sectionLabel,
+              ),
             ],
           ),
           const SizedBox(height: Tok.space16),
@@ -1048,17 +880,13 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Number badge
                   Container(
-                    width: 22,
-                    height: 22,
+                    width: 20,
+                    height: 20,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Tok.glassFillElevated,
-                      border: Border.all(
-                        color: Tok.glassBorder,
-                        width: 0.5,
-                      ),
+                      border: Border.all(color: Tok.glassBorder, width: 0.5),
                     ),
                     child: Center(
                       child: Text(
@@ -1066,6 +894,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
                         style: TokType.caption.copyWith(
                           color: Tok.textPrimary,
                           fontSize: 10,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -1080,34 +909,28 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
                           style: TokType.bodySmall.copyWith(
                             color: Tok.textPrimary,
                             fontWeight: FontWeight.w500,
+                            height: 1.35,
                           ),
                         ),
-                        const SizedBox(height: Tok.space4),
-                        Row(
-                          children: [
-                            Icon(Icons.arrow_downward,
-                                size: 10, color: Tok.recoveryOptimal),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: Text(
-                                lever.expectedEffect,
-                                style: TokType.caption.copyWith(
-                                  color: Tok.textTertiary,
-                                ),
-                              ),
-                            ),
-                          ],
+                        const SizedBox(height: 3),
+                        Text(
+                          lever.expectedEffect,
+                          style: TokType.caption.copyWith(
+                            color: Tok.textSecondary,
+                            height: 1.3,
+                          ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Row(
                           children: [
-                            Icon(Icons.schedule,
+                            const Icon(Icons.schedule,
                                 size: 10, color: Tok.textMuted),
-                            const SizedBox(width: 3),
+                            const SizedBox(width: 4),
                             Text(
                               lever.timeframe,
                               style: TokType.caption.copyWith(
                                 color: Tok.textMuted,
+                                fontSize: 9,
                               ),
                             ),
                           ],
@@ -1124,61 +947,36 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
     );
   }
 
-  // ── Data Quality & Missing Inputs ──
+
+  // ── Data Quality & Flags ──
 
   Widget _buildDataQuality(BodyAgeResult result) {
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('DATA QUALITY', style: TokType.sectionLabel),
-          const SizedBox(height: Tok.space12),
-
-          if (result.missingInputs.isNotEmpty) ...[
-            Text(
-              'Missing inputs that would improve accuracy:',
-              style: TokType.bodySmall.copyWith(color: Tok.textTertiary),
-            ),
-            const SizedBox(height: Tok.space8),
-            ...result.missingInputs.map((input) => Padding(
-                  padding: const EdgeInsets.only(bottom: Tok.space4),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.add_circle_outline,
-                          size: 12, color: Tok.textMuted),
-                      const SizedBox(width: Tok.space8),
-                      Expanded(
-                        child: Text(
-                          input,
-                          style: TokType.bodySmall
-                              .copyWith(color: Tok.textTertiary),
+          Text('HEALTH ALERTS & DATA NOTES', style: TokType.sectionLabel),
+          const SizedBox(height: Tok.space8),
+          ...result.dataQualityFlags.map((flag) => Padding(
+                padding: const EdgeInsets.only(bottom: Tok.space4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 13, color: Tok.textMuted),
+                    const SizedBox(width: Tok.space8),
+                    Expanded(
+                      child: Text(
+                        flag,
+                        style: TokType.caption.copyWith(
+                          color: Tok.textMuted,
+                          height: 1.4,
                         ),
                       ),
-                    ],
-                  ),
-                )),
-          ],
-
-          if (result.dataQualityFlags.isNotEmpty) ...[
-            const SizedBox(height: Tok.space12),
-            ...result.dataQualityFlags.map((flag) => Padding(
-                  padding: const EdgeInsets.only(bottom: Tok.space4),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline,
-                          size: 12, color: Tok.textMuted),
-                      const SizedBox(width: Tok.space8),
-                      Expanded(
-                        child: Text(
-                          flag,
-                          style: TokType.bodySmall
-                              .copyWith(color: Tok.textMuted),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-          ],
+                    ),
+                  ],
+                ),
+              )),
         ],
       ),
     );
@@ -1192,16 +990,97 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.shield_outlined, size: 14, color: Tok.textMuted),
+          const Icon(Icons.shield_outlined, size: 13, color: Tok.textMuted),
           const SizedBox(width: Tok.space8),
           Expanded(
             child: Text(
               result.disclaimer,
               style: TokType.caption.copyWith(
                 color: Tok.textMuted,
-                height: 1.5,
+                height: 1.4,
                 fontSize: 9,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Loading & Error states ──
+
+  Widget _buildLoading() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 80),
+      child: Center(
+        child: Column(
+          children: [
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Tok.textPrimary.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: Tok.space20),
+            Text(
+              'Computing Body Age...',
+              style: TokType.cardTitle.copyWith(
+                letterSpacing: 1.4,
+                color: Tok.textSecondary,
+              ),
+            ),
+            const SizedBox(height: Tok.space4),
+            Text(
+              'Analyzing wearable baselines against population cohorts',
+              style: TokType.caption.copyWith(color: Tok.textMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnderage() {
+    return GlassCard(
+      padding: const EdgeInsets.all(Tok.space24),
+      child: Column(
+        children: [
+          const Icon(Icons.info_outline, size: 40, color: Tok.textSecondary),
+          const SizedBox(height: Tok.space16),
+          Text(
+            'Adult Norms Only',
+            style: TokType.heading.copyWith(fontSize: 18),
+          ),
+          const SizedBox(height: Tok.space8),
+          Text(
+            'Body age models are standardized for adults aged 18 and older. '
+            'We recommend general healthy habit tracking.',
+            textAlign: TextAlign.center,
+            style: TokType.bodySmall.copyWith(
+              color: Tok.textTertiary,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError(String message) {
+    return GlassCard(
+      accentGlow: Tok.recoverySuppressed.withValues(alpha: 0.1),
+      padding: const EdgeInsets.all(Tok.space20),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline,
+              size: 20, color: Tok.recoverySuppressed),
+          const SizedBox(width: Tok.space12),
+          Expanded(
+            child: Text(
+              message,
+              style: TokType.bodySmall.copyWith(color: Tok.textSecondary),
             ),
           ),
         ],
@@ -1301,5 +1180,25 @@ class _BodyAgeGaugePainter extends CustomPainter {
   bool shouldRepaint(covariant _BodyAgeGaugePainter oldDelegate) {
     return oldDelegate.fillRatio != fillRatio ||
         oldDelegate.accentColor != accentColor;
+  }
+}
+
+class _CategoryGlanceMeta {
+  final String title;
+  final IconData icon;
+  final String takeaway;
+
+  const _CategoryGlanceMeta({
+    required this.title,
+    required this.icon,
+    this.takeaway = '',
+  });
+
+  _CategoryGlanceMeta copyWith({String? takeaway}) {
+    return _CategoryGlanceMeta(
+      title: title,
+      icon: icon,
+      takeaway: takeaway ?? this.takeaway,
+    );
   }
 }
