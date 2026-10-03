@@ -871,6 +871,10 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     String? sex,
     double? heightCm,
     double? weightKg,
+    double? waistCircumferenceCm,
+    double? hipCircumferenceCm,
+    String? smokingStatus,
+    int? stressLevel,
   }) async {
     final now = DateTime.now();
     final start30d = AppDateUtils.daysAgo(30, from: now);
@@ -1035,6 +1039,10 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       sex: sex,
       heightCm: finalHeight,
       weightKg: finalWeight,
+      waistCircumferenceCm: waistCircumferenceCm,
+      hipCircumferenceCm: hipCircumferenceCm,
+      smokingStatus: smokingStatus,
+      stressLevel: stressLevel,
       vo2maxDevice: vo2max,
       restingHrAvg30d: restingHrAvg30d,
       hrvAvg30d: hrvAvg30d,

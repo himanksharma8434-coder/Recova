@@ -16,6 +16,10 @@ class BodyAgeCubit extends Cubit<BodyAgeState> {
     String? sex,
     double? heightCm,
     double? weightKg,
+    double? waistCircumferenceCm,
+    double? hipCircumferenceCm,
+    String? smokingStatus,
+    int? stressLevel,
   }) async {
     emit(const BodyAgeLoading());
 
@@ -25,6 +29,10 @@ class BodyAgeCubit extends Cubit<BodyAgeState> {
         sex: sex,
         heightCm: heightCm,
         weightKg: weightKg,
+        waistCircumferenceCm: waistCircumferenceCm,
+        hipCircumferenceCm: hipCircumferenceCm,
+        smokingStatus: smokingStatus,
+        stressLevel: stressLevel,
       );
 
       if (result == null) {
