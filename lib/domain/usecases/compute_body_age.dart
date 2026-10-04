@@ -44,6 +44,14 @@ class BodyAgeInput {
   final double? systolicBp;
   final double? diastolicBp;
 
+  // ── Body Measurements (manual) ──
+  final double? waistCircumferenceCm;
+  final double? hipCircumferenceCm;
+
+  // ── Lifestyle & Risk Factors ──
+  final String? smokingStatus; // 'never' | 'former' | 'current' | null
+  final int? stressLevel; // 1 to 10
+
   const BodyAgeInput({
     required this.age,
     this.sex,
@@ -67,6 +75,10 @@ class BodyAgeInput {
     this.dataDays,
     this.systolicBp,
     this.diastolicBp,
+    this.waistCircumferenceCm,
+    this.hipCircumferenceCm,
+    this.smokingStatus,
+    this.stressLevel,
   });
 }
 
@@ -114,6 +126,23 @@ class ComputeBodyAge {
     final heightValid = input.heightCm != null && input.heightCm! >= 120;
     final weightValid = input.weightKg != null && input.weightKg! >= 30;
 
+    // Clinical referral alerts (Safety Rule 3 & 5)
+    if (rhrValid &&
+        (input.restingHrAvg30d! > 100 || input.restingHrAvg30d! < 40)) {
+      dataQualityFlags.add(
+          'Resting HR (${input.restingHrAvg30d!.toStringAsFixed(0)} bpm) is outside the typical 40–100 bpm range; discuss with a clinician');
+    }
+    if (input.systolicBp != null &&
+        input.diastolicBp != null &&
+        (input.systolicBp! >= 140 || input.diastolicBp! >= 90)) {
+      dataQualityFlags.add(
+          'Blood pressure (${input.systolicBp!.toStringAsFixed(0)}/${input.diastolicBp!.toStringAsFixed(0)} mmHg) is elevated (>=140/90); discuss with a clinician');
+    }
+    if (input.spo2AvgSleep != null && input.spo2AvgSleep! < 92) {
+      dataQualityFlags.add(
+          'Sleep SpO2 average (${input.spo2AvgSleep!.toStringAsFixed(1)}%) is below 92%; recommend discussing with a clinician');
+    }
+
     // Data days warning
     if (input.dataDays != null && input.dataDays! < 7) {
       dataQualityFlags.add(
@@ -142,6 +171,24 @@ class ComputeBodyAge {
     if (heightValid && weightValid) {
       final heightM = input.heightCm! / 100.0;
       bmi = input.weightKg! / (heightM * heightM);
+      if (bmi < 17.0) {
+        dataQualityFlags.add(
+            'BMI (${bmi.toStringAsFixed(1)}) is significantly low; recommend speaking with a healthcare professional');
+      }
+    }
+
+    double? whtr;
+    if (input.waistCircumferenceCm != null &&
+        heightValid &&
+        input.waistCircumferenceCm! > 30) {
+      whtr = input.waistCircumferenceCm! / input.heightCm!;
+    }
+
+    double? whr;
+    if (input.waistCircumferenceCm != null &&
+        input.hipCircumferenceCm != null &&
+        input.hipCircumferenceCm! > 30) {
+      whr = input.waistCircumferenceCm! / input.hipCircumferenceCm!;
     }
 
     double? bmrKcal;
@@ -184,8 +231,8 @@ class ComputeBodyAge {
     }
 
     // 2. Body Composition (20%)
-    final bodyCompPercentile =
-        _scoreBodyComposition(input, bmi, heightValid, weightValid);
+    final bodyCompPercentile = _scoreBodyComposition(
+        input, bmi, whtr, whr, heightValid, weightValid);
     if (bodyCompPercentile != null) {
       scoredComponents.add(bodyCompPercentile);
     } else {
@@ -291,18 +338,19 @@ class ComputeBodyAge {
     }).toList();
 
     // ── Top 3 Levers ──
-    final levers = _generateTopLevers(
-        scoredComponents, input, missingInputs);
+    final levers =
+        _generateTopLevers(scoredComponents, input, missingInputs, bmi);
 
     return BodyAgeResult(
       chronologicalAge: input.age,
       bodyAge: bodyAge,
-      ageDifferenceYears:
-          double.parse(ageDiff.toStringAsFixed(1)),
+      ageDifferenceYears: double.parse(ageDiff.toStringAsFixed(1)),
       confidence: confidence,
       components: components,
       derivedMetrics: BodyAgeDerivedMetrics(
         bmi: bmi != null ? double.parse(bmi.toStringAsFixed(1)) : null,
+        whtr: whtr != null ? double.parse(whtr.toStringAsFixed(3)) : null,
+        whr: whr != null ? double.parse(whr.toStringAsFixed(3)) : null,
         bmrKcal:
             bmrKcal != null ? double.parse(bmrKcal.toStringAsFixed(0)) : null,
         vo2maxUsed: vo2maxUsed,
@@ -363,26 +411,65 @@ class ComputeBodyAge {
   }
 
   /// Body Composition — 20% base weight.
+  /// Prioritizes waist-to-height ratio (WHtR) and waist circumference,
+  /// with BMI as secondary / de-emphasized.
   _ScoredCategory? _scoreBodyComposition(
-      BodyAgeInput input, double? bmi, bool heightValid, bool weightValid) {
-    if (!heightValid || !weightValid || bmi == null) return null;
-
+      BodyAgeInput input,
+      double? bmi,
+      double? whtr,
+      double? whr,
+      bool heightValid,
+      bool weightValid) {
     final inputs = <String>[];
-    inputs.add('BMI (${bmi.toStringAsFixed(1)})');
+    final percentiles = <double>[];
 
-    // BMI percentile (NHANES norms — BMI is a weak indicator, de-emphasized)
-    final percentile = _bmiPercentile(bmi, input.sex);
+    // WHtR (Waist-to-Height Ratio) - highest clinical value for central adiposity
+    if (whtr != null) {
+      inputs.add('WHtR (${whtr.toStringAsFixed(3)})');
+      double p;
+      if (whtr <= 0.45) {
+        p = 70.0 + (0.45 - whtr) * 120;
+      } else if (whtr <= 0.50) {
+        p = 50.0 + (0.50 - whtr) * 400;
+      } else {
+        p = 50.0 - (whtr - 0.50) * 300;
+      }
+      percentiles.add(p.clamp(5, 95));
+    } else if (input.waistCircumferenceCm != null &&
+        input.waistCircumferenceCm! > 40) {
+      inputs.add(
+          'Waist (${input.waistCircumferenceCm!.toStringAsFixed(0)} cm)');
+      final threshold = input.sex == 'female' ? 80.0 : 94.0;
+      final diff = threshold - input.waistCircumferenceCm!;
+      final p = (50.0 + diff * 2.0).clamp(5, 95);
+      percentiles.add(p.toDouble());
+    }
 
-    final offset = _percentileToOffset(percentile);
+    if (whr != null) {
+      inputs.add('WHR (${whr.toStringAsFixed(2)})');
+    }
+
+    // BMI percentile (NHANES norms — lower weight if WHtR present)
+    if (bmi != null && heightValid && weightValid) {
+      inputs.add('BMI (${bmi.toStringAsFixed(1)})');
+      final p = _bmiPercentile(bmi, input.sex);
+      percentiles.add(p);
+    }
+
+    if (percentiles.isEmpty) return null;
+
+    final avgPercentile =
+        percentiles.reduce((a, b) => a + b) / percentiles.length;
+    final offset = _percentileToOffset(avgPercentile);
 
     return _ScoredCategory(
       category: 'Body Composition',
       baseWeight: 0.20,
-      percentile: percentile,
-      percentileRange: _percentileRangeString(percentile),
+      percentile: avgPercentile,
+      percentileRange: _percentileRangeString(avgPercentile),
       offsetYears: offset,
       inputsUsed: inputs,
-      note: _bodyCompNote(bmi),
+      note: _bodyCompNote(bmi ?? 22.0),
     );
   }
 
@@ -500,6 +587,28 @@ class ComputeBodyAge {
       inputs.add('Daily steps (${input.dailyStepsAvg})');
     }
 
+    if (input.smokingStatus != null) {
+      if (input.smokingStatus == 'never') {
+        percentiles.add(60);
+        inputs.add('Non-smoker');
+      } else if (input.smokingStatus == 'former') {
+        percentiles.add(45);
+        inputs.add('Former smoker');
+      } else if (input.smokingStatus == 'current') {
+        percentiles.add(20);
+        inputs.add('Current smoker');
+      }
+    }
+
+    if (input.stressLevel != null &&
+        input.stressLevel! >= 1 &&
+        input.stressLevel! <= 10) {
+      final stressP =
+          (85.0 - (input.stressLevel! - 1) * 7.0).clamp(10.0, 90.0);
+      percentiles.add(stressP);
+      inputs.add('Stress level (${input.stressLevel}/10)');
+    }
+
     if (input.spo2AvgSleep != null && input.spo2AvgSleep! > 0) {
       final p = _spo2Percentile(input.spo2AvgSleep!);
       percentiles.add(p);
@@ -517,7 +626,13 @@ class ComputeBodyAge {
 
     final avgPercentile =
         percentiles.reduce((a, b) => a + b) / percentiles.length;
-    final offset = _percentileToOffset(avgPercentile);
+    double offset = _percentileToOffset(avgPercentile);
+
+    // Apply smoking override: current smoking adds a minimum of +2 years to the lifestyle offset before weighting
+    if (input.smokingStatus == 'current') {
+      offset = max(offset + 2.0, 2.0);
+      inputs.add('Smoking override (+2 yr min)');
+    }
 
     return _ScoredCategory(
       category: 'Lifestyle & Activity',
@@ -778,17 +893,31 @@ class ComputeBodyAge {
   // ═══════════════════════════════════════════════════════════════════════════
 
   List<BodyAgeLever> _generateTopLevers(
-      List<_ScoredCategory> scored, BodyAgeInput input,
-      List<String> missing) {
-    // Sort by worst offset (largest positive = most aging)
-    final worst = List<_ScoredCategory>.from(scored)
-      ..sort((a, b) => b.offsetYears.compareTo(a.offsetYears));
-
+      List<_ScoredCategory> scored,
+      BodyAgeInput input,
+      List<String> missing,
+      double? bmi) {
     final levers = <BodyAgeLever>[];
 
-    for (final c in worst) {
+    // Priority lever: Smoking cessation
+    if (input.smokingStatus == 'current') {
+      levers.add(const BodyAgeLever(
+        action:
+            'Begin a smoking cessation program with professional or behavioral support',
+        expectedEffect:
+            'Cardiorespiratory health recovers rapidly; removes the +2 year body age penalty',
+        timeframe: '12–52 weeks',
+      ));
+    }
+
+    // Sort by lowest percentile (greatest opportunity for improvement)
+    final sortedByOpportunity = List<_ScoredCategory>.from(scored)
+      ..sort((a, b) => a.percentile.compareTo(b.percentile));
+
+    for (final c in sortedByOpportunity) {
       if (levers.length >= 3) break;
-      if (c.offsetYears <= 0) continue; // only suggest for aging categories
+      // If category has room for improvement (percentile < 75 or offset > 0)
+      if (c.percentile >= 80 && c.offsetYears < 0) continue;
 
       switch (c.category) {
         case 'Cardiorespiratory Fitness':
@@ -796,23 +925,36 @@ class ComputeBodyAge {
             action:
                 'Add 3 sessions of 30-minute moderate-intensity cardio per week '
                 '(brisk walking, cycling, or swimming)',
-            expectedEffect: 'Could improve VO2 max by 10–15% and lower body age by 2–4 years',
+            expectedEffect:
+                'Could improve VO2 max by 10–15% and lower body age by 2–4 years',
             timeframe: '8–12 weeks',
           ));
         case 'Body Composition':
-          levers.add(const BodyAgeLever(
-            action:
-                'Target a gradual caloric deficit of 300–500 kcal/day via '
-                'portion control and increased protein intake',
-            expectedEffect: 'Each 5% reduction in excess body fat can lower body age by 1–2 years',
-            timeframe: '12–24 weeks',
-          ));
+          if (bmi != null && bmi < 18.5) {
+            levers.add(const BodyAgeLever(
+              action:
+                  'Prioritize nutrient-dense meals and consult a healthcare professional regarding healthy weight maintenance',
+              expectedEffect:
+                  'Supports lean body mass and long-term metabolic health',
+              timeframe: 'Ongoing',
+            ));
+          } else {
+            levers.add(const BodyAgeLever(
+              action:
+                  'Target a gradual caloric deficit of 300–500 kcal/day via '
+                  'portion control and increased protein intake',
+              expectedEffect:
+                  'Each 5% reduction in excess body fat can lower body age by 1–2 years',
+              timeframe: '12–24 weeks',
+            ));
+          }
         case 'Autonomic & Recovery':
           levers.add(const BodyAgeLever(
             action:
                 'Practice 10 minutes of daily breathwork or meditation '
                 'and ensure 2 rest days per week',
-            expectedEffect: 'Can improve HRV by 10–20% and lower resting heart rate',
+            expectedEffect:
+                'Can improve HRV by 10–20% and lower resting heart rate',
             timeframe: '4–8 weeks',
           ));
         case 'Sleep Quality':
@@ -826,28 +968,56 @@ class ComputeBodyAge {
           levers.add(const BodyAgeLever(
             action:
                 'Increase daily steps to 8,000+ and add 150 min/week of moderate activity',
-            expectedEffect: 'Meeting WHO guidelines can lower body age by 1–3 years',
+            expectedEffect:
+                'Meeting WHO guidelines can lower body age by 1–3 years',
             timeframe: '4–8 weeks',
           ));
       }
     }
 
     // Fill remaining slots with missing-data suggestions
-    if (levers.length < 3 && missing.isNotEmpty) {
-      levers.add(BodyAgeLever(
-        action: 'Provide ${missing.first} for a more accurate estimate',
-        expectedEffect: 'Could significantly change the body age calculation',
-        timeframe: 'Immediate improvement in accuracy',
-      ));
+    while (levers.length < 3 && missing.isNotEmpty) {
+      final mIdx = levers.where((l) => l.action.startsWith('Provide ')).length;
+      if (mIdx < missing.length) {
+        levers.add(BodyAgeLever(
+          action: 'Provide ${missing[mIdx]} for a more accurate estimate',
+          expectedEffect:
+              'Improves estimate accuracy across physiological domains',
+          timeframe: 'Immediate',
+        ));
+      } else {
+        break;
+      }
     }
 
-    // If still < 3, add general positive levers
-    if (levers.length < 3) {
-      levers.add(const BodyAgeLever(
-        action: 'Add 2 strength-training sessions per week targeting major muscle groups',
-        expectedEffect: 'Improved muscular fitness can reduce functional age by 1–3 years',
+    // Curated high-impact levers to guarantee exactly 3 top levers
+    const fallbackLevers = [
+      BodyAgeLever(
+        action:
+            'Add 2 strength-training sessions per week targeting major muscle groups',
+        expectedEffect:
+            'Improved muscular fitness can reduce functional age by 1–3 years',
         timeframe: '8–12 weeks',
-      ));
+      ),
+      BodyAgeLever(
+        action: 'Perform 45 minutes of weekly Zone 2 aerobic base training',
+        expectedEffect: 'Enhances mitochondrial density and aerobic efficiency',
+        timeframe: '6–10 weeks',
+      ),
+      BodyAgeLever(
+        action:
+            'Practice 10 minutes of daily diaphragmatic breathwork before sleep',
+        expectedEffect:
+            'Supports vagal tone and overnight heart rate recovery',
+        timeframe: '3–6 weeks',
+      ),
+    ];
+
+    for (final fb in fallbackLevers) {
+      if (levers.length >= 3) break;
+      if (!levers.any((l) => l.action == fb.action)) {
+        levers.add(fb);
+      }
     }
 
     return levers.take(3).toList();
@@ -858,7 +1028,7 @@ class ComputeBodyAge {
 class _ScoredCategory {
   final String category;
   final double baseWeight;
-  double normalizedWeight;
+  double normalizedWeight = 0;
   final double percentile;
   final String percentileRange;
   final double offsetYears;
@@ -868,7 +1038,6 @@ class _ScoredCategory {
   _ScoredCategory({
     required this.category,
     required this.baseWeight,
-    this.normalizedWeight = 0,
     required this.percentile,
     required this.percentileRange,
     required this.offsetYears,

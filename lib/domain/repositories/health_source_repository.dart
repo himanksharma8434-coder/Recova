@@ -1,3 +1,4 @@
+import '../entities/body_age_result.dart';
 import '../entities/health_record.dart';
 
 /// Abstract interface for the health data source.
@@ -34,6 +35,20 @@ abstract class HealthSourceRepository {
 
   /// Stream of the latest derived metrics for reactive UI.
   Stream<DerivedMetricSummary?> watchLatestSummary();
+
+  /// Compute the user's estimated body age from all available wearable data.
+  /// [age] and [sex] are provided by the user (or derived from platform DOB).
+  /// All other inputs are gathered automatically from the local health database.
+  Future<BodyAgeResult?> getBodyAge({
+    required int age,
+    String? sex,
+    double? heightCm,
+    double? weightKg,
+    double? waistCircumferenceCm,
+    double? hipCircumferenceCm,
+    String? smokingStatus,
+    int? stressLevel,
+  });
 }
 
 /// Breakdown of sleep architecture stages from wearable sensors.
