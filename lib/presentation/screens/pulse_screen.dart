@@ -18,6 +18,7 @@ import 'blood_o2_detail_screen.dart';
 import 'sleep_architecture_detail_screen.dart';
 import 'hrv_detail_screen.dart';
 import 'body_age_screen.dart';
+import 'profile_settings_screen.dart';
 
 class PulseScreen extends StatelessWidget {
   final DerivedMetricSummary? summary;
@@ -73,6 +74,14 @@ class PulseScreen extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BodyAgeScreen(summary: summary),
+      ),
+    );
+  }
+
+  void _openProfileSettings(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ProfileSettingsScreen(),
       ),
     );
   }
@@ -146,27 +155,42 @@ class PulseScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              // Sync Button
-              BlocBuilder<HealthSyncCubit, HealthSyncState>(
-                buildWhen: (prev, current) =>
-                    (prev is HealthSyncing) != (current is HealthSyncing),
-                builder: (context, state) {
-                  return LiquidGlass(
+              // Actions: Settings & Sync
+              Row(
+                children: [
+                  LiquidGlass(
                     borderRadius: BorderRadius.circular(Tok.radiusSm),
                     padding: const EdgeInsets.all(Tok.space12),
-                    onTap: state is HealthSyncing ? null : onSyncTap,
-                    child: state is HealthSyncing
-                        ? GlassLoadingSpinner(
-                            size: 16,
-                            color: Tok.neonAccent,
-                          )
-                        : Icon(
-                            Icons.sensors_outlined,
-                            size: 18,
-                            color: Tok.neonAccent,
-                          ),
-                  );
-                },
+                    onTap: () => _openProfileSettings(context),
+                    child: const Icon(
+                      Icons.tune_rounded,
+                      size: 18,
+                      color: Tok.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: Tok.space8),
+                  BlocBuilder<HealthSyncCubit, HealthSyncState>(
+                    buildWhen: (prev, current) =>
+                        (prev is HealthSyncing) != (current is HealthSyncing),
+                    builder: (context, state) {
+                      return LiquidGlass(
+                        borderRadius: BorderRadius.circular(Tok.radiusSm),
+                        padding: const EdgeInsets.all(Tok.space12),
+                        onTap: state is HealthSyncing ? null : onSyncTap,
+                        child: state is HealthSyncing
+                            ? GlassLoadingSpinner(
+                                size: 16,
+                                color: Tok.neonAccent,
+                              )
+                            : Icon(
+                                Icons.sensors_outlined,
+                                size: 18,
+                                color: Tok.neonAccent,
+                              ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),
