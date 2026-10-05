@@ -61,36 +61,48 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Background glass disc with neon glow
-            AnimatedBuilder(
-              animation: _pulseAnimation,
-              builder: (context, child) {
-                return Container(
-                  width: widget.size * 0.72,
-                  height: widget.size * 0.72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Tok.canvasDeep,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        blurRadius: 24,
-                        spreadRadius: 2,
-                      ),
-                      // Neon accent glow that pulses
-                      if (widget.score != null)
-                        BoxShadow(
-                          color: tier.color.withValues(
-                            alpha: 0.1 * _pulseAnimation.value,
-                          ),
-                          blurRadius: 40,
-                          spreadRadius: 4,
-                        ),
-                    ],
+            // Static background glass disc
+            Container(
+              width: widget.size * 0.72,
+              height: widget.size * 0.72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Tok.canvasDeep,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black54,
+                    blurRadius: 20,
+                    spreadRadius: 1,
                   ),
-                );
-              },
+                ],
+              ),
             ),
+
+            // Bioluminescent pulsing glow (isolated in RepaintBoundary)
+            if (widget.score != null)
+              RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: _pulseAnimation,
+                  builder: (context, _) {
+                    return Container(
+                      width: widget.size * 0.72,
+                      height: widget.size * 0.72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: tier.color.withValues(
+                              alpha: 0.20 * _pulseAnimation.value,
+                            ),
+                            blurRadius: 28,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
 
             // Custom Painter for gauge arcs
             RepaintBoundary(
@@ -140,54 +152,57 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
                 ),
                 const SizedBox(height: Tok.space8),
 
-                // Status Pill with pulsing dot
-                AnimatedBuilder(
-                  animation: _pulseAnimation,
-                  builder: (context, child) {
-                    return LiquidGlass(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Tok.space12,
-                        vertical: Tok.space4,
-                      ),
-                      customBottomReflection: tier.color.withValues(alpha: 0.2),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: tier.color.withValues(
-                                alpha: _pulseAnimation.value,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: tier.color.withValues(
-                                    alpha: _pulseAnimation.value * 0.5,
-                                  ),
-                                  blurRadius: 6,
-                                  spreadRadius: 1,
+                // Status Pill with isolated pulsing dot
+                LiquidGlass(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Tok.space12,
+                    vertical: Tok.space4,
+                  ),
+                  hasBlur: false,
+                  customBottomReflection: tier.color.withValues(alpha: 0.2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RepaintBoundary(
+                        child: AnimatedBuilder(
+                          animation: _pulseAnimation,
+                          builder: (context, _) {
+                            return Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: tier.color.withValues(
+                                  alpha: _pulseAnimation.value,
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: Tok.space6),
-                          Flexible(
-                            child: Text(
-                              tier.statusSubtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TokType.caption.copyWith(
-                                color: Tok.textSecondary,
-                                letterSpacing: 0.8,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: tier.color.withValues(
+                                      alpha: _pulseAnimation.value * 0.5,
+                                    ),
+                                    blurRadius: 5,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
-                        ],
+                            );
+                          },
+                        ),
                       ),
-                    );
-                  },
+                      const SizedBox(width: Tok.space6),
+                      Flexible(
+                        child: Text(
+                          tier.statusSubtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TokType.caption.copyWith(
+                            color: Tok.textSecondary,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 if (widget.onTap != null) ...[
                   const SizedBox(height: 5),
@@ -266,6 +281,7 @@ class _GlassGaugePainter extends CustomPainter {
 
     // 3. Active score progress
     if (score > 0) {
+      final sweepAngle = (score / 100).clamp(0.0, 1.0) * 2 * pi;
       final activeDotsCount = ((score / 100) * totalDots).round();
 
       final activeDotPaint = Paint()
@@ -279,12 +295,27 @@ class _GlassGaugePainter extends CustomPainter {
         canvas.drawCircle(Offset(dotX, dotY), 2.2, activeDotPaint);
       }
 
-      // Inner continuous arc
-      final sweepAngle = (score / 100) * 2 * pi;
-      final innerArcPaint = Paint()
-        ..color = accentColor.withValues(alpha: 0.85)
+      // Neon glow arc (drawn underneath)
+      final glowArcPaint = Paint()
+        ..color = accentColor.withValues(alpha: 0.35)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
+        ..strokeWidth = 7
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius - 6),
+        -pi / 2,
+        sweepAngle,
+        false,
+        glowArcPaint,
+      );
+
+      // Inner continuous arc
+      final innerArcPaint = Paint()
+        ..color = accentColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0
         ..strokeCap = StrokeCap.round;
 
       canvas.drawArc(
@@ -293,22 +324,6 @@ class _GlassGaugePainter extends CustomPainter {
         sweepAngle,
         false,
         innerArcPaint,
-      );
-
-      // Neon glow arc (drawn underneath)
-      final glowArcPaint = Paint()
-        ..color = accentColor.withValues(alpha: 0.15)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 8
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius - 6),
-        -pi / 2,
-        sweepAngle,
-        false,
-        glowArcPaint,
       );
     }
   }

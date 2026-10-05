@@ -26,6 +26,7 @@ class LiquidGlass extends StatefulWidget {
   final Color? customBottomReflection;
   final Color? accentGlow;
   final bool enableInteractiveScale;
+  final bool hasBlur;
 
   const LiquidGlass({
     super.key,
@@ -41,6 +42,7 @@ class LiquidGlass extends StatefulWidget {
     this.customBottomReflection,
     this.accentGlow,
     this.enableInteractiveScale = true,
+    this.hasBlur = true,
   });
 
   @override
@@ -60,17 +62,16 @@ class _LiquidGlassState extends State<LiquidGlass> {
       height: widget.height,
       decoration: BoxDecoration(
         borderRadius: effectiveRadius,
-        // Elevation drop shadow: 0 4px 24px rgba(0, 0, 0, 0.15)
         boxShadow: [
           if (widget.accentGlow != null)
             BoxShadow(
               color: widget.accentGlow!,
-              blurRadius: 24.0,
-              spreadRadius: 1.0,
+              blurRadius: 20.0,
+              spreadRadius: 0.5,
             ),
           const BoxShadow(
             color: Tok.liquidGlassOuterShadow,
-            blurRadius: 24.0,
+            blurRadius: 18.0,
             spreadRadius: 0.0,
             offset: Offset(0, 4),
           ),
@@ -80,30 +81,33 @@ class _LiquidGlassState extends State<LiquidGlass> {
         borderRadius: effectiveRadius,
         child: Stack(
           children: [
-            // 1. Backdrop Blur (16px) & Saturation (180%)
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.compose(
-                  outer: ImageFilter.blur(
+            // 1. Single-pass GPU-accelerated frosted glass blur
+            if (widget.hasBlur)
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(
                     sigmaX: Tok.liquidGlassBlurSigma,
                     sigmaY: Tok.liquidGlassBlurSigma,
                   ),
-                  inner: ColorFilter.matrix(
-                    Tok.saturationMatrix(Tok.liquidGlassSaturation),
-                  ),
+                  child: const SizedBox.expand(),
                 ),
-                child: const SizedBox.expand(),
               ),
-            ),
 
-            // 2. Base Fill & Delicate Border:
-            // Background: rgba(255, 255, 255, 0.08)
-            // Border: 1px solid rgba(255, 255, 255, 0.25)
+            // 2. Base Translucent Glass Fill & Specular Gradient
             Container(
               padding: widget.padding,
               decoration: BoxDecoration(
-                color: Tok.liquidGlassFill,
                 borderRadius: effectiveRadius,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.12),
+                    Colors.white.withValues(alpha: 0.05),
+                    Colors.white.withValues(alpha: 0.02),
+                  ],
+                  stops: const [0.0, 0.45, 1.0],
+                ),
                 border: Border.all(
                   color: Tok.liquidGlassBorder,
                   width: 1.0,
@@ -112,13 +116,11 @@ class _LiquidGlassState extends State<LiquidGlass> {
               child: widget.child,
             ),
 
-            // 3. Liquid Depth Inset Highlights:
-            // - Crisp inner top highlight: inset 0 1px 1px rgba(255, 255, 255, 0.4)
-            // - Subtle neon pink inner bottom shadow: inset 0 -1px 1px rgba(255, 0, 128, 0.1)
+            // 3. Ultra-fast GPU Specular Highlight & Rim Refraction
             Positioned.fill(
               child: IgnorePointer(
                 child: CustomPaint(
-                  painter: _LiquidGlassInnerShadowPainter(
+                  painter: _LiquidGlassSpecularPainter(
                     borderRadius: effectiveRadius,
                     topHighlightColor: Tok.liquidGlassTopHighlight,
                     bottomReflectionColor: widget.customBottomReflection ??
@@ -154,19 +156,19 @@ class _LiquidGlassState extends State<LiquidGlass> {
       );
     }
 
-    return content;
+    return RepaintBoundary(child: content);
   }
 }
 
-/// Painter that renders the dual inset shadows:
-/// - Top specular edge: inset 0 1px 1px rgba(255, 255, 255, 0.4)
-/// - Bottom liquid refraction: inset 0 -1px 1px rgba(255, 0, 128, 0.1)
-class _LiquidGlassInnerShadowPainter extends CustomPainter {
+/// Ultra-fast GPU shader painter for specular top edge and subtle rim reflection.
+/// Uses a single hardware drawRRect with a linear gradient shader.
+/// 0% CPU path clipping overhead, 60/120fps hardware acceleration.
+class _LiquidGlassSpecularPainter extends CustomPainter {
   final BorderRadius borderRadius;
   final Color topHighlightColor;
   final Color bottomReflectionColor;
 
-  const _LiquidGlassInnerShadowPainter({
+  const _LiquidGlassSpecularPainter({
     required this.borderRadius,
     required this.topHighlightColor,
     required this.bottomReflectionColor,
@@ -176,65 +178,29 @@ class _LiquidGlassInnerShadowPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
 
-    final Rect rect = Offset.zero & size;
-    final RRect rrect = borderRadius.toRRect(rect);
+    final rect = Offset.zero & size;
+    final rrect = borderRadius.toRRect(rect).deflate(0.5);
 
-    // Confine all inner shadows strictly to the container bounds
-    canvas.save();
-    canvas.clipRRect(rrect);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          topHighlightColor,
+          Colors.transparent,
+          Colors.transparent,
+          bottomReflectionColor,
+        ],
+        stops: const [0.0, 0.35, 0.70, 1.0],
+      ).createShader(rect);
 
-    // 1. Crisp inner top highlight (inset 0 1px 1px rgba(255, 255, 255, 0.4))
-    _drawInsetShadow(
-      canvas: canvas,
-      rrect: rrect,
-      color: topHighlightColor,
-      offset: const Offset(0, 1),
-      blurRadius: 1.0,
-    );
-
-    // 2. Subtle neon pink inner bottom reflection (inset 0 -1px 1px rgba(255, 0, 128, 0.1))
-    _drawInsetShadow(
-      canvas: canvas,
-      rrect: rrect,
-      color: bottomReflectionColor,
-      offset: const Offset(0, -1),
-      blurRadius: 1.0,
-    );
-
-    canvas.restore();
-  }
-
-  void _drawInsetShadow({
-    required Canvas canvas,
-    required RRect rrect,
-    required Color color,
-    required Offset offset,
-    required double blurRadius,
-  }) {
-    if (color.a == 0) return;
-
-    final Paint paint = Paint()
-      ..color = color
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, blurRadius);
-
-    // Create an expanded outer path that encloses the inner hole
-    final Rect outerBounds = rrect.outerRect.inflate(12.0 + blurRadius);
-    final Path outerPath = Path()..addRect(outerBounds);
-    final Path innerPath = Path()..addRRect(rrect);
-    final Path invertedShadowHole = Path.combine(
-      PathOperation.difference,
-      outerPath,
-      innerPath,
-    );
-
-    canvas.save();
-    canvas.translate(offset.dx, offset.dy);
-    canvas.drawPath(invertedShadowHole, paint);
-    canvas.restore();
+    canvas.drawRRect(rrect, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _LiquidGlassInnerShadowPainter oldDelegate) {
+  bool shouldRepaint(covariant _LiquidGlassSpecularPainter oldDelegate) {
     return oldDelegate.borderRadius != borderRadius ||
         oldDelegate.topHighlightColor != topHighlightColor ||
         oldDelegate.bottomReflectionColor != bottomReflectionColor;
@@ -271,6 +237,7 @@ class LiquidGlassPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlass(
       padding: padding,
+      hasBlur: false,
       onTap: onTap,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -325,6 +292,8 @@ class LiquidGlassButton extends StatelessWidget {
   final Widget? icon;
   final VoidCallback onTap;
   final Color? accentColor;
+  final double? width;
+  final double? height;
 
   const LiquidGlassButton({
     super.key,
@@ -332,16 +301,21 @@ class LiquidGlassButton extends StatelessWidget {
     required this.onTap,
     this.icon,
     this.accentColor,
+    this.width,
+    this.height,
   });
 
   @override
   Widget build(BuildContext context) {
     return LiquidGlass(
+      width: width,
+      height: height,
       onTap: onTap,
+      accentGlow: accentColor?.withValues(alpha: 0.25),
       customBottomReflection: accentColor?.withValues(alpha: 0.25),
       padding: const EdgeInsets.symmetric(
         horizontal: Tok.space24,
-        vertical: Tok.space16,
+        vertical: Tok.space14,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
