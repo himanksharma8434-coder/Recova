@@ -9,56 +9,61 @@ class Tok {
   static const Color glassFill = Color(0x1AFFFFFF);          // 10% white base
   static const Color glassFillElevated = Color(0x24FFFFFF);  // 14% white for elevated glass
   static const Color glassFillRecessed = Color(0x0FFFFFFF);  // 6% white for recessed items
+  static const Color glassFillDark = Color(0xD90D121A);      // 85% deep frosted glass sheet for bottom modals
 
   static const Color glassBorder = Color(0x33FFFFFF);        // 20% white translucent edge
   static const Color glassBorderBright = Color(0x59FFFFFF);  // 35% white — top edge specular reflection
 
   static const Color glassGlow = Color(0x1AFFFFFF);          // 10% subtle white bloom
 
-  static const double glassBlurSigma = 28.0;                 // Deep iPhone frosted blur
-  static const double glassBlurSigmaLight = 16.0;
+  static const double glassBlurSigma = 16.0;                 // Deep frosted blur
+  static const double glassBlurSigmaLight = 10.0;
 
   // ── Liquid Glassmorphism Standard Tokens (Strict CSS Standard) ─────────────
   // 1. Glass Base: rgba(255, 255, 255, 0.08)
-  // 2. Backdrop Blur & Saturation: blur(16px) saturate(180%)
+  // 2. Backdrop Blur & Saturation: blur(12px)
   // 3. Liquid Depth (Box Shadows):
-  //    - Outer drop shadow: 0 4px 24px rgba(0, 0, 0, 0.15)
-  //    - Inner top highlight: inset 0 1px 1px rgba(255, 255, 255, 0.4)
-  //    - Inner bottom shadow: inset 0 -1px 1px rgba(255, 0, 128, 0.1) (neon pink)
-  // 4. Border: 1px solid rgba(255, 255, 255, 0.25)
+  //    - Outer drop shadow: 0 4px 20px rgba(0, 0, 0, 0.20)
+  //    - Inner top highlight: inset 0 1px 1px rgba(255, 255, 255, 0.35)
+  //    - Inner bottom shadow: subtle emerald rim refraction
+  // 4. Border: 1px solid rgba(255, 255, 255, 0.22)
   // 5. Shape: border-radius: 100px (pill shape)
   static const Color liquidGlassFill = Color(0x14FFFFFF);              // rgba(255, 255, 255, 0.08)
-  static const Color liquidGlassBorder = Color(0x40FFFFFF);            // rgba(255, 255, 255, 0.25)
-  static const Color liquidGlassTopHighlight = Color(0x66FFFFFF);      // rgba(255, 255, 255, 0.40)
-  static const Color liquidGlassBottomReflection = Color(0x1AFF0080);  // rgba(255, 0, 128, 0.10) (neon pink)
-  static const Color liquidGlassOuterShadow = Color(0x26000000);       // rgba(0, 0, 0, 0.15)
-  static const double liquidGlassBlurSigma = 16.0;
+  static const Color liquidGlassBorder = Color(0x38FFFFFF);            // rgba(255, 255, 255, 0.22)
+  static const Color liquidGlassTopHighlight = Color(0x59FFFFFF);      // rgba(255, 255, 255, 0.35)
+  static const Color liquidGlassBottomReflection = Color(0x1400F090);  // subtle emerald rim refraction
+  static const Color liquidGlassOuterShadow = Color(0x33000000);       // deep OLED shadow 0 4px 20px
+  static const double liquidGlassBlurSigma = 12.0;                     // Calibrated for 60/120fps fluid GPU blur
   static const double liquidGlassSaturation = 1.8;                     // 180%
   static const double liquidGlassRadiusPill = 100.0;
 
-  // ── Monochrome Accent System ──────────────────────────────────────────────
-  static const Color neonAccent = Color(0xFFFFFFFF);         // Pure white
-  static const Color neonAccentDim = Color(0xFFD0D0D0);      // Dimmed white
-  static const Color neonAccentGlow = Color(0x33FFFFFF);      // 20% white for glows
-  static const Color neonAccentSurface = Color(0x1AFFFFFF);   // 10% white for containers
+  // ── Bioluminescent Neon Accent System ─────────────────────────────────────
+  static const Color neonAccent = Color(0xFF00F090);         // Recovery Emerald signature
+  static const Color neonAccentDim = Color(0xFF00E388);      // Calibrated green
+  static const Color neonAccentGlow = Color(0x5900F090);     // Photonic halo glow
+  static const Color neonAccentSurface = Color(0x1F00F090);  // Translucent pill surface
 
-  static const Color accentBlue = Color(0xFFB0B8C4);          // Silver — informational
-  static const Color accentBlueSurface = Color(0x1AB0B8C4);
+  static const Color accentBlue = Color(0xFF00D2FF);          // Restorative Azure / Sleep
+  static const Color accentBlueSurface = Color(0x1F00D2FF);
+  static const Color accentAmber = Color(0xFFFF6B00);         // Kinetic Amber / Strain
+  static const Color accentAmberSurface = Color(0x1FFF6B00);
+  static const Color accentViolet = Color(0xFF8B5CF6);        // Neural Violet / REM / AI
+  static const Color accentVioletSurface = Color(0x1F8B5CF6);
 
-  // ── Recovery Tiers (monochrome grayscale) ─────────────────────────────────
-  static const Color recoveryOptimal = Color(0xFFFFFFFF);      // White = optimal
-  static const Color recoveryOptimalGlow = Color(0x33FFFFFF);
-  static const Color recoveryOptimalSurface = Color(0x1AFFFFFF);
+  // ── Physiological Recovery Tiers ──────────────────────────────────────────
+  static const Color recoveryOptimal = Color(0xFF00F090);      // Emerald = optimal (67-100%)
+  static const Color recoveryOptimalGlow = Color(0x5900F090);
+  static const Color recoveryOptimalSurface = Color(0x1F00F090);
 
-  static const Color recoveryModerate = Color(0xFF8E8E93);     // Mid-gray = moderate
-  static const Color recoveryModerateGlow = Color(0x338E8E93);
-  static const Color recoveryModerateSurface = Color(0x1A8E8E93);
+  static const Color recoveryModerate = Color(0xFFFF9E00);     // Kinetic Amber = moderate (34-66%)
+  static const Color recoveryModerateGlow = Color(0x59FF9E00);
+  static const Color recoveryModerateSurface = Color(0x1FFF9E00);
 
-  static const Color recoverySuppressed = Color(0xFF48484A);   // Dark gray = suppressed
-  static const Color recoverySuppressedGlow = Color(0x3348484A);
-  static const Color recoverySuppressedSurface = Color(0x1A48484A);
+  static const Color recoverySuppressed = Color(0xFFFF3B56);   // Stress Crimson = suppressed (<34%)
+  static const Color recoverySuppressedGlow = Color(0x59FF3B56);
+  static const Color recoverySuppressedSurface = Color(0x1FFF3B56);
 
-  static const Color recoveryCalibrating = Color(0xFF3A3A3C);  // Muted dark
+  static const Color recoveryCalibrating = Color(0xFF636366);  // Cool gray calibrating
 
   // ── Typography Colors ───────────────────────────────────────────────────
   static const Color textPrimary = Color(0xFFF5F5F5);    // Near-white
@@ -71,7 +76,9 @@ class Tok {
   static const double space4 = 4;
   static const double space6 = 6;
   static const double space8 = 8;
+  static const double space10 = 10;
   static const double space12 = 12;
+  static const double space14 = 14;
   static const double space16 = 16;
   static const double space20 = 20;
   static const double space24 = 24;

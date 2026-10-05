@@ -38,9 +38,9 @@ class RecovaColors {
   static const Color textMuted = Tok.textMuted;
 
   // ── Accent (was Nothing Red → now neon accent for key highlights) ──────
-  static const Color nothingRed = Tok.recoverySuppressed;
-  static const Color nothingRedContainer = Tok.recoverySuppressedSurface;
-  static const Color nothingRedBorder = Tok.recoverySuppressedGlow;
+  static const Color nothingRed = Tok.neonAccent;
+  static const Color nothingRedContainer = Tok.neonAccentSurface;
+  static const Color nothingRedBorder = Tok.neonAccentGlow;
 
   // ── Monochrome Scales ─────────────────────────────────────────────────
   static const Color monochromeWhite = Tok.textPrimary;
@@ -76,9 +76,9 @@ class RecovaColors {
   static const Color stressCrimsonBorder = Tok.recoverySuppressedGlow;
 
   // Secondary / Predictive
-  static const Color neuralViolet = Tok.textSecondary;
-  static const Color neuralVioletContainer = Tok.glassFill;
-  static const Color neuralVioletBorder = Tok.glassBorder;
+  static const Color neuralViolet = Tok.accentViolet;
+  static const Color neuralVioletContainer = Tok.accentVioletSurface;
+  static const Color neuralVioletBorder = Tok.accentVioletSurface;
 
   // ── Ambient Glow ───────────────────────────────────────────────────────
   static const Color glowRecovery = Tok.neonAccentGlow;

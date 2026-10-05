@@ -24,6 +24,7 @@ class LiquidGlass extends StatefulWidget {
   final double? height;
   final VoidCallback? onTap;
   final Color? customBottomReflection;
+  final Color? accentGlow;
   final bool enableInteractiveScale;
 
   const LiquidGlass({
@@ -38,6 +39,7 @@ class LiquidGlass extends StatefulWidget {
     this.height,
     this.onTap,
     this.customBottomReflection,
+    this.accentGlow,
     this.enableInteractiveScale = true,
   });
 
@@ -59,8 +61,14 @@ class _LiquidGlassState extends State<LiquidGlass> {
       decoration: BoxDecoration(
         borderRadius: effectiveRadius,
         // Elevation drop shadow: 0 4px 24px rgba(0, 0, 0, 0.15)
-        boxShadow: const [
-          BoxShadow(
+        boxShadow: [
+          if (widget.accentGlow != null)
+            BoxShadow(
+              color: widget.accentGlow!,
+              blurRadius: 24.0,
+              spreadRadius: 1.0,
+            ),
+          const BoxShadow(
             color: Tok.liquidGlassOuterShadow,
             blurRadius: 24.0,
             spreadRadius: 0.0,
@@ -72,12 +80,17 @@ class _LiquidGlassState extends State<LiquidGlass> {
         borderRadius: effectiveRadius,
         child: Stack(
           children: [
-            // 1. Backdrop Blur (16px)
+            // 1. Backdrop Blur (16px) & Saturation (180%)
             Positioned.fill(
               child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: Tok.liquidGlassBlurSigma,
-                  sigmaY: Tok.liquidGlassBlurSigma,
+                filter: ImageFilter.compose(
+                  outer: ImageFilter.blur(
+                    sigmaX: Tok.liquidGlassBlurSigma,
+                    sigmaY: Tok.liquidGlassBlurSigma,
+                  ),
+                  inner: ColorFilter.matrix(
+                    Tok.saturationMatrix(Tok.liquidGlassSaturation),
+                  ),
                 ),
                 child: const SizedBox.expand(),
               ),
@@ -93,17 +106,7 @@ class _LiquidGlassState extends State<LiquidGlass> {
                 borderRadius: effectiveRadius,
                 border: Border.all(
                   color: Tok.liquidGlassBorder,
-                  width: 0.8,
-                ),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.14),
-                    Colors.white.withValues(alpha: 0.04),
-                    Colors.white.withValues(alpha: 0.01),
-                  ],
-                  stops: const [0.0, 0.4, 1.0],
+                  width: 1.0,
                 ),
               ),
               child: widget.child,
