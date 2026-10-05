@@ -122,7 +122,7 @@ class PulseScreen extends StatelessWidget {
     }
 
     return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.only(
         left: Tok.space16,
         right: Tok.space16,
@@ -137,34 +137,39 @@ class PulseScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Today, ${_currentDateFormatted()}',
-                    style: TokType.heading,
-                  ),
-                  const SizedBox(height: 6),
-                  LiquidGlassPill(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Tok.space12,
-                      vertical: Tok.space4,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Today, ${_currentDateFormatted()}',
+                      style: TokType.heading,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    indicatorColor: summary != null ? Tok.neonAccent : Tok.textMuted,
-                    label: summary != null ? 'WEARABLE SYNCED' : 'AWAITING SYNC',
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    LiquidGlassPill(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Tok.space12,
+                        vertical: Tok.space4,
+                      ),
+                      indicatorColor: summary != null ? Tok.neonAccent : Tok.textMuted,
+                      label: summary != null ? 'WEARABLE SYNCED' : 'AWAITING SYNC',
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: Tok.space8),
               // Actions: Settings & Sync
               Row(
                 children: [
                   LiquidGlass(
                     borderRadius: BorderRadius.circular(Tok.radiusSm),
-                    padding: const EdgeInsets.all(Tok.space12),
+                    padding: const EdgeInsets.all(Tok.space10),
                     onTap: () => _openProfileSettings(context),
                     child: const Icon(
                       Icons.tune_rounded,
-                      size: 18,
+                      size: 20,
                       color: Tok.textSecondary,
                     ),
                   ),
@@ -175,16 +180,16 @@ class PulseScreen extends StatelessWidget {
                     builder: (context, state) {
                       return LiquidGlass(
                         borderRadius: BorderRadius.circular(Tok.radiusSm),
-                        padding: const EdgeInsets.all(Tok.space12),
+                        padding: const EdgeInsets.all(Tok.space10),
                         onTap: state is HealthSyncing ? null : onSyncTap,
                         child: state is HealthSyncing
-                            ? GlassLoadingSpinner(
-                                size: 16,
+                            ? const GlassLoadingSpinner(
+                                size: 18,
                                 color: Tok.neonAccent,
                               )
-                            : Icon(
+                            : const Icon(
                                 Icons.sensors_outlined,
-                                size: 18,
+                                size: 20,
                                 color: Tok.neonAccent,
                               ),
                       );
@@ -218,9 +223,10 @@ class PulseScreen extends StatelessWidget {
                       ? 'Within range'
                       : 'Awaiting log',
                   deltaColor: summary?.hrvMs != null
-                      ? Tok.textSecondary
+                      ? Tok.recoveryOptimal
                       : Tok.textMuted,
                   icon: Icons.monitor_heart_outlined,
+                  iconColor: Tok.neonAccent,
                   onTap: () => _openHrvDetail(context),
                 ),
               ),
@@ -235,6 +241,7 @@ class PulseScreen extends StatelessWidget {
                   deltaText: rhrDeltaText,
                   deltaColor: rhrDeltaColor,
                   icon: Icons.favorite_border,
+                  iconColor: Tok.accentAmber,
                   onTap: () => _openRestingHrDetail(context),
                 ),
               ),
@@ -249,6 +256,7 @@ class PulseScreen extends StatelessWidget {
                   deltaText: spo2DeltaText,
                   deltaColor: spo2DeltaColor,
                   icon: Icons.air,
+                  iconColor: Tok.accentBlue,
                   onTap: () => _openBloodO2Detail(context),
                 ),
               ),
@@ -277,6 +285,79 @@ class PulseScreen extends StatelessWidget {
           // ── Body Age Entry ──
           _BodyAgeEntryCard(
             onTap: () => _openBodyAge(context),
+          ),
+          const SizedBox(height: Tok.space16),
+
+          // ── Tactical Daily Activity Recording CTA Button ──
+          LiquidGlass(
+            borderRadius: BorderRadius.circular(Tok.radiusFull),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Tok.space16,
+              vertical: Tok.space12,
+            ),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Tok.neonAccent,
+                        ),
+                      ),
+                      const SizedBox(width: Tok.space8),
+                      const Text('Biometric recording is ready'),
+                    ],
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: const Color(0xFF141720),
+                ),
+              );
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Tok.neonAccent,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Tok.neonAccent.withValues(alpha: 0.6),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: Tok.space8),
+                Flexible(
+                  child: Text(
+                    'START ACTIVITY RECORDING',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TokType.badge.copyWith(
+                      color: Tok.textPrimary,
+                      fontSize: 10,
+                      letterSpacing: 0.8,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: Tok.space6),
+                const Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 14,
+                  color: Tok.textSecondary,
+                ),
+              ],
+            ),
           ),
         ],
       ),

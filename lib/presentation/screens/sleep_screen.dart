@@ -62,7 +62,7 @@ class SleepScreen extends StatelessWidget {
         : (hasSleep ? 92 : null);
 
     return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 96),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,31 +272,31 @@ class SleepScreen extends StatelessWidget {
                                 Expanded(
                                   flex: stages.deepMinutes,
                                   child: Container(
-                                      color: RecovaColors.monochromeWhite),
+                                      color: const Color(0xFF00D2FF)),
                                 ),
                               if (stages.remMinutes > 0)
                                 Expanded(
                                   flex: stages.remMinutes,
                                   child: Container(
-                                      color: RecovaColors.monochromeSilver),
+                                      color: const Color(0xFF8B5CF6)),
                                 ),
                               if (stages.lightMinutes > 0)
                                 Expanded(
                                   flex: stages.lightMinutes,
                                   child: Container(
-                                      color: RecovaColors.monochromeGray),
+                                      color: const Color(0xFF38BDF8)),
                                 ),
                               if (stages.awakeMinutes > 0)
                                 Expanded(
                                   flex: stages.awakeMinutes,
                                   child: Container(
-                                      color: RecovaColors.nothingRed),
+                                      color: const Color(0xFFFF3B56)),
                                 ),
                             ],
                           )
                         : Container(
                             color: hasSleep
-                                ? RecovaColors.monochromeSilver
+                                ? const Color(0xFF00D2FF).withValues(alpha: 0.6)
                                 : Colors.white.withValues(alpha: 0.08),
                           ),
                   ),
@@ -428,7 +428,7 @@ class SleepScreen extends StatelessWidget {
                     '${stages.deepMinutes ~/ 60}h ${stages.deepMinutes % 60}m',
                     '${stages.deepPercentage.round()}%',
                     'Physical restoration & GH release',
-                    RecovaColors.monochromeWhite,
+                    const Color(0xFF00D2FF),
                   ),
                   const SizedBox(height: 12),
                   _buildStageRow(
@@ -436,7 +436,7 @@ class SleepScreen extends StatelessWidget {
                     '${stages.remMinutes ~/ 60}h ${stages.remMinutes % 60}m',
                     '${stages.remPercentage.round()}%',
                     'Cognitive memory consolidation',
-                    RecovaColors.monochromeSilver,
+                    const Color(0xFF8B5CF6),
                   ),
                   const SizedBox(height: 12),
                   _buildStageRow(
@@ -444,7 +444,7 @@ class SleepScreen extends StatelessWidget {
                     '${stages.lightMinutes ~/ 60}h ${stages.lightMinutes % 60}m',
                     '${stages.lightPercentage.round()}%',
                     'Baseline metabolic stabilization',
-                    RecovaColors.monochromeGray,
+                    const Color(0xFF38BDF8),
                   ),
                   const SizedBox(height: 12),
                   _buildStageRow(
@@ -452,7 +452,7 @@ class SleepScreen extends StatelessWidget {
                     '${stages.awakeMinutes}m',
                     '${stages.awakePercentage.round()}%',
                     'Micro-arousals during nocturnal transitions',
-                    RecovaColors.nothingRed,
+                    const Color(0xFFFF3B56),
                   ),
                 ],
               ],
