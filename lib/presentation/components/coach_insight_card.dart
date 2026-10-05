@@ -100,28 +100,33 @@ class CoachInsightCard extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: tier.color,
-                        boxShadow: [
-                          BoxShadow(
-                            color: tier.color.withValues(alpha: 0.5),
-                            blurRadius: 6,
-                          ),
-                        ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: tier.color,
+                          boxShadow: [
+                            BoxShadow(
+                              color: tier.color.withValues(alpha: 0.5),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: Tok.space6),
-                    Text(
-                      optimalWindow,
-                      style: TokType.caption,
-                    ),
-                  ],
+                      const SizedBox(width: Tok.space6),
+                      Flexible(
+                        child: Text(
+                          optimalWindow,
+                          style: TokType.caption,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 Row(
                   children: [

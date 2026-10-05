@@ -163,17 +163,17 @@ class SleepPerformanceCard extends StatelessWidget {
                         if (stages.deepMinutes > 0)
                           Expanded(
                             flex: stages.deepMinutes,
-                            child: Container(color: Tok.neonAccent),
+                            child: Container(color: Tok.accentBlue),
                           ),
                         if (stages.remMinutes > 0)
                           Expanded(
                             flex: stages.remMinutes,
-                            child: Container(color: Tok.accentBlue),
+                            child: Container(color: Tok.accentViolet),
                           ),
                         if (stages.lightMinutes > 0)
                           Expanded(
                             flex: stages.lightMinutes,
-                            child: Container(color: Tok.textTertiary),
+                            child: Container(color: const Color(0xFF38BDF8)),
                           ),
                         if (stages.awakeMinutes > 0)
                           Expanded(
@@ -184,7 +184,7 @@ class SleepPerformanceCard extends StatelessWidget {
                     )
                   : Container(
                       color: hasSleep
-                          ? Tok.textTertiary
+                          ? Tok.accentBlue.withValues(alpha: 0.5)
                           : Tok.glassFillRecessed,
                     ),
             ),
@@ -197,17 +197,17 @@ class SleepPerformanceCard extends StatelessWidget {
             runSpacing: Tok.space6,
             children: [
               _StageLegendItem(
-                dotColor: Tok.neonAccent,
+                dotColor: Tok.accentBlue,
                 label: 'DEEP',
                 value: hasStages ? '${stages.deepMinutes}m' : '--',
               ),
               _StageLegendItem(
-                dotColor: Tok.accentBlue,
+                dotColor: Tok.accentViolet,
                 label: 'REM',
                 value: hasStages ? '${stages.remMinutes}m' : '--',
               ),
               _StageLegendItem(
-                dotColor: Tok.textTertiary,
+                dotColor: const Color(0xFF38BDF8),
                 label: 'LIGHT',
                 value: hasStages ? '${stages.lightMinutes}m' : '--',
               ),
