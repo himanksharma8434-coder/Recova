@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
@@ -6,12 +7,12 @@ import '../../domain/repositories/health_source_repository.dart';
 /// Activity categories for classifying workouts and athletic sessions.
 enum ActivityCategory {
   all('All', Icons.grid_view_rounded, Color(0xFFFFFFFF)),
-  cardio('Cardio', Icons.directions_run_rounded, Color(0xFFFFFFFF)),
-  strength('Strength', Icons.fitness_center_rounded, Color(0xFFD1D1D6)),
-  hiit('HIIT', Icons.bolt_rounded, Color(0xFFAEAEB2)),
-  recovery('Recovery', Icons.self_improvement_rounded, Color(0xFF8E8E93)),
-  sports('Sports', Icons.sports_basketball_rounded, Color(0xFF636366)),
-  general('Other', Icons.sports_rounded, Color(0xFF48484A));
+  cardio('Cardio', Icons.directions_run_rounded, Color(0xFFFF6B00)),
+  strength('Strength', Icons.fitness_center_rounded, Color(0xFF8B5CF6)),
+  hiit('HIIT', Icons.bolt_rounded, Color(0xFFFFB800)),
+  recovery('Recovery', Icons.self_improvement_rounded, Color(0xFF00F090)),
+  sports('Sports', Icons.sports_basketball_rounded, Color(0xFF00D2FF)),
+  general('Other', Icons.sports_rounded, Color(0xFFAEAEB2));
 
   final String label;
   final IconData icon;
@@ -144,7 +145,7 @@ class _StrainScreenState extends State<StrainScreen> {
             .toList();
 
     return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.only(
         left: Tok.space16,
         right: Tok.space16,
@@ -1582,16 +1583,20 @@ class _AllActivitiesSheetState extends State<_AllActivitiesSheet> {
       (sum, w) => sum + (w.calories ?? 0.0),
     );
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.82,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D121A),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(Tok.radiusLg)),
-        border: Border.all(color: Tok.glassBorder, width: 1.0),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(Tok.radiusLg)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.82,
+          decoration: BoxDecoration(
+            color: Tok.glassFillDark,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(Tok.radiusLg)),
+            border: Border.all(color: Tok.glassBorder, width: 1.0),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // Drag Handle
           Center(
             child: Container(
@@ -1884,6 +1889,8 @@ class _AllActivitiesSheetState extends State<_AllActivitiesSheet> {
           ),
         ],
       ),
+    ),
+    ),
     );
   }
 

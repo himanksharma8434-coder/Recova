@@ -1,12 +1,15 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/sleep_data_sanitizer.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../../domain/usecases/compute_recovery_score.dart';
+import '../components/ambient_glow_backdrop.dart';
+import '../components/glass_card.dart';
 
 /// Single day sleep record for the slideable Nothing OS sleep view.
 class _DailySleepBarData {
@@ -256,88 +259,88 @@ class _SleepArchitectureDetailScreenState
 
     return Scaffold(
       backgroundColor: RecovaColors.canvasBase,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Top Bar ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: IconButton.styleFrom(
-                      backgroundColor: RecovaColors.surfaceElevation1,
-                      shape: const CircleBorder(
-                        side: BorderSide(color: RecovaColors.borderSubtle),
+      body: AmbientGlowBackdrop(
+        primaryGlow: Tok.accentBlue,
+        secondaryGlow: Tok.accentViolet,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // ── Top Bar ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(
+                        backgroundColor: RecovaColors.surfaceElevation1,
+                        shape: const CircleBorder(
+                          side: BorderSide(color: RecovaColors.borderSubtle),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        size: 20,
+                        color: RecovaColors.monochromeWhite,
                       ),
                     ),
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      size: 20,
-                      color: RecovaColors.monochromeWhite,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'SLEEP ARCHITECTURE',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.0,
-                            color: RecovaColors.textPrimary,
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'SLEEP ARCHITECTURE',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.0,
+                              color: RecovaColors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          'CIRCADIAN RESTORATION TELEMETRY',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.8,
-                            color: RecovaColors.textTertiary,
+                          Text(
+                            'CIRCADIAN RESTORATION TELEMETRY',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.8,
+                              color: RecovaColors.textTertiary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: RecovaColors.surfaceElevation2,
-                      border: Border.all(color: RecovaColors.borderSubtle),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Tok.accentBlueSurface,
+                        border: Border.all(color: Tok.accentBlue.withValues(alpha: 0.3)),
+                      ),
+                      child: const Icon(
+                        Icons.bedtime_outlined,
+                        size: 17,
+                        color: Tok.accentBlue,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.bedtime_outlined,
-                      size: 17,
-                      color: RecovaColors.monochromeWhite,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            // ── Nothing OS Date Slider Navigator ──
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              decoration: BoxDecoration(
-                color: RecovaColors.surfaceElevation1,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: RecovaColors.borderSubtle),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+              // ── Nothing OS Date Slider Navigator ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: GlassCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  borderRadius: 12,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
                   // Previous Day Button
                   IconButton(
                     onPressed: _selectedDayIndex > 0
@@ -416,31 +419,33 @@ class _SleepArchitectureDetailScreenState
                 ],
               ),
             ),
-            const SizedBox(height: 4),
+          ),
+          const SizedBox(height: 4),
 
-            // ── Slideable Days Body (Sliding Turns The Day) ──
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: (index) {
-                  setState(() {
-                    _selectedDayIndex = index;
-                  });
-                },
-                itemCount: _daysData.length,
-                itemBuilder: (context, index) {
-                  final dayData = _daysData[index];
-                  return _SingleDaySleepView(
-                    dayData: dayData,
-                    baselineHours: baselineHours,
-                    summary: widget.summary,
-                  );
-                },
-              ),
+          // ── Slideable Days Body (Sliding Turns The Day) ──
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _selectedDayIndex = index;
+                });
+              },
+              itemCount: _daysData.length,
+              itemBuilder: (context, index) {
+                final dayData = _daysData[index];
+                return _SingleDaySleepView(
+                  dayData: dayData,
+                  baselineHours: baselineHours,
+                  summary: widget.summary,
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    ),
+    ),
     );
   }
 }
@@ -498,7 +503,7 @@ class _SingleDaySleepView extends StatelessWidget {
     final awakePct = dayData.awakePercentage.round();
 
     return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,14 +511,11 @@ class _SingleDaySleepView extends StatelessWidget {
           // ══════════════════════════════════════════════════════
           // 1. RECOVERY FROM SLEEP (NO EXTRA EXPLANATION)
           // ══════════════════════════════════════════════════════
-          Container(
+          GlassCard(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: RecovaColors.surfaceElevation1,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: RecovaColors.borderMedium),
-            ),
+            borderRadius: 16,
+            accentGlow: Tok.accentBlue.withValues(alpha: 0.12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -538,9 +540,9 @@ class _SingleDaySleepView extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3.5),
                       decoration: BoxDecoration(
-                        color: RecovaColors.surfaceElevation2,
+                        color: Tok.accentBlueSurface,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: RecovaColors.borderSubtle),
+                        border: Border.all(color: Tok.accentBlue.withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         '${sleepH}h ${sleepM}m ASLEEP',
@@ -548,7 +550,7 @@ class _SingleDaySleepView extends StatelessWidget {
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.6,
-                          color: RecovaColors.monochromeWhite,
+                          color: Tok.accentBlue,
                         ),
                       ),
                     ),
@@ -604,9 +606,9 @@ class _SingleDaySleepView extends StatelessWidget {
 
                     Color barColor = RecovaColors.surfaceElevation3;
                     if (isFilled) {
-                      barColor = RecovaColors.monochromeWhite;
+                      barColor = Tok.accentBlue;
                     } else if (isPartial) {
-                      barColor = RecovaColors.monochromeSilver;
+                      barColor = Tok.accentBlue.withValues(alpha: 0.4);
                     }
 
                     return Expanded(
@@ -629,14 +631,11 @@ class _SingleDaySleepView extends StatelessWidget {
           // ══════════════════════════════════════════════════════
           // 2. FULL SLEEP DISTRIBUTION GRAPH (DIVIDING THE 6+ HOURS)
           // ══════════════════════════════════════════════════════
-          Container(
+          GlassCard(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: RecovaColors.surfaceElevation1,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: RecovaColors.borderMedium),
-            ),
+            borderRadius: 16,
+            accentGlow: Tok.accentViolet.withValues(alpha: 0.10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -649,7 +648,7 @@ class _SingleDaySleepView extends StatelessWidget {
                           const Icon(
                             Icons.stacked_bar_chart,
                             size: 15,
-                            color: RecovaColors.monochromeWhite,
+                            color: Tok.accentBlue,
                           ),
                           const SizedBox(width: 8),
                           Flexible(
@@ -673,9 +672,9 @@ class _SingleDaySleepView extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3.5),
                       decoration: BoxDecoration(
-                        color: RecovaColors.surfaceElevation2,
+                        color: Tok.accentVioletSurface,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: RecovaColors.borderSubtle),
+                        border: Border.all(color: Tok.accentViolet.withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         '${sleepH}h ${sleepM}m SLEEP',
@@ -683,7 +682,7 @@ class _SingleDaySleepView extends StatelessWidget {
                           fontSize: 8.5,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.6,
-                          color: RecovaColors.monochromeWhite,
+                          color: Tok.accentViolet,
                         ),
                       ),
                     ),
@@ -718,7 +717,7 @@ class _SingleDaySleepView extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _StageDataPill(
-                        color: RecovaColors.monochromeWhite,
+                        color: Tok.accentBlue,
                         label: 'DEEP',
                         hoursMins:
                             '${dayData.deepMinutes ~/ 60}h ${dayData.deepMinutes % 60}m',
@@ -728,7 +727,7 @@ class _SingleDaySleepView extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: _StageDataPill(
-                        color: const Color(0xFF555558),
+                        color: const Color(0xFF38BDF8),
                         label: 'CORE',
                         hoursMins:
                             '${dayData.coreMinutes ~/ 60}h ${dayData.coreMinutes % 60}m',
@@ -738,7 +737,7 @@ class _SingleDaySleepView extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: _StageDataPill(
-                        color: RecovaColors.monochromeSilver,
+                        color: Tok.accentViolet,
                         label: 'REM',
                         hoursMins:
                             '${dayData.remMinutes ~/ 60}h ${dayData.remMinutes % 60}m',
@@ -748,7 +747,7 @@ class _SingleDaySleepView extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: _StageDataPill(
-                        color: RecovaColors.nothingRed,
+                        color: Tok.recoverySuppressed,
                         label: 'AWAKE',
                         hoursMins: '${dayData.awakeMinutes}m',
                         percent: awakePct,
@@ -759,7 +758,7 @@ class _SingleDaySleepView extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 36),
         ],
       ),
     );
@@ -833,10 +832,10 @@ class _HypnogramPainter extends CustomPainter {
     ];
 
     final levelColors = [
-      RecovaColors.nothingRed,
-      RecovaColors.monochromeSilver,
-      const Color(0xFF636366),
-      RecovaColors.monochromeWhite,
+      Tok.recoverySuppressed,
+      Tok.accentViolet,
+      const Color(0xFF38BDF8),
+      Tok.accentBlue,
     ];
 
     const levelLabels = ['AWAKE', 'REM', 'CORE', 'DEEP'];
@@ -1023,7 +1022,7 @@ class _NothingOsDistributionBar extends StatelessWidget {
               Expanded(
                 flex: max(1, deepMinutes),
                 child: Container(
-                  color: RecovaColors.monochromeWhite,
+                  color: Tok.accentBlue,
                   margin: const EdgeInsets.only(right: 1.5),
                 ),
               ),
@@ -1031,7 +1030,7 @@ class _NothingOsDistributionBar extends StatelessWidget {
               Expanded(
                 flex: max(1, coreMinutes),
                 child: Container(
-                  color: const Color(0xFF555558),
+                  color: const Color(0xFF38BDF8),
                   margin: const EdgeInsets.only(right: 1.5),
                 ),
               ),
@@ -1039,7 +1038,7 @@ class _NothingOsDistributionBar extends StatelessWidget {
               Expanded(
                 flex: max(1, remMinutes),
                 child: Container(
-                  color: RecovaColors.monochromeSilver,
+                  color: Tok.accentViolet,
                   margin: const EdgeInsets.only(right: 1.5),
                 ),
               ),
@@ -1047,7 +1046,7 @@ class _NothingOsDistributionBar extends StatelessWidget {
               Expanded(
                 flex: max(1, awakeMinutes),
                 child: Container(
-                  color: RecovaColors.nothingRed,
+                  color: Tok.recoverySuppressed,
                 ),
               ),
           ],
@@ -1078,9 +1077,9 @@ class _StageDataPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       decoration: BoxDecoration(
-        color: RecovaColors.canvasBase,
+        color: Tok.glassFillRecessed,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: RecovaColors.borderSubtle),
+        border: Border.all(color: Tok.glassBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1128,9 +1127,7 @@ class _StageDataPill extends StatelessWidget {
             style: TextStyle(
               fontSize: 8.5,
               fontWeight: FontWeight.w700,
-              color: color == const Color(0xFF555558)
-                  ? RecovaColors.monochromeSilver
-                  : color,
+              color: color,
             ),
           ),
         ],
