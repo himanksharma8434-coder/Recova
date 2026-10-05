@@ -92,6 +92,7 @@ class GlassPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlass(
       padding: padding,
+      hasBlur: false,
       customBottomReflection: accentColor?.withValues(alpha: 0.15),
       child: child,
     );
