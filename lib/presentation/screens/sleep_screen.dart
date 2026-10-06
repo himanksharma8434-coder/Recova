@@ -31,7 +31,7 @@ class SleepScreen extends StatelessWidget {
 
     // Compare with baseline
     String baselineDiffText = 'AWAITING SLEEP LOG';
-    Color baselineDiffColor = RecovaColors.textMuted;
+    Color baselineDiffColor = RecovaColors.textSecondary;
     if (hasSleep && summary?.baselineSleepHours != null) {
       final diffMins =
           ((totalHours - summary!.baselineSleepHours!) * 60).round();
@@ -123,7 +123,7 @@ class SleepScreen extends StatelessWidget {
                     letterSpacing: 0.8,
                     color: hasSleep
                         ? RecovaColors.textPrimary
-                        : RecovaColors.textMuted,
+                        : RecovaColors.textSecondary,
                   ),
                 ),
               ),
@@ -202,7 +202,7 @@ class SleepScreen extends StatelessWidget {
                         size: 28,
                         color: hasSleep
                             ? RecovaColors.monochromeWhite
-                            : RecovaColors.textMuted,
+                            : RecovaColors.textSecondary,
                       ),
                     ),
                   ],
@@ -364,7 +364,7 @@ class SleepScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 11,
-                        color: RecovaColors.textMuted,
+                        color: RecovaColors.textSecondary,
                         height: 1.4,
                       ),
                     ),
@@ -417,7 +417,7 @@ class SleepScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 11,
-                        color: RecovaColors.textMuted,
+                        color: RecovaColors.textSecondary,
                         height: 1.4,
                       ),
                     ),
@@ -491,7 +491,7 @@ class SleepScreen extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: efficiency != null
                               ? RecovaColors.recoveryEmerald
-                              : RecovaColors.textMuted,
+                              : RecovaColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -539,7 +539,7 @@ class SleepScreen extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: summary?.spo2 != null
                               ? RecovaColors.restorativeAzure
-                              : RecovaColors.textMuted,
+                              : RecovaColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 2),

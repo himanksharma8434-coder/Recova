@@ -350,7 +350,7 @@ class _RestingHrDetailScreenState extends State<RestingHrDetailScreen> {
                                   letterSpacing: 0.4,
                                   color: isSelected
                                       ? Tok.canvasBase
-                                      : RecovaColors.textTertiary,
+                                      : Tok.textSecondary,
                                 ),
                               ),
                             ),
@@ -609,7 +609,7 @@ class _RestingHrDetailScreenState extends State<RestingHrDetailScreen> {
                                     'No heart rate records in this range.',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: RecovaColors.textMuted,
+                                      color: RecovaColors.textSecondary,
                                     ),
                                   ),
                                 )
@@ -789,7 +789,7 @@ class _RestingHrDetailScreenState extends State<RestingHrDetailScreen> {
                 '${value.toInt()}',
                 style: const TextStyle(
                   fontSize: 8.5,
-                  color: RecovaColors.textMuted,
+                  color: RecovaColors.textSecondary,
                 ),
               );
             },
@@ -819,7 +819,7 @@ class _RestingHrDetailScreenState extends State<RestingHrDetailScreen> {
                   closest.label,
                   style: const TextStyle(
                     fontSize: 8.5,
-                    color: RecovaColors.textMuted,
+                    color: RecovaColors.textSecondary,
                   ),
                 ),
               );
