@@ -2,10 +2,13 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
 import '../../core/utils/date_utils.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/repositories/health_source_repository.dart';
+import '../components/ambient_glow_backdrop.dart';
+import '../components/glass_card.dart';
 
 /// Available time range filter options for Heart Rate Variability (HRV).
 enum HrvFilter {
@@ -270,235 +273,124 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
 
     return Scaffold(
       backgroundColor: RecovaColors.canvasBase,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Header Navigation Bar ──
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new,
-                      size: 18,
-                      color: RecovaColors.monochromeWhite,
-                    ),
-                    style: IconButton.styleFrom(
-                      backgroundColor: RecovaColors.surfaceElevation1,
-                      shape: const CircleBorder(
-                        side: BorderSide(color: RecovaColors.borderSubtle),
+      body: AmbientGlowBackdrop(
+        primaryGlow: Tok.recoveryOptimal,
+        secondaryGlow: Tok.accentBlue,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 36),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Header Navigation Bar ──
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new,
+                        size: 18,
+                        color: RecovaColors.monochromeWhite,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: RecovaColors.surfaceElevation1,
+                        shape: const CircleBorder(
+                          side: BorderSide(color: RecovaColors.borderSubtle),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Column(
-                      children: [
-                        Text(
-                          'HEART RATE VARIABILITY',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                            color: RecovaColors.textPrimary,
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            'HEART RATE VARIABILITY',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                              color: RecovaColors.textPrimary,
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'OPTICAL PPG TELEMETRY',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.8,
-                            color: RecovaColors.nothingRed,
+                          SizedBox(height: 2),
+                          Text(
+                            'OPTICAL PPG TELEMETRY',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.8,
+                              color: Tok.neonAccent,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  const SizedBox(width: 36),
-                ],
-              ),
-              const SizedBox(height: 18),
-
-              // ── Time Range Filter Pills ──
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: RecovaColors.surfaceElevation1,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: RecovaColors.borderSubtle),
+                    const SizedBox(width: 8),
+                    const SizedBox(width: 36),
+                  ],
                 ),
-                child: Row(
-                  children: HrvFilter.values.map((filter) {
-                    final isSelected = _selectedFilter == filter;
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => _onFilterSelected(filter),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? RecovaColors.monochromeWhite
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Text(
-                              filter.label,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                                color: isSelected
-                                    ? RecovaColors.canvasBase
-                                    : RecovaColors.textTertiary,
+                const SizedBox(height: 18),
+
+                // ── Time Range Filter Pills ──
+                GlassCard(
+                  padding: const EdgeInsets.all(4),
+                  borderRadius: 12,
+                  child: Row(
+                    children: HrvFilter.values.map((filter) {
+                      final isSelected = _selectedFilter == filter;
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => _onFilterSelected(filter),
+                          behavior: HitTestBehavior.opaque,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Tok.neonAccent
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                filter.label,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                  color: isSelected
+                                      ? Tok.canvasBase
+                                      : RecovaColors.textTertiary,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // ── Primary Hero Metric Card ──
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: RecovaColors.surfaceElevation1,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: RecovaColors.borderSubtle),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'HRV (rMSSD)',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                            color: RecovaColors.textTertiary,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: RecovaColors.surfaceElevation3,
-                            borderRadius: BorderRadius.circular(4),
-                            border:
-                                Border.all(color: RecovaColors.borderSubtle),
-                          ),
-                          child: const Text(
-                            'OPTICAL PPG',
-                            style: TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                              color: RecovaColors.nothingRed,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          displayHrv != null
-                              ? '${displayHrv.toInt()}'
-                              : '--',
-                          style: const TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1.0,
-                            color: RecovaColors.monochromeWhite,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'ms',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: RecovaColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      deltaText,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: deltaColor,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(
-                        height: 1, color: RecovaColors.borderSubtle),
-                    const SizedBox(height: 12),
-                    // Statistical Sub-Grid
-                    Row(
-                      children: [
-                        _buildStatColumn('14D BASELINE',
-                            '${baseline.toInt()} ms', RecovaColors.textPrimary),
-                        _buildStatColumn(
-                            'RANGE MIN',
-                            _minHrv != null ? '${_minHrv!.toInt()} ms' : '--',
-                            RecovaColors.textPrimary),
-                        _buildStatColumn(
-                            'RANGE MAX',
-                            _maxHrv != null ? '${_maxHrv!.toInt()} ms' : '--',
-                            RecovaColors.textPrimary),
-                        _buildStatColumn(
-                            'WEIGHT', '40%', RecovaColors.nothingRed),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // ── Interactive fl_chart Graph ──
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: RecovaColors.surfaceElevation1,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: RecovaColors.borderSubtle),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'AUTONOMIC PULSE VARIANCE',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                // ── Primary Hero Metric Card ──
+                GlassCard(
+                  padding: const EdgeInsets.all(18),
+                  borderRadius: 16,
+                  accentGlow: Tok.recoveryOptimal.withValues(alpha: 0.12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'HRV (rMSSD)',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -506,47 +398,153 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
                               color: RecovaColors.textTertiary,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${_selectedFilter.label} CURVE',
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.8,
-                            color: RecovaColors.textTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 380),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      child: SizedBox(
-                        key: ValueKey('hrv_chart_${_selectedFilter.name}'),
-                        height: 180,
-                        child: _points.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'Awaiting PPG pulse telemetry sync...',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: RecovaColors.textMuted,
-                                  ),
-                                ),
-                              )
-                            : RepaintBoundary(
-                                child: LineChart(_buildChartData()),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: Tok.neonAccentSurface,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Tok.neonAccentGlow),
+                            ),
+                            child: const Text(
+                              'OPTICAL PPG',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: Tok.neonAccent,
                               ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            displayHrv != null
+                                ? '${displayHrv.toInt()}'
+                                : '--',
+                            style: const TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -1.0,
+                              color: RecovaColors.monochromeWhite,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            'ms',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: RecovaColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        deltaText,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: deltaColor,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Divider(
+                          height: 1, color: RecovaColors.borderSubtle),
+                      const SizedBox(height: 12),
+                      // Statistical Sub-Grid
+                      Row(
+                        children: [
+                          _buildStatColumn('14D BASELINE',
+                              '${baseline.toInt()} ms', RecovaColors.textPrimary),
+                          _buildStatColumn(
+                              'RANGE MIN',
+                              _minHrv != null ? '${_minHrv!.toInt()} ms' : '--',
+                              RecovaColors.textPrimary),
+                          _buildStatColumn(
+                              'RANGE MAX',
+                              _maxHrv != null ? '${_maxHrv!.toInt()} ms' : '--',
+                              RecovaColors.textPrimary),
+                          _buildStatColumn(
+                              'WEIGHT', '40%', Tok.neonAccent),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-            ],
+                const SizedBox(height: 16),
+
+                // ── Interactive fl_chart Graph ──
+                GlassCard(
+                  padding: const EdgeInsets.all(16),
+                  borderRadius: 16,
+                  accentGlow: Tok.accentBlue.withValues(alpha: 0.12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'AUTONOMIC PULSE VARIANCE',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                                color: RecovaColors.textTertiary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_selectedFilter.label} CURVE',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.8,
+                              color: RecovaColors.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 380),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        child: SizedBox(
+                          key: ValueKey('hrv_chart_${_selectedFilter.name}'),
+                          height: 180,
+                          child: _points.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'Awaiting PPG pulse telemetry sync...',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: RecovaColors.textMuted,
+                                    ),
+                                  ),
+                                )
+                              : RepaintBoundary(
+                                  child: LineChart(_buildChartData()),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
@@ -676,7 +674,7 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
           spots: spots,
           isCurved: true,
           curveSmoothness: 0.35,
-          color: RecovaColors.monochromeWhite,
+          color: Tok.recoveryOptimal,
           barWidth: 2.2,
           isStrokeCapRound: true,
           dotData: FlDotData(
@@ -684,7 +682,7 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
             getDotPainter: (spot, percent, barData, index) {
               return FlDotCirclePainter(
                 radius: 2.8,
-                color: RecovaColors.monochromeWhite,
+                color: Tok.recoveryOptimal,
                 strokeWidth: 1.5,
                 strokeColor: RecovaColors.canvasBase,
               );
@@ -696,8 +694,8 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                RecovaColors.monochromeWhite.withValues(alpha: 0.22),
-                RecovaColors.monochromeWhite.withValues(alpha: 0.0),
+                Tok.recoveryOptimal.withValues(alpha: 0.28),
+                Tok.recoveryOptimal.withValues(alpha: 0.0),
               ],
             ),
           ),

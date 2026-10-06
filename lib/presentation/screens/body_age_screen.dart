@@ -7,6 +7,7 @@ import '../../core/theme/recova_colors.dart';
 import '../../domain/entities/body_age_result.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../../services/user_profile_service.dart';
+import '../components/ambient_glow_backdrop.dart';
 import '../components/glass_card.dart';
 import '../components/liquid_glass.dart';
 import '../cubits/body_age/body_age_cubit.dart';
@@ -92,15 +93,18 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
       value: _cubit,
       child: Scaffold(
         backgroundColor: RecovaColors.canvasBase,
-        body: BlocConsumer<BodyAgeCubit, BodyAgeState>(
-          listener: (context, state) {
-            if (state is BodyAgeLoaded) {
-              _revealController.forward(from: 0);
-            }
-          },
-          builder: (context, state) {
-            return CustomScrollView(
-              physics: const BouncingScrollPhysics(),
+        body: AmbientGlowBackdrop(
+          primaryGlow: Tok.recoveryOptimal,
+          secondaryGlow: Tok.accentViolet,
+          child: BlocConsumer<BodyAgeCubit, BodyAgeState>(
+            listener: (context, state) {
+              if (state is BodyAgeLoaded) {
+                _revealController.forward(from: 0);
+              }
+            },
+            builder: (context, state) {
+              return CustomScrollView(
+                physics: const BouncingScrollPhysics(),
               slivers: [
                 // ── App Bar ──
                 SliverAppBar(
@@ -153,8 +157,9 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
                   ),
                 ),
               ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
