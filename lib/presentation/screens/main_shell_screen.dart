@@ -7,6 +7,7 @@ import '../../core/theme/recova_colors.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../components/bottom_pill_nav_bar.dart';
 import '../components/liquid_glass.dart';
+import '../components/ambient_glow_backdrop.dart';
 import '../cubits/dashboard/dashboard_cubit.dart';
 import '../cubits/dashboard/dashboard_state.dart';
 import '../cubits/health_sync/health_sync_cubit.dart';
@@ -136,8 +137,40 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
             final topPadding = MediaQuery.of(context).padding.top;
 
+            Color tabPrimaryGlow;
+            Color tabSecondaryGlow;
+            switch (_currentTab) {
+              case 0:
+                tabPrimaryGlow = Tok.neonAccent;
+                tabSecondaryGlow = Tok.accentBlue;
+                break;
+              case 1:
+                tabPrimaryGlow = Tok.recoveryOptimal;
+                tabSecondaryGlow = Tok.accentAmber;
+                break;
+              case 2:
+                tabPrimaryGlow = Tok.accentAmber;
+                tabSecondaryGlow = Tok.accentViolet;
+                break;
+              case 3:
+                tabPrimaryGlow = Tok.accentBlue;
+                tabSecondaryGlow = Tok.accentViolet;
+                break;
+              default:
+                tabPrimaryGlow = Tok.neonAccent;
+                tabSecondaryGlow = Tok.accentBlue;
+            }
+
             return Stack(
               children: [
+                // Living Bioluminescent Ambient Backdrop for Liquid Glass Refraction
+                Positioned.fill(
+                  child: AmbientGlowBackdrop(
+                    primaryGlow: tabPrimaryGlow,
+                    secondaryGlow: tabSecondaryGlow,
+                  ),
+                ),
+
                 // Safe Area wrapped IndexedStack
                 SafeArea(
                   bottom: false,

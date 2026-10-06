@@ -152,7 +152,7 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
                 ),
                 const SizedBox(height: Tok.space8),
 
-                // Status Pill with isolated pulsing dot
+                // Status Pill
                 LiquidGlass(
                   padding: const EdgeInsets.symmetric(
                     horizontal: Tok.space12,
@@ -163,33 +163,6 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      RepaintBoundary(
-                        child: AnimatedBuilder(
-                          animation: _pulseAnimation,
-                          builder: (context, _) {
-                            return Container(
-                              width: 5,
-                              height: 5,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: tier.color.withValues(
-                                  alpha: _pulseAnimation.value,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: tier.color.withValues(
-                                      alpha: _pulseAnimation.value * 0.5,
-                                    ),
-                                    blurRadius: 5,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: Tok.space6),
                       Flexible(
                         child: Text(
                           tier.statusSubtitle,
@@ -259,41 +232,18 @@ class _GlassGaugePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (size.width - 24) / 2;
 
-    // 1. Subtle glass-like background ring
+    // 1. Subtle glass-like background track
     final bgPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.04)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawCircle(center, radius, bgPaint);
-
-    // 2. Dot matrix ring (60 dots)
-    const totalDots = 60;
-    final dotPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.08)
-      ..style = PaintingStyle.fill;
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius - 6, bgPaint);
 
-    for (int i = 0; i < totalDots; i++) {
-      final angle = (i * 2 * pi) / totalDots - (pi / 2);
-      final dotX = center.dx + radius * cos(angle);
-      final dotY = center.dy + radius * sin(angle);
-      canvas.drawCircle(Offset(dotX, dotY), 1.2, dotPaint);
-    }
-
-    // 3. Active score progress
+    // 2. Active score progress
     if (score > 0) {
       final sweepAngle = (score / 100).clamp(0.0, 1.0) * 2 * pi;
-      final activeDotsCount = ((score / 100) * totalDots).round();
-
-      final activeDotPaint = Paint()
-        ..color = accentColor
-        ..style = PaintingStyle.fill;
-
-      for (int i = 0; i < activeDotsCount; i++) {
-        final angle = (i * 2 * pi) / totalDots - (pi / 2);
-        final dotX = center.dx + radius * cos(angle);
-        final dotY = center.dy + radius * sin(angle);
-        canvas.drawCircle(Offset(dotX, dotY), 2.2, activeDotPaint);
-      }
+      final arcRect = Rect.fromCircle(center: center, radius: radius - 6);
 
       // Neon glow arc (drawn underneath)
       final glowArcPaint = Paint()
@@ -304,22 +254,22 @@ class _GlassGaugePainter extends CustomPainter {
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
 
       canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius - 6),
+        arcRect,
         -pi / 2,
         sweepAngle,
         false,
         glowArcPaint,
       );
 
-      // Inner continuous arc
+      // Main vibrant arc
       final innerArcPaint = Paint()
         ..color = accentColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.0
+        ..strokeWidth = 3.5
         ..strokeCap = StrokeCap.round;
 
       canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius - 6),
+        arcRect,
         -pi / 2,
         sweepAngle,
         false,
