@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/theme/design_tokens.dart';
+import '../components/ambient_glow_backdrop.dart';
 import '../components/glass_card.dart';
 import '../components/motion.dart';
 import '../cubits/health_permission/health_permission_cubit.dart';
@@ -52,13 +53,16 @@ class _PermissionScreenState extends State<PermissionScreen>
       },
       child: Scaffold(
         backgroundColor: Tok.canvasBase,
-        body: SafeArea(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(
-              horizontal: Tok.space32,
-              vertical: Tok.space24,
-            ),
+        body: AmbientGlowBackdrop(
+          primaryGlow: Tok.neonAccent,
+          secondaryGlow: Tok.accentBlue,
+          child: SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Tok.space32,
+                vertical: Tok.space24,
+              ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -245,6 +249,7 @@ class _PermissionScreenState extends State<PermissionScreen>
             ),
           ),
         ),
+      ),
       ),
     );
   }

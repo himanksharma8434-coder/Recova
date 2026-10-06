@@ -1,7 +1,9 @@
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/entities/daily_metric_point.dart';
@@ -253,10 +255,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
   void _showVo2Explainer() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: RecovaColors.surfaceElevation1,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => const _Vo2ExplainerSheet(),
     );
@@ -265,33 +264,33 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
   Color get _metricAccentColor {
     switch (_selectedMetric) {
       case CardioMetric.vo2Max:
-        return RecovaColors.recoveryEmerald;
+        return Tok.neonAccent;
       case CardioMetric.maxHr:
-        return const Color(0xFFD1D1D6);
+        return Tok.accentAmber;
       case CardioMetric.restingHr:
-        return const Color(0xFF8E8E93);
+        return Tok.accentBlue;
     }
   }
 
   Color get _metricContainerColor {
     switch (_selectedMetric) {
       case CardioMetric.vo2Max:
-        return RecovaColors.recoveryEmeraldContainer;
+        return Tok.neonAccentSurface;
       case CardioMetric.maxHr:
-        return const Color(0x26D1D1D6);
+        return Tok.accentAmberSurface;
       case CardioMetric.restingHr:
-        return const Color(0x268E8E93);
+        return Tok.accentBlueSurface;
     }
   }
 
   Color get _metricBorderColor {
     switch (_selectedMetric) {
       case CardioMetric.vo2Max:
-        return RecovaColors.recoveryEmeraldBorder;
+        return Tok.neonAccentGlow;
       case CardioMetric.maxHr:
-        return const Color(0x4DD1D1D6);
+        return const Color(0x59FF6B00);
       case CardioMetric.restingHr:
-        return const Color(0x4D8E8E93);
+        return const Color(0x5900D2FF);
     }
   }
 
@@ -363,7 +362,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
     }
 
     return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 96),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1252,139 +1251,152 @@ class _Vo2ExplainerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Handle bar
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: RecovaColors.textMuted,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(Tok.radiusLg)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Tok.glassFillDark,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(Tok.radiusLg)),
+            border: Border.all(color: Tok.glassBorder, width: 1.0),
           ),
-          const SizedBox(height: 20),
-
-          // Title
-          Row(
-            children: const [
-              Icon(Icons.science_outlined,
-                  size: 18, color: RecovaColors.recoveryEmerald),
-              SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  'HOW VO₂ MAX IS CALCULATED',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: RecovaColors.textPrimary,
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 28,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Tok.glassBorderBright,
+                    borderRadius: BorderRadius.circular(2),
                   ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Title
+              Row(
+                children: const [
+                  Icon(Icons.science_outlined,
+                      size: 18, color: Tok.recoveryOptimal),
+                  SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'HOW VO₂ MAX IS CALCULATED',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: Tok.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Formula card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Tok.glassFillRecessed,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Tok.glassBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Uth–Sørensen–Overgaard–Pedersen Formula',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                        color: Tok.textTertiary,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'VO₂max ≈ 15.3 × (HRmax ÷ HRrest)',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                        color: Tok.neonAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Data sources
+              _explainerRow(
+                icon: Icons.favorite_border,
+                title: 'HRrest — Resting Heart Rate Baseline',
+                description:
+                    'Rolling 7-day median of your daily resting heart rate, prioritizing explicit resting heart rate records reported by your wearable.',
+              ),
+              const SizedBox(height: 12),
+              _explainerRow(
+                icon: Icons.directions_run,
+                title: 'HRmax — Peak Workout Heart Rate',
+                description:
+                    'Highest sustained heart rate recorded during workout sessions (e.g. running) in the last 60 days via Health Connect.',
+              ),
+              const SizedBox(height: 12),
+              _explainerRow(
+                icon: Icons.cake_outlined,
+                title: 'Age Fallback',
+                description:
+                    'If no workout heart rate data is available, HRmax is estimated as 220 − age using your platform profile.',
+              ),
+
+              const SizedBox(height: 16),
+
+              // Disclaimer
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Tok.glassFillRecessed,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Tok.glassBorder),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Icon(Icons.info_outline,
+                        size: 14, color: Tok.textTertiary),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This is an estimate derived from heart rate data. It is not a clinical VO₂ max test. Values may vary from lab-measured results.',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          height: 1.45,
+                          color: Tok.textTertiary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-
-          // Formula card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: RecovaColors.surfaceElevation2,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Uth–Sørensen–Overgaard–Pedersen Formula',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.8,
-                    color: RecovaColors.textTertiary,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'VO₂max ≈ 15.3 × (HRmax ÷ HRrest)',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'monospace',
-                    color: RecovaColors.monochromeWhite,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Data sources
-          _explainerRow(
-            icon: Icons.favorite_border,
-            title: 'HRrest — Resting Heart Rate Baseline',
-            description:
-                'Rolling 7-day median of your daily resting heart rate, prioritizing explicit resting heart rate records reported by your wearable.',
-          ),
-          const SizedBox(height: 12),
-          _explainerRow(
-            icon: Icons.directions_run,
-            title: 'HRmax — Peak Workout Heart Rate',
-            description:
-                'Highest sustained heart rate recorded during workout sessions (e.g. running) in the last 60 days via Health Connect.',
-          ),
-          const SizedBox(height: 12),
-          _explainerRow(
-            icon: Icons.cake_outlined,
-            title: 'Age Fallback',
-            description:
-                'If no workout heart rate data is available, HRmax is estimated as 220 − age using your platform profile.',
-          ),
-
-          const SizedBox(height: 16),
-
-          // Disclaimer
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: RecovaColors.surfaceElevation2,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Icon(Icons.info_outline,
-                    size: 14, color: RecovaColors.textMuted),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'This is an estimate derived from heart rate data. It is not a clinical VO₂ max test. Values may vary from lab-measured results.',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      height: 1.45,
-                      color: RecovaColors.textMuted,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1401,10 +1413,11 @@ class _Vo2ExplainerSheet extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: RecovaColors.surfaceElevation3,
+            color: Tok.glassFillElevated,
             borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Tok.glassBorder),
           ),
-          child: Icon(icon, size: 14, color: RecovaColors.monochromeWhite),
+          child: Icon(icon, size: 14, color: Tok.textPrimary),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -1416,7 +1429,7 @@ class _Vo2ExplainerSheet extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: RecovaColors.textPrimary,
+                  color: Tok.textPrimary,
                 ),
               ),
               const SizedBox(height: 2),
@@ -1425,7 +1438,7 @@ class _Vo2ExplainerSheet extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 10.5,
                   height: 1.4,
-                  color: RecovaColors.textSecondary,
+                  color: Tok.textSecondary,
                 ),
               ),
             ],

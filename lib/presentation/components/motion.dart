@@ -10,13 +10,13 @@ import '../../core/theme/design_tokens.dart';
 bool get _isInTest =>
     WidgetsBinding.instance.runtimeType.toString().contains('Test');
 
-/// Standard entrance animation for cards: fade + slide up + subtle scale.
+/// Standard entrance animation for cards: fade + slide up with hardware-accelerated compositing.
 extension StaggeredEntrance on Widget {
-  /// Applies a GSAP-quality card entrance animation.
+  /// Applies a fluid, hardware-composited card entrance animation.
   /// [index] controls stagger delay, [fromOffset] is the initial Y offset.
   Widget animateIn({
     int index = 0,
-    double fromOffset = 24.0,
+    double fromOffset = 18.0,
     Duration? duration,
     Duration? delay,
     Curve curve = Curves.easeOutCubic,
@@ -25,26 +25,21 @@ extension StaggeredEntrance on Widget {
     final staggerDelay = delay ??
         Duration(milliseconds: index * Tok.staggerDelay.inMilliseconds);
 
-    return animate()
-        .fadeIn(
-          duration: duration ?? Tok.animEntrance,
-          delay: staggerDelay,
-          curve: curve,
-        )
-        .slideY(
-          begin: fromOffset / 100,
-          end: 0,
-          duration: duration ?? Tok.animEntrance,
-          delay: staggerDelay,
-          curve: curve,
-        )
-        .scaleXY(
-          begin: 0.97,
-          end: 1.0,
-          duration: duration ?? Tok.animEntrance,
-          delay: staggerDelay,
-          curve: curve,
-        );
+    return RepaintBoundary(
+      child: animate()
+          .fadeIn(
+            duration: duration ?? Tok.animEntrance,
+            delay: staggerDelay,
+            curve: curve,
+          )
+          .slideY(
+            begin: fromOffset / 100,
+            end: 0,
+            duration: duration ?? Tok.animEntrance,
+            delay: staggerDelay,
+            curve: curve,
+          ),
+    );
   }
 
   /// Hero number reveal — bigger scale + slower.
