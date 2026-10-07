@@ -137,7 +137,7 @@ class CoachInsightCard extends StatelessWidget {
                       ),
                     ),
                     Icon(Icons.chevron_right,
-                        size: 12, color: Tok.textTertiary),
+                        size: 12, color: Tok.textSecondary),
                   ],
                 ),
               ],
