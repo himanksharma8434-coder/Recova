@@ -38,12 +38,13 @@ enum IosGlassMaterial {
 class IosGlass extends StatefulWidget {
   final Widget child;
   final IosGlassMaterial material;
-  final double borderRadius;
+  final dynamic borderRadius;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
   final double? width;
   final double? height;
   final Color? accentGlow;
+  final Color? customBottomReflection;
   final bool hasBlur;
   final bool enableInteractiveScale;
   final Brightness? brightness;
@@ -58,6 +59,7 @@ class IosGlass extends StatefulWidget {
     this.width,
     this.height,
     this.accentGlow,
+    this.customBottomReflection,
     this.hasBlur = true,
     this.enableInteractiveScale = true,
     this.brightness,
@@ -69,6 +71,13 @@ class IosGlass extends StatefulWidget {
 
 class _IosGlassState extends State<IosGlass> {
   bool _isPressed = false;
+
+  BorderRadius get _effectiveBorderRadius {
+    final br = widget.borderRadius;
+    if (br is BorderRadius) return br;
+    if (br is num) return BorderRadius.circular(br.toDouble());
+    return BorderRadius.circular(16.0);
+  }
 
   /// Generates the standard Apple 1.7× color saturation matrix.
   static List<double> _saturationMatrix(double s) {
@@ -103,10 +112,12 @@ class _IosGlassState extends State<IosGlass> {
     final isDark = (widget.brightness ?? Theme.of(context).brightness) == Brightness.dark;
     final isReduceTransparency = MediaQuery.maybeOf(context)?.accessibleNavigation ?? false;
 
+    final effectiveRadius = _effectiveBorderRadius;
     // Squircle shape matching continuous iOS corner geometry
     final squircleShape = RoundedSuperellipseBorder(
-      borderRadius: BorderRadius.circular(widget.borderRadius),
+      borderRadius: effectiveRadius,
     );
+    final highlightHeight = (effectiveRadius.topLeft.x * 1.5).clamp(12.0, 48.0);
 
     // Tint colors derived from Apple HIG system materials
     final tintColor = isDark
@@ -171,7 +182,7 @@ class _IosGlassState extends State<IosGlass> {
               top: 0,
               left: 0,
               right: 0,
-              height: widget.borderRadius * 1.5,
+              height: highlightHeight,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -185,6 +196,27 @@ class _IosGlassState extends State<IosGlass> {
                 ),
               ),
             ),
+
+            // Optional subtle custom bottom reflection (e.g. accent / neon tint)
+            if (widget.customBottomReflection != null)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: highlightHeight,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        widget.customBottomReflection!,
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
 
             // Layer 4 — Specular Hairline Border (0.5px gradient stroke)
             Positioned.fill(

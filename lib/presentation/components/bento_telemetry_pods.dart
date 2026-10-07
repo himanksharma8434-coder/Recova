@@ -61,7 +61,7 @@ class BentoTelemetryPods extends StatelessWidget {
                     Text(
                       'MAX 21',
                       style: TokType.caption.copyWith(
-                        color: Tok.textMuted,
+                        color: Tok.textSecondary,
                         fontSize: 8.5,
                       ),
                     ),
@@ -80,7 +80,7 @@ class BentoTelemetryPods extends StatelessWidget {
                     Text(
                       '/ 21.0',
                       style: TokType.bodySmall.copyWith(
-                        color: Tok.textMuted,
+                        color: Tok.textSecondary,
                       ),
                     ),
                   ],
@@ -95,7 +95,7 @@ class BentoTelemetryPods extends StatelessWidget {
                               : 'LIGHT LOAD')
                       : 'NO LOAD RECORDED',
                   style: TokType.caption.copyWith(
-                    color: hasStrain ? Tok.textSecondary : Tok.textMuted,
+                    color: hasStrain ? Tok.textSecondary : Tok.textSecondary,
                   ),
                 ),
                 const SizedBox(height: Tok.space12),
@@ -195,7 +195,7 @@ class BentoTelemetryPods extends StatelessWidget {
                           : 'SLEEP DEFICIT')
                       : 'AWAITING SLEEP LOG',
                   style: TokType.caption.copyWith(
-                    color: hasSleep ? Tok.textSecondary : Tok.textMuted,
+                    color: hasSleep ? Tok.textSecondary : Tok.textSecondary,
                   ),
                 ),
                 const SizedBox(height: Tok.space12),
