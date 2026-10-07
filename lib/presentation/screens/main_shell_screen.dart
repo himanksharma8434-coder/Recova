@@ -267,7 +267,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
                                   const Icon(
                                     Icons.close,
                                     size: 14,
-                                    color: Tok.textMuted,
+                                    color: Tok.textSecondary,
                                   ),
                                 ],
                               ),

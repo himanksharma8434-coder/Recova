@@ -435,7 +435,7 @@ class _ComponentBar extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               weight,
-              style: TokType.caption.copyWith(color: Tok.textMuted),
+              style: TokType.caption.copyWith(color: Tok.textSecondary),
             ),
           ],
         ),
@@ -496,7 +496,7 @@ class _Vo2MaxCard extends StatelessWidget {
                       child: Icon(
                         Icons.info_outline,
                         size: 14,
-                        color: Tok.textMuted,
+                        color: Tok.textSecondary,
                       ),
                     ),
                   ],
@@ -579,6 +579,7 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
+      hasBlur: false,
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
@@ -591,7 +592,7 @@ class _StatTile extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: TokType.caption.copyWith(color: Tok.textMuted),
+            style: TokType.caption.copyWith(color: Tok.textSecondary),
           ),
         ],
       ),
