@@ -152,11 +152,11 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
                 ),
                 const SizedBox(height: Tok.space8),
 
-                // Status Pill
+                // Status Pill (Primed for strain / status info)
                 LiquidGlass(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: Tok.space12,
-                    vertical: Tok.space4,
+                    horizontal: Tok.space10,
+                    vertical: 3,
                   ),
                   hasBlur: false,
                   customBottomReflection: tier.color.withValues(alpha: 0.2),
@@ -169,49 +169,16 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TokType.caption.copyWith(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w600,
                             color: Tok.textSecondary,
-                            letterSpacing: 0.8,
+                            letterSpacing: 0.7,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                if (widget.onTap != null) ...[
-                  const SizedBox(height: 5),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: Tok.space2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Tok.glassFillRecessed,
-                      borderRadius: BorderRadius.circular(Tok.radiusSm),
-                      border: Border.all(
-                        color: Tok.glassBorder.withValues(alpha: 0.08),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'HOW IT\'S CALCULATED',
-                          style: TokType.caption.copyWith(
-                            fontSize: 7,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 9,
-                          color: Tok.textTertiary,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ],
             ),
           ],

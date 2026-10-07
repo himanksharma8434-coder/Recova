@@ -102,15 +102,15 @@ class _LiquidGlassState extends State<LiquidGlass> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white.withValues(alpha: 0.12),
-                    Colors.white.withValues(alpha: 0.05),
-                    Colors.white.withValues(alpha: 0.02),
+                    Colors.white.withValues(alpha: 0.14),
+                    Colors.white.withValues(alpha: 0.06),
+                    Colors.white.withValues(alpha: 0.025),
                   ],
                   stops: const [0.0, 0.45, 1.0],
                 ),
                 border: Border.all(
                   color: Tok.liquidGlassBorder,
-                  width: 1.0,
+                  width: 0.85,
                 ),
               ),
               child: widget.child,
@@ -149,9 +149,14 @@ class _LiquidGlassState extends State<LiquidGlass> {
         behavior: HitTestBehavior.opaque,
         child: AnimatedScale(
           scale: _isPressed ? 0.96 : 1.0,
-          duration: Tok.animFast,
+          duration: const Duration(milliseconds: 120),
           curve: Curves.easeOutCubic,
-          child: content,
+          child: AnimatedOpacity(
+            opacity: _isPressed ? 0.86 : 1.0,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOutCubic,
+            child: content,
+          ),
         ),
       );
     }
@@ -294,6 +299,10 @@ class LiquidGlassButton extends StatelessWidget {
   final Color? accentColor;
   final double? width;
   final double? height;
+  final EdgeInsetsGeometry? padding;
+  final TextStyle? textStyle;
+  final BorderRadius? borderRadius;
+  final bool hasBlur;
 
   const LiquidGlassButton({
     super.key,
@@ -303,6 +312,10 @@ class LiquidGlassButton extends StatelessWidget {
     this.accentColor,
     this.width,
     this.height,
+    this.padding,
+    this.textStyle,
+    this.borderRadius,
+    this.hasBlur = true,
   });
 
   @override
@@ -311,12 +324,15 @@ class LiquidGlassButton extends StatelessWidget {
       width: width,
       height: height,
       onTap: onTap,
+      borderRadius: borderRadius,
+      hasBlur: hasBlur,
       accentGlow: accentColor?.withValues(alpha: 0.25),
       customBottomReflection: accentColor?.withValues(alpha: 0.25),
-      padding: const EdgeInsets.symmetric(
-        horizontal: Tok.space24,
-        vertical: Tok.space14,
-      ),
+      padding: padding ??
+          const EdgeInsets.symmetric(
+            horizontal: Tok.space24,
+            vertical: Tok.space14,
+          ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -327,11 +343,12 @@ class LiquidGlassButton extends StatelessWidget {
           ],
           Text(
             label,
-            style: TokType.cardTitle.copyWith(
-              color: Tok.textPrimary,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-            ),
+            style: textStyle ??
+                TokType.cardTitle.copyWith(
+                  color: Tok.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
           ),
         ],
       ),
