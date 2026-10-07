@@ -90,7 +90,7 @@ class PulseScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Dynamic RHR delta vs baseline
     String rhrDeltaText = 'Awaiting sync';
-    Color rhrDeltaColor = Tok.textMuted;
+    Color rhrDeltaColor = Tok.textSecondary;
     if (summary?.restingHr != null && summary?.baselineRestingHr != null) {
       final diff = (summary!.restingHr! - summary!.baselineRestingHr!).round();
       if (diff < 0) {
@@ -110,7 +110,7 @@ class PulseScreen extends StatelessWidget {
 
     // Dynamic SpO2 delta / state
     String spo2DeltaText = 'Awaiting sync';
-    Color spo2DeltaColor = Tok.textMuted;
+    Color spo2DeltaColor = Tok.textSecondary;
     if (summary?.spo2 != null) {
       if (summary!.spo2! >= 95) {
         spo2DeltaText = 'Optimal range';
@@ -153,7 +153,7 @@ class PulseScreen extends StatelessWidget {
                         horizontal: Tok.space12,
                         vertical: Tok.space4,
                       ),
-                      indicatorColor: summary != null ? Tok.neonAccent : Tok.textMuted,
+                      indicatorColor: summary != null ? Tok.neonAccent : Tok.textSecondary,
                       label: summary != null ? 'WEARABLE SYNCED' : 'AWAITING SYNC',
                     ),
                   ],
@@ -207,7 +207,7 @@ class PulseScreen extends StatelessWidget {
             size: 210,
             onTap: () => _openRecoveryCalculation(context),
           ),
-          const SizedBox(height: Tok.space24),
+          const SizedBox(height: Tok.space20),
 
           // ── Quick Vital Metrics ──
           Row(
@@ -224,7 +224,7 @@ class PulseScreen extends StatelessWidget {
                       : 'Awaiting log',
                   deltaColor: summary?.hrvMs != null
                       ? Tok.recoveryOptimal
-                      : Tok.textMuted,
+                      : Tok.textSecondary,
                   icon: Icons.monitor_heart_outlined,
                   iconColor: Tok.neonAccent,
                   onTap: () => _openHrvDetail(context),
@@ -286,79 +286,6 @@ class PulseScreen extends StatelessWidget {
           _BodyAgeEntryCard(
             onTap: () => _openBodyAge(context),
           ),
-          const SizedBox(height: Tok.space16),
-
-          // ── Tactical Daily Activity Recording CTA Button ──
-          LiquidGlass(
-            borderRadius: BorderRadius.circular(Tok.radiusFull),
-            padding: const EdgeInsets.symmetric(
-              horizontal: Tok.space16,
-              vertical: Tok.space12,
-            ),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Tok.neonAccent,
-                        ),
-                      ),
-                      const SizedBox(width: Tok.space8),
-                      const Text('Biometric recording is ready'),
-                    ],
-                  ),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: const Color(0xFF141720),
-                ),
-              );
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Tok.neonAccent,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Tok.neonAccent.withValues(alpha: 0.6),
-                        blurRadius: 8,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: Tok.space8),
-                Flexible(
-                  child: Text(
-                    'START ACTIVITY RECORDING',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TokType.badge.copyWith(
-                      color: Tok.textPrimary,
-                      fontSize: 10,
-                      letterSpacing: 0.8,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: Tok.space6),
-                const Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 14,
-                  color: Tok.textSecondary,
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -419,7 +346,7 @@ class _BodyAgeEntryCard extends StatelessWidget {
                 Text(
                   'Estimate your functional fitness age',
                   style: TokType.bodySmall.copyWith(
-                    color: Tok.textTertiary,
+                    color: Tok.textSecondary,
                   ),
                 ),
               ],

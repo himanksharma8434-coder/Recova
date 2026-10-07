@@ -85,7 +85,8 @@ void main() {
 
     await tester.pump();
     expect(tester.takeException(), isNull);
-    expect(find.text('HOW IT\'S CALCULATED'), findsOneWidget);
+    expect(find.text('HOW IT\'S CALCULATED'), findsNothing);
+    expect(find.text('RECOVERY'), findsOneWidget);
     expect(find.text('SLEEP ARCHITECTURE'), findsOneWidget);
     expect(find.text('DAILY ACTIVITY & ENERGY'), findsOneWidget);
   });
@@ -800,7 +801,7 @@ void main() {
 
     // Verify modal sheet opened
     expect(find.text('HOW VO₂ MAX IS CALCULATED'), findsOneWidget);
-    expect(find.text('VO₂max ≈ 15.3 × (HRmax ÷ HRrest)'), findsOneWidget);
+    expect(find.text('VO₂max = 15 × (HRmax ÷ HRrest)'), findsOneWidget);
   });
 }
 

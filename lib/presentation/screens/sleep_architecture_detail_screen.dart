@@ -356,7 +356,7 @@ class _SleepArchitectureDetailScreenState
                       size: 22,
                       color: _selectedDayIndex > 0
                           ? RecovaColors.monochromeWhite
-                          : RecovaColors.textMuted.withValues(alpha: 0.25),
+                          : Colors.white.withValues(alpha: 0.22),
                     ),
                     padding: EdgeInsets.zero,
                     constraints:
@@ -410,7 +410,7 @@ class _SleepArchitectureDetailScreenState
                       size: 22,
                       color: _selectedDayIndex < _daysData.length - 1
                           ? RecovaColors.monochromeWhite
-                          : RecovaColors.textMuted.withValues(alpha: 0.25),
+                          : Colors.white.withValues(alpha: 0.22),
                     ),
                     padding: EdgeInsets.zero,
                     constraints:
@@ -957,7 +957,7 @@ class _HypnogramPainter extends CustomPainter {
           fontSize: 7.5,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.4,
-          color: RecovaColors.textMuted,
+          color: RecovaColors.textSecondary,
         ),
       );
       textPainter.layout();
