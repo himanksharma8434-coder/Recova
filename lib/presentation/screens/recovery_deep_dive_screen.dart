@@ -51,6 +51,9 @@ class _MetricDataCache {
   final double? maxVal;
   final double? hrMax;
   final double? hrRest;
+  final double? bestRhr;
+  final double? bestMaxHr;
+  final double? bestVo2Max;
 
   const _MetricDataCache({
     required this.points,
@@ -60,6 +63,9 @@ class _MetricDataCache {
     this.maxVal,
     this.hrMax,
     this.hrRest,
+    this.bestRhr,
+    this.bestMaxHr,
+    this.bestVo2Max,
   });
 }
 
@@ -80,6 +86,11 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
   // Calculation components for VO2 formula display
   double _calcHrMax = 183.0;
   double _calcHrRest = 60.2;
+
+  // Best possible VO2 max components (single best values from the week)
+  double? _bestRhr;
+  double? _bestMaxHr;
+  double? _bestVo2Max;
 
   @override
   void initState() {
@@ -109,6 +120,9 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         _max = cached.maxVal;
         _calcHrMax = cached.hrMax ?? 183.0;
         _calcHrRest = cached.hrRest ?? widget.summary?.baselineRestingHr ?? widget.summary?.restingHr ?? 60.2;
+        _bestRhr = cached.bestRhr;
+        _bestMaxHr = cached.bestMaxHr;
+        _bestVo2Max = cached.bestVo2Max;
         _loading = false;
       });
       return;
@@ -160,29 +174,26 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
       // Live formula components for VO2 max
       double? hrMax;
       double? hrRest;
+      double? bestRhr;
+      double? bestMaxHr;
+      double? bestVo2Max;
+
       if (_selectedMetric == CardioMetric.vo2Max) {
         final now = DateTime.now();
-        DateTime windowStart;
-        if (_selectedPeriod == Vo2Period.sevenDays) {
-          windowStart = now.subtract(const Duration(days: 7));
-        } else if (_selectedPeriod == Vo2Period.thirtyDays) {
-          windowStart = now.subtract(const Duration(days: 30));
-        } else {
-          // All time: look back across all records
-          windowStart = DateTime(2000);
-        }
+        final periodDays = _selectedPeriod.days > 0 ? _selectedPeriod.days : null;
 
-        hrMax = await db.healthRecordDao.getMaxExerciseHr(
-          start: windowStart,
+        // ── HRmax: avg of top 3 daily max HRs from the period ──
+        hrMax = await db.healthRecordDao.getAvgTop3DailyMaxHr(periodDays);
+        if (hrMax == null && _selectedPeriod != Vo2Period.allTime) {
+          // Fallback: try all-time avg top 3
+          hrMax = await db.healthRecordDao.getAvgTop3DailyMaxHr(null);
+        }
+        hrMax ??= await db.healthRecordDao.getMaxExerciseHr(
+          start: DateTime(2000),
           end: now,
         );
-        if (hrMax == null && _selectedPeriod != Vo2Period.allTime) {
-          hrMax = await db.healthRecordDao.getMaxExerciseHr(
-            start: DateTime(2000),
-            end: now,
-          );
-        }
 
+        // ── HRrest: avg RHR from the period (all 7 days) ──
         final todayStart = DateTime(now.year, now.month, now.day);
         final baseline = await db.baselineDao.getBaseline(todayStart);
 
@@ -191,11 +202,11 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         } else if (_selectedPeriod == Vo2Period.thirtyDays) {
           hrRest = baseline?.restingHrBaseline30d ?? baseline?.restingHrBaseline7d ?? widget.summary?.baselineRestingHr;
         } else {
-          // All time: use all-time daily resting HR median if available, else 30d baseline
+          // All time: use all-time daily resting HR mean if available
           final allRhrs = await db.healthRecordDao.getDailyRestingHeartRates(null);
           if (allRhrs.isNotEmpty) {
-            final sorted = allRhrs.map((p) => p.value).toList()..sort();
-            hrRest = sorted[sorted.length ~/ 2];
+            final rhrSum = allRhrs.fold<double>(0.0, (s, p) => s + p.value);
+            hrRest = rhrSum / allRhrs.length;
           } else {
             hrRest = baseline?.restingHrBaseline30d ?? widget.summary?.baselineRestingHr ?? widget.summary?.restingHr;
           }
@@ -205,13 +216,33 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
           start: todayStart,
           end: now,
         );
-        // In the Uth-Sørensen VO2 max formula, HRrest must be the awake resting HR.
         // If baseline reflects nocturnal sleep dips (< 56 bpm), calibrate to awake RHR.
         if (hrRest != null && hrRest < 56.0) {
-          hrRest = (hrRest * 1.228).clamp(58.0, 68.0);
+          hrRest = (hrRest * 1.228).clamp(58.0, 60.5);
         }
         if (hrRest != null && (hrRest - 60.2).abs() < 1.5) {
           hrRest = 60.2;
+        }
+
+        // ── Best possible VO2 max: single best RHR and single highest HR from the week ──
+        final bestPeriodDays = periodDays ?? 7; // default to 7 for best-case
+        bestRhr = await db.healthRecordDao.getBestRestingHr(bestPeriodDays);
+        bestMaxHr = await db.healthRecordDao.getBestMaxHr(bestPeriodDays);
+
+        // Fallback to average components if single-best records not available
+        bestRhr ??= hrRest;
+        bestMaxHr ??= hrMax;
+
+        // Apply same awake RHR calibration to best RHR
+        if (bestRhr != null && bestRhr < 56.0) {
+          bestRhr = (bestRhr * 1.228).clamp(58.0, 60.5);
+        }
+
+        if (bestRhr != null && bestRhr > 0 && bestMaxHr != null && bestMaxHr > bestRhr) {
+          final raw = 15.0 * (bestMaxHr / bestRhr);
+          if (raw >= 15.0 && raw <= 85.0) {
+            bestVo2Max = raw;
+          }
         }
       }
 
@@ -223,6 +254,9 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         maxVal: maxVal,
         hrMax: hrMax,
         hrRest: hrRest,
+        bestRhr: bestRhr,
+        bestMaxHr: bestMaxHr,
+        bestVo2Max: bestVo2Max,
       );
 
       if (mounted) {
@@ -234,6 +268,9 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
           _max = maxVal;
           _calcHrMax = hrMax ?? 183.0;
           _calcHrRest = hrRest ?? widget.summary?.baselineRestingHr ?? widget.summary?.restingHr ?? 60.2;
+          _bestRhr = bestRhr;
+          _bestMaxHr = bestMaxHr;
+          _bestVo2Max = bestVo2Max;
           _loading = false;
         });
       }
@@ -342,17 +379,17 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
     if (_selectedMetric == CardioMetric.vo2Max) {
       if (_selectedPeriod == Vo2Period.sevenDays) {
         headlineValue = widget.summary?.estimatedVo2Max7d ??
-            (_calcHrRest > 0 ? (15.3 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
+            (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
             _average ??
             _latest;
       } else if (_selectedPeriod == Vo2Period.thirtyDays) {
         headlineValue = widget.summary?.estimatedVo2Max30d ??
-            (_calcHrRest > 0 ? (15.3 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
+            (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
             _average ??
             _latest;
       } else {
         headlineValue = widget.summary?.estimatedVo2MaxAllTime ??
-            (_calcHrRest > 0 ? (15.3 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
+            (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
             _average ??
             widget.summary?.estimatedVo2Max ??
             _latest;
@@ -438,7 +475,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                             size: 12,
                             color: isSelected
                                 ? RecovaColors.canvasBase
-                                : RecovaColors.textTertiary,
+                                : RecovaColors.textSecondary,
                           ),
                           const SizedBox(width: 3),
                           Flexible(
@@ -452,7 +489,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                                 letterSpacing: 0.3,
                                 color: isSelected
                                     ? RecovaColors.canvasBase
-                                    : RecovaColors.textMuted,
+                                    : RecovaColors.textSecondary,
                               ),
                             ),
                           ),
@@ -497,7 +534,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                         letterSpacing: 0.6,
                         color: isSelected
                             ? _metricAccentColor
-                            : RecovaColors.textMuted,
+                            : RecovaColors.textSecondary,
                       ),
                     ),
                   ),
@@ -698,7 +735,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
-                    color: RecovaColors.textMuted,
+                    color: RecovaColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -713,6 +750,11 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
 
                 // ── Summary Stats Strip (Latest / Period Avg / Period Peak or Low) ──
                 _buildStatsStrip(),
+                const SizedBox(height: 16),
+
+                // ── Best Possible VO₂ Max (bottom section) ──
+                if (_selectedMetric == CardioMetric.vo2Max)
+                  _buildBestVo2Card(),
               ],
             ),
           ),
@@ -730,14 +772,14 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: const [
-            Icon(Icons.show_chart, size: 28, color: RecovaColors.textMuted),
+            Icon(Icons.show_chart, size: 28, color: RecovaColors.textSecondary),
             SizedBox(height: 8),
             Text(
               'No data recorded for this period.\nWear your tracker and sync to build your trend.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 10.5,
-                color: RecovaColors.textMuted,
+                color: RecovaColors.textSecondary,
                 height: 1.4,
               ),
             ),
@@ -791,7 +833,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                   value.toInt().toString(),
                   style: const TextStyle(
                     fontSize: 8.5,
-                    color: RecovaColors.textMuted,
+                    color: RecovaColors.textSecondary,
                   ),
                 ),
               ),
@@ -832,7 +874,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                       label,
                       style: const TextStyle(
                         fontSize: 8.5,
-                        color: RecovaColors.textMuted,
+                        color: RecovaColors.textSecondary,
                       ),
                     ),
                   );
@@ -925,13 +967,13 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
   Widget _buildCalculationCard() {
     if (_selectedMetric == CardioMetric.vo2Max) {
       final ratio = _calcHrRest > 0 ? (_calcHrMax / _calcHrRest) : 3.63;
-      final computed = (15.3 * ratio).clamp(15.0, 85.0);
+      final computed = (15.0 * ratio).clamp(15.0, 85.0);
       final hrMaxSubtitle = _selectedPeriod == Vo2Period.allTime
-          ? 'All-Time Peak'
-          : (_selectedPeriod == Vo2Period.thirtyDays ? '30D Peak' : 'Recent Peak');
+          ? 'All-Time Avg Top 3'
+          : (_selectedPeriod == Vo2Period.thirtyDays ? '30D Avg Top 3' : '7D Avg Top 3');
       final hrRestSubtitle = _selectedPeriod == Vo2Period.allTime
-          ? 'All-Time RHR'
-          : (_selectedPeriod == Vo2Period.thirtyDays ? '30D Baseline' : '7D Baseline');
+          ? 'All-Time Avg RHR'
+          : (_selectedPeriod == Vo2Period.thirtyDays ? '30D Avg RHR' : '7D Avg RHR');
 
       return Container(
         width: double.infinity,
@@ -1008,7 +1050,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      '15.3 × (${_calcHrMax.toStringAsFixed(0)} ÷ ${_calcHrRest.toStringAsFixed(1)}) = ${computed.toStringAsFixed(1)} mL/kg/min',
+                      '15 × (${_calcHrMax.toStringAsFixed(0)} ÷ ${_calcHrRest.toStringAsFixed(1)}) = ${computed.toStringAsFixed(1)} mL/kg/min',
                       style: const TextStyle(
                         fontFamily: 'monospace',
                         fontSize: 12,
@@ -1029,7 +1071,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                 const SizedBox(width: 6),
                 _calcChip('HRrest', '${_calcHrRest.toStringAsFixed(1)} bpm', hrRestSubtitle),
                 const SizedBox(width: 6),
-                _calcChip('Factor', '15.3', 'Clinical Ratio'),
+                _calcChip('Factor', '15', 'Multiplier'),
               ],
             ),
           ],
@@ -1134,7 +1176,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
               style: const TextStyle(
                 fontSize: 8.5,
                 fontWeight: FontWeight.w600,
-                color: RecovaColors.textMuted,
+                color: RecovaColors.textSecondary,
               ),
             ),
             const SizedBox(height: 2),
@@ -1153,7 +1195,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 7.5,
-                color: RecovaColors.textTertiary,
+                color: RecovaColors.textSecondary,
               ),
             ),
           ],
@@ -1242,6 +1284,267 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
       ],
     );
   }
+
+  /// Best possible VO₂ Max section showing single-day best values from the period
+  /// and explaining whether the current displayed value is Best or Actual VO₂ Max.
+  Widget _buildBestVo2Card() {
+    if (_bestVo2Max == null && _bestRhr == null && _bestMaxHr == null) {
+      return const SizedBox.shrink();
+    }
+
+    final bestVo2Str = _bestVo2Max?.toStringAsFixed(1) ?? '--';
+    final bestRhrStr = _bestRhr?.toStringAsFixed(1) ?? '--';
+    final bestMaxHrStr = _bestMaxHr?.toStringAsFixed(0) ?? '--';
+    final bestTier = _vo2Tier(_bestVo2Max);
+    final currentVo2 = _calcHrRest > 0
+        ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0)
+        : null;
+    final currentVo2Str = currentVo2?.toStringAsFixed(1) ?? '--';
+    final isBestHigher = _bestVo2Max != null && currentVo2 != null && _bestVo2Max! > currentVo2;
+    final diff = isBestHigher ? (_bestVo2Max! - currentVo2) : 0.0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: RecovaColors.surfaceElevation1,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF00D4AA).withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: const [
+                    Icon(Icons.emoji_events, size: 16, color: Color(0xFFFFD700)),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'WEEKLY BEST VS. ACTUAL VO₂ MAX',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          color: RecovaColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00D4AA).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFF00D4AA).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  bestTier,
+                  style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: Color(0xFF00D4AA),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Comparison pods: Actual VO2 vs Best Possible VO2
+          Row(
+            children: [
+              // Actual VO2 Max pod
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: RecovaColors.surfaceElevation3,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: RecovaColors.borderSubtle),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.check_circle_outline, size: 12, color: RecovaColors.recoveryEmerald),
+                          SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'ACTUAL VO₂ MAX',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                                color: RecovaColors.recoveryEmerald,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        currentVo2Str,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: RecovaColors.monochromeWhite,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        '7D Avg RHR & Top 3 HRmax',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 7.5,
+                          color: RecovaColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Best Possible VO2 pod
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00D4AA).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF00D4AA).withValues(alpha: 0.35)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.star_outline, size: 12, color: Color(0xFF00D4AA)),
+                          SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'BEST POSSIBLE',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                                color: Color(0xFF00D4AA),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        bestVo2Str,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF00D4AA),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Single Best RHR & Peak HR',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 7.5,
+                          color: Color(0xFF00D4AA),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Explanatory banner telling whether this was best or actual VO2 max
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: RecovaColors.surfaceElevation3,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF00D4AA).withValues(alpha: 0.25)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Best Formula: 15 × ($bestMaxHrStr ÷ $bestRhrStr) = $bestVo2Str mL/kg/min',
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF00D4AA),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      isBestHigher ? Icons.info_outline : Icons.check_circle_outline,
+                      size: 12,
+                      color: isBestHigher ? const Color(0xFF00D4AA) : RecovaColors.recoveryEmerald,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        isBestHigher
+                            ? 'The primary metric above is your ACTUAL VO₂ max ($currentVo2Str). Your BEST potential was $bestVo2Str (+${diff.toStringAsFixed(1)} higher), reached on your single best resting day paired with your peak workout.'
+                            : 'The primary metric above is your ACTUAL VO₂ max ($currentVo2Str), which matches your peak fitness capacity recorded this week.',
+                        style: TextStyle(
+                          fontSize: 9,
+                          height: 1.35,
+                          fontWeight: FontWeight.w500,
+                          color: isBestHigher ? const Color(0xFF00D4AA) : RecovaColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Single best values chips (lowest RHR and highest Max HR from the week)
+          Row(
+            children: [
+              _calcChip('Best Resting HR', '$bestRhrStr bpm', 'Lowest of Week'),
+              const SizedBox(width: 6),
+              _calcChip('Maximum HR', '$bestMaxHrStr bpm', 'Highest of Week'),
+              const SizedBox(width: 6),
+              _calcChip('Multiplier', '15', 'Factor'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 
@@ -1267,10 +1570,12 @@ class _Vo2ExplainerSheet extends StatelessWidget {
             top: 16,
             bottom: MediaQuery.of(context).viewInsets.bottom + 28,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Handle bar
               Center(
                 child: Container(
@@ -1329,7 +1634,7 @@ class _Vo2ExplainerSheet extends StatelessWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'VO₂max ≈ 15.3 × (HRmax ÷ HRrest)',
+                      'VO₂max = 15 × (HRmax ÷ HRrest)',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -1345,16 +1650,23 @@ class _Vo2ExplainerSheet extends StatelessWidget {
               // Data sources
               _explainerRow(
                 icon: Icons.favorite_border,
-                title: 'HRrest — Resting Heart Rate Baseline',
+                title: 'HRrest — 7-Day Average Resting Heart Rate',
                 description:
-                    'Rolling 7-day median of your daily resting heart rate, prioritizing explicit resting heart rate records reported by your wearable.',
+                    'Average resting heart rate calculated across all 7 days of the week, providing a stable cardiovascular baseline.',
               ),
               const SizedBox(height: 12),
               _explainerRow(
                 icon: Icons.directions_run,
-                title: 'HRmax — Peak Workout Heart Rate',
+                title: 'HRmax — Top 3 Days Average Max Heart Rate',
                 description:
-                    'Highest sustained heart rate recorded during workout sessions (e.g. running) in the last 60 days via Health Connect.',
+                    'Average of the highest heart rates recorded from your top 3 most strenuous days of the week.',
+              ),
+              const SizedBox(height: 12),
+              _explainerRow(
+                icon: Icons.emoji_events_outlined,
+                title: 'Best vs. Actual VO₂ Max',
+                description:
+                    'Your Actual VO₂ Max is derived from your 7-day average RHR and top 3 workout peaks. The Best VO₂ Max uses your single lowest resting HR and single highest peak to reveal your peak physiological ceiling.',
               ),
               const SizedBox(height: 12),
               _explainerRow(
@@ -1395,6 +1707,7 @@ class _Vo2ExplainerSheet extends StatelessWidget {
                 ),
               ),
             ],
+          ),
           ),
         ),
       ),

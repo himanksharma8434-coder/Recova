@@ -189,7 +189,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     'Your age, gender, height, and body weight are stored once on your device. '
                     'They are used continuously to compare your wearable biometrics against population norms for Body Age and Recovery.',
                     style: TokType.bodySmall.copyWith(
-                      color: Tok.textTertiary,
+                      color: Tok.textSecondary,
                       height: 1.5,
                     ),
                   ),
@@ -214,7 +214,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                       hintText: '25',
                       hintStyle: TokType.metricMedium.copyWith(
                         fontSize: 22,
-                        color: Tok.textMuted,
+                        color: Tok.textSecondary,
                       ),
                       suffixText: 'years old',
                       suffixStyle: TokType.unit,
@@ -247,7 +247,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   const SizedBox(height: Tok.space4),
                   Text(
                     'Used for demographic physiological norm comparison',
-                    style: TokType.bodySmall.copyWith(color: Tok.textMuted),
+                    style: TokType.bodySmall.copyWith(color: Tok.textSecondary),
                   ),
                   const SizedBox(height: Tok.space12),
                   Row(
@@ -289,7 +289,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                                 hintText: '70.0',
                                 hintStyle: TokType.metricMedium.copyWith(
                                   fontSize: 18,
-                                  color: Tok.textMuted,
+                                  color: Tok.textSecondary,
                                 ),
                                 suffixText: 'kg',
                                 suffixStyle: TokType.unit,
@@ -341,7 +341,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                                 hintText: '175.0',
                                 hintStyle: TokType.metricMedium.copyWith(
                                   fontSize: 18,
-                                  color: Tok.textMuted,
+                                  color: Tok.textSecondary,
                                 ),
                                 suffixText: 'cm',
                                 suffixStyle: TokType.unit,
@@ -398,7 +398,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                               children: [
                                 Text('BODY MASS INDEX',
                                     style: TokType.caption
-                                        .copyWith(color: Tok.textMuted)),
+                                        .copyWith(color: Tok.textSecondary)),
                                 const SizedBox(height: 2),
                                 Text(
                                   bmi.toStringAsFixed(1),
@@ -426,7 +426,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                               children: [
                                 Text('ESTIMATED BMR',
                                     style: TokType.caption
-                                        .copyWith(color: Tok.textMuted)),
+                                        .copyWith(color: Tok.textSecondary)),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${bmr.toStringAsFixed(0)} kcal',
@@ -491,13 +491,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               Icon(
                 icon,
                 size: 16,
-                color: isSelected ? Tok.textPrimary : Tok.textMuted,
+                color: isSelected ? Tok.textPrimary : Tok.textSecondary,
               ),
               const SizedBox(width: Tok.space8),
               Text(
                 label,
                 style: TokType.caption.copyWith(
-                  color: isSelected ? Tok.textPrimary : Tok.textMuted,
+                  color: isSelected ? Tok.textPrimary : Tok.textSecondary,
                   fontWeight:
                       isSelected ? FontWeight.w600 : FontWeight.w400,
                 ),
