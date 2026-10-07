@@ -199,7 +199,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
             'Please add your body weight, height, age, and gender once in settings to calculate your fitness age.',
             textAlign: TextAlign.center,
             style: TokType.bodySmall.copyWith(
-              color: Tok.textTertiary,
+              color: Tok.textSecondary,
               height: 1.5,
             ),
           ),
@@ -210,6 +210,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
             child: GestureDetector(
               onTap: _openSettings,
               child: LiquidGlass(
+                hasBlur: false,
                 borderRadius: BorderRadius.circular(Tok.radiusSm),
                 padding: EdgeInsets.zero,
                 customBottomReflection:
@@ -232,59 +233,55 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // RESULTS DISPLAY (Clean & Focused)
+  // RESULTS DISPLAY (Clean, High-Performance & Focused)
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildResults(BodyAgeResult result) {
-    return AnimatedBuilder(
-      animation: _revealAnimation,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _revealAnimation.value,
-          child: Transform.translate(
-            offset: Offset(0, 20 * (1 - _revealAnimation.value)),
-            child: child,
-          ),
-        );
-      },
-      child: Column(
-        children: [
-          // Profile summary pill
-          _buildProfilePill(result),
-          const SizedBox(height: Tok.space16),
-
-          // Hero body age display
-          _buildHeroAge(result),
-          const SizedBox(height: Tok.space16),
-
-          // Component breakdown
-          _buildComponentBreakdown(result),
-          const SizedBox(height: Tok.space16),
-
-          // Derived metrics (BMI, VO2 Max, BMR)
-          if (result.derivedMetrics.bmi != null ||
-              result.derivedMetrics.vo2maxUsed != null ||
-              result.derivedMetrics.bmrKcal != null)
-            _buildDerivedMetrics(result),
-
-          if (result.derivedMetrics.bmi != null ||
-              result.derivedMetrics.vo2maxUsed != null ||
-              result.derivedMetrics.bmrKcal != null)
+    return FadeTransition(
+      opacity: _revealAnimation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.05),
+          end: Offset.zero,
+        ).animate(_revealAnimation),
+        child: Column(
+          children: [
+            // Profile summary pill
+            RepaintBoundary(child: _buildProfilePill(result)),
             const SizedBox(height: Tok.space16),
 
-          // Top actionable levers
-          if (result.topLevers.isNotEmpty) _buildTopLevers(result),
-          if (result.topLevers.isNotEmpty) const SizedBox(height: Tok.space16),
-
-          // Data quality & flags (only if any flags exist)
-          if (result.dataQualityFlags.isNotEmpty) ...[
-            _buildDataQuality(result),
+            // Hero body age display
+            RepaintBoundary(child: _buildHeroAge(result)),
             const SizedBox(height: Tok.space16),
+
+            // Component breakdown
+            RepaintBoundary(child: _buildComponentBreakdown(result)),
+            const SizedBox(height: Tok.space16),
+
+            // Derived metrics (BMI, VO2 Max, BMR)
+            if (result.derivedMetrics.bmi != null ||
+                result.derivedMetrics.vo2maxUsed != null ||
+                result.derivedMetrics.bmrKcal != null) ...[
+              RepaintBoundary(child: _buildDerivedMetrics(result)),
+              const SizedBox(height: Tok.space16),
+            ],
+
+            // Top actionable levers
+            if (result.topLevers.isNotEmpty) ...[
+              RepaintBoundary(child: _buildTopLevers(result)),
+              const SizedBox(height: Tok.space16),
+            ],
+
+            // Data quality & flags (only if any flags exist)
+            if (result.dataQualityFlags.isNotEmpty) ...[
+              RepaintBoundary(child: _buildDataQuality(result)),
+              const SizedBox(height: Tok.space16),
+            ],
+
+            // Minimal Disclaimer
+            RepaintBoundary(child: _buildDisclaimer(result)),
           ],
-
-          // Minimal Disclaimer
-          _buildDisclaimer(result),
-        ],
+        ),
       ),
     );
   }
@@ -302,6 +299,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
         : '';
 
     return LiquidGlass(
+      hasBlur: false,
       onTap: _openSettings,
       padding: const EdgeInsets.symmetric(
         horizontal: Tok.space16,
@@ -311,18 +309,18 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.person_outline,
-              size: 13, color: Tok.textSecondary),
+              size: 13, color: Tok.textPrimary),
           const SizedBox(width: 6),
           Text(
             '$age yrs • $gender$weight$height',
             style: TokType.caption.copyWith(
-              color: Tok.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
+              color: Tok.textPrimary,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 6),
-          const Icon(Icons.edit_outlined, size: 11, color: Tok.textMuted),
+          const Icon(Icons.edit_outlined, size: 11, color: Tok.textSecondary),
         ],
       ),
     );
@@ -355,6 +353,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
             style: TokType.sectionLabel.copyWith(
               letterSpacing: 2.2,
               fontSize: 9.5,
+              color: Tok.textSecondary,
             ),
           ),
           const SizedBox(height: Tok.space12),
@@ -366,6 +365,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
 
           // Difference pill
           LiquidGlass(
+            hasBlur: false,
             padding: const EdgeInsets.symmetric(
               horizontal: Tok.space16,
               vertical: Tok.space6,
@@ -424,11 +424,13 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          CustomPaint(
-            size: const Size(170, 170),
-            painter: _BodyAgeGaugePainter(
-              fillRatio: fillRatio,
-              accentColor: tierColor,
+          RepaintBoundary(
+            child: CustomPaint(
+              size: const Size(170, 170),
+              painter: _BodyAgeGaugePainter(
+                fillRatio: fillRatio,
+                accentColor: tierColor,
+              ),
             ),
           ),
           Column(
@@ -446,9 +448,10 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
               Text(
                 'ACTUAL: ${result.chronologicalAge}',
                 style: TokType.caption.copyWith(
-                  color: Tok.textMuted,
+                  color: Tok.textSecondary,
                   letterSpacing: 1.0,
-                  fontSize: 9.5,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -457,8 +460,6 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
       ),
     );
   }
-
-  // ── Component Breakdown ──
 
   // ── Component Breakdown (5-Second Glanceable) ──
 
@@ -480,13 +481,17 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('BIOMETRIC BREAKDOWN', style: TokType.sectionLabel),
+              Text(
+                'BIOMETRIC BREAKDOWN',
+                style: TokType.sectionLabel.copyWith(color: Tok.textSecondary),
+              ),
               Text(
                 '${result.confidence.label} CONFIDENCE',
                 style: TokType.caption.copyWith(
-                  color: Tok.textMuted,
-                  fontSize: 9,
+                  color: Tok.textSecondary,
+                  fontSize: 9.5,
                   letterSpacing: 1.0,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -528,6 +533,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
 
   Widget _buildGlanceScoreBadge(String label, Color color, IconData icon) {
     return LiquidGlass(
+      hasBlur: false,
       padding: const EdgeInsets.symmetric(
         horizontal: Tok.space12,
         vertical: Tok.space6,
@@ -580,6 +586,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: Tok.space12),
       child: LiquidGlass(
+        hasBlur: false,
         borderRadius: BorderRadius.circular(Tok.radiusMd),
         padding: const EdgeInsets.all(Tok.space12),
         customBottomReflection: statusColor.withValues(alpha: 0.18),
@@ -605,11 +612,13 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
                     style: TokType.cardTitle.copyWith(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
+                      color: Tok.textPrimary,
                     ),
                   ),
                 ),
                 // Status Pill
                 LiquidGlass(
+                  hasBlur: false,
                   padding: const EdgeInsets.symmetric(
                     horizontal: Tok.space8,
                     vertical: Tok.space4,
@@ -646,7 +655,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
           Text(
             meta.takeaway,
             style: TokType.bodySmall.copyWith(
-              color: Tok.textPrimary.withValues(alpha: 0.9),
+              color: Tok.textPrimary,
               fontSize: 11.5,
               height: 1.35,
             ),
@@ -658,8 +667,8 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
             Text(
               component.inputsUsed.join(' • '),
               style: TokType.caption.copyWith(
-                color: Tok.textMuted,
-                fontSize: 9.5,
+                color: Tok.textSecondary,
+                fontSize: 10,
               ),
             ),
           ],
@@ -713,6 +722,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
     bool isRight = false,
   }) {
     return LiquidGlass(
+      hasBlur: false,
       height: 22,
       padding: EdgeInsets.zero,
       borderRadius: BorderRadius.horizontal(
@@ -725,7 +735,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
         child: Text(
           label,
           style: TokType.caption.copyWith(
-            color: isActive ? activeColor : Tok.textMuted.withValues(alpha: 0.6),
+            color: isActive ? activeColor : const Color(0xFF9E9EA8),
             fontSize: 8.5,
             fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
             letterSpacing: 0.6,
@@ -816,7 +826,10 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('DERIVED METRICS', style: TokType.sectionLabel),
+          Text(
+            'DERIVED METRICS',
+            style: TokType.sectionLabel.copyWith(color: Tok.textSecondary),
+          ),
           const SizedBox(height: Tok.space12),
           Row(children: items),
         ],
@@ -829,6 +842,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         child: LiquidGlass(
+          hasBlur: false,
           padding: const EdgeInsets.symmetric(
             horizontal: Tok.space12,
             vertical: Tok.space12,
@@ -838,16 +852,28 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(label, style: TokType.sectionLabel.copyWith(fontSize: 9.5)),
+              Text(
+                label,
+                style: TokType.sectionLabel.copyWith(
+                  fontSize: 9.5,
+                  color: Tok.textSecondary,
+                ),
+              ),
               const SizedBox(height: Tok.space4),
               Text(
                 value,
-                style: TokType.metricMedium.copyWith(fontSize: 16),
+                style: TokType.metricMedium.copyWith(
+                  fontSize: 16,
+                  color: Tok.textPrimary,
+                ),
               ),
               if (unit.isNotEmpty)
                 Text(
                   unit,
-                  style: TokType.caption.copyWith(color: Tok.textMuted, fontSize: 8.5),
+                  style: TokType.caption.copyWith(
+                    color: Tok.textSecondary,
+                    fontSize: 9.0,
+                  ),
                 ),
             ],
           ),
@@ -870,7 +896,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
               const SizedBox(width: Tok.space8),
               Text(
                 'TOP ACTIONS TO LOWER BODY AGE',
-                style: TokType.sectionLabel,
+                style: TokType.sectionLabel.copyWith(color: Tok.textSecondary),
               ),
             ],
           ),
@@ -929,13 +955,13 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
                         Row(
                           children: [
                             const Icon(Icons.schedule,
-                                size: 10, color: Tok.textMuted),
+                                size: 10, color: Tok.textSecondary),
                             const SizedBox(width: 4),
                             Text(
                               lever.timeframe,
                               style: TokType.caption.copyWith(
-                                color: Tok.textMuted,
-                                fontSize: 9,
+                                color: Tok.textSecondary,
+                                fontSize: 9.5,
                               ),
                             ),
                           ],
@@ -960,7 +986,10 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('HEALTH ALERTS & DATA NOTES', style: TokType.sectionLabel),
+          Text(
+            'HEALTH ALERTS & DATA NOTES',
+            style: TokType.sectionLabel.copyWith(color: Tok.textSecondary),
+          ),
           const SizedBox(height: Tok.space8),
           ...result.dataQualityFlags.map((flag) => Padding(
                 padding: const EdgeInsets.only(bottom: Tok.space4),
@@ -968,14 +997,15 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Icon(Icons.info_outline,
-                        size: 13, color: Tok.textMuted),
+                        size: 13, color: Tok.textSecondary),
                     const SizedBox(width: Tok.space8),
                     Expanded(
                       child: Text(
                         flag,
                         style: TokType.caption.copyWith(
-                          color: Tok.textMuted,
+                          color: Tok.textSecondary,
                           height: 1.4,
+                          fontSize: 10.5,
                         ),
                       ),
                     ),
@@ -995,15 +1025,15 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.shield_outlined, size: 13, color: Tok.textMuted),
+          const Icon(Icons.shield_outlined, size: 13, color: Tok.textSecondary),
           const SizedBox(width: Tok.space8),
           Expanded(
             child: Text(
               result.disclaimer,
               style: TokType.caption.copyWith(
-                color: Tok.textMuted,
+                color: Tok.textSecondary,
                 height: 1.4,
-                fontSize: 9,
+                fontSize: 9.5,
               ),
             ),
           ),
@@ -1039,7 +1069,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
             const SizedBox(height: Tok.space4),
             Text(
               'Analyzing wearable baselines against population cohorts',
-              style: TokType.caption.copyWith(color: Tok.textMuted),
+              style: TokType.caption.copyWith(color: Tok.textSecondary),
             ),
           ],
         ),
@@ -1064,7 +1094,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
             'We recommend general healthy habit tracking.',
             textAlign: TextAlign.center,
             style: TokType.bodySmall.copyWith(
-              color: Tok.textTertiary,
+              color: Tok.textSecondary,
               height: 1.5,
             ),
           ),
@@ -1095,7 +1125,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// BODY AGE GAUGE PAINTER
+// BODY AGE GAUGE PAINTER (Optimized Vector Track & Arc)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _BodyAgeGaugePainter extends CustomPainter {
@@ -1112,71 +1142,48 @@ class _BodyAgeGaugePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (size.width - 24) / 2;
 
-    // 1. Background ring
+    // 1. Background ring track
     final bgPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.04)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawCircle(center, radius, bgPaint);
-
-    // 2. Dot matrix ring (60 dots)
-    const totalDots = 60;
-    final dotPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.08)
-      ..style = PaintingStyle.fill;
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius - 6, bgPaint);
 
-    for (int i = 0; i < totalDots; i++) {
-      final angle = (i * 2 * pi) / totalDots - (pi / 2);
-      final dotX = center.dx + radius * cos(angle);
-      final dotY = center.dy + radius * sin(angle);
-      canvas.drawCircle(Offset(dotX, dotY), 1.2, dotPaint);
-    }
-
-    // 3. Active fill
+    // 2. Active fill arc
     if (fillRatio > 0) {
-      final activeDotsCount = (fillRatio * totalDots).round();
-
-      final activeDotPaint = Paint()
-        ..color = accentColor
-        ..style = PaintingStyle.fill;
-
-      for (int i = 0; i < activeDotsCount; i++) {
-        final angle = (i * 2 * pi) / totalDots - (pi / 2);
-        final dotX = center.dx + radius * cos(angle);
-        final dotY = center.dy + radius * sin(angle);
-        canvas.drawCircle(Offset(dotX, dotY), 2.2, activeDotPaint);
-      }
-
-      // Inner arc
       final sweepAngle = fillRatio * 2 * pi;
-      final innerArcPaint = Paint()
-        ..color = accentColor.withValues(alpha: 0.85)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius - 6),
-        -pi / 2,
-        sweepAngle,
-        false,
-        innerArcPaint,
-      );
+      final arcRect = Rect.fromCircle(center: center, radius: radius - 6);
 
       // Glow arc
       final glowArcPaint = Paint()
-        ..color = accentColor.withValues(alpha: 0.12)
+        ..color = accentColor.withValues(alpha: 0.25)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 8
+        ..strokeWidth = 7
         ..strokeCap = StrokeCap.round
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
 
       canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius - 6),
+        arcRect,
         -pi / 2,
         sweepAngle,
         false,
         glowArcPaint,
+      );
+
+      // Inner progress arc
+      final innerArcPaint = Paint()
+        ..color = accentColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.5
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawArc(
+        arcRect,
+        -pi / 2,
+        sweepAngle,
+        false,
+        innerArcPaint,
       );
     }
   }

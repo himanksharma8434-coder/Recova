@@ -80,7 +80,7 @@ class RecoveryCalculationScreen extends StatelessWidget {
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.8,
-                              color: RecovaColors.textTertiary,
+                              color: RecovaColors.textSecondary,
                             ),
                           ),
                         ],
@@ -117,7 +117,7 @@ class RecoveryCalculationScreen extends StatelessWidget {
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.w600,
                                         letterSpacing: 1.4,
-                                        color: RecovaColors.textTertiary,
+                                        color: RecovaColors.textSecondary,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -227,7 +227,7 @@ class RecoveryCalculationScreen extends StatelessWidget {
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.5,
-                          color: RecovaColors.textTertiary,
+                          color: RecovaColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -423,6 +423,7 @@ class _PillarCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
+      hasBlur: false,
       borderRadius: 14,
       padding: const EdgeInsets.all(16),
       accentGlow: pillarColor.withValues(alpha: 0.08),
@@ -479,7 +480,7 @@ class _PillarCard extends StatelessWidget {
                   fontSize: 8.5,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.8,
-                  color: RecovaColors.textTertiary,
+                  color: RecovaColors.textSecondary,
                 ),
               ),
               Text(
@@ -526,7 +527,7 @@ class _PillarCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 8,
                           fontWeight: FontWeight.w600,
-                          color: RecovaColors.textTertiary,
+                          color: RecovaColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -553,7 +554,7 @@ class _PillarCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 8,
                           fontWeight: FontWeight.w600,
-                          color: RecovaColors.textTertiary,
+                          color: RecovaColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -581,7 +582,7 @@ class _PillarCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 9.5,
               fontFamily: 'monospace',
-              color: RecovaColors.textTertiary,
+              color: RecovaColors.textSecondary,
             ),
           ),
           const SizedBox(height: 6),

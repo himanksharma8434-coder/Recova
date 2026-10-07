@@ -366,7 +366,7 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
                                   letterSpacing: 0.5,
                                   color: isSelected
                                       ? Tok.canvasBase
-                                      : RecovaColors.textTertiary,
+                                      : Tok.textSecondary,
                                 ),
                               ),
                             ),
@@ -530,7 +530,7 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
                                     'Awaiting PPG pulse telemetry sync...',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: RecovaColors.textMuted,
+                                      color: RecovaColors.textSecondary,
                                     ),
                                   ),
                                 )
@@ -615,7 +615,7 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
                 style: const TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
-                  color: RecovaColors.textMuted,
+                  color: RecovaColors.textSecondary,
                 ),
               );
             },
@@ -636,7 +636,7 @@ class _HrvDetailScreenState extends State<HrvDetailScreen> {
                     style: const TextStyle(
                       fontSize: 8.5,
                       fontWeight: FontWeight.w600,
-                      color: RecovaColors.textTertiary,
+                      color: RecovaColors.textSecondary,
                     ),
                   ),
                 );
