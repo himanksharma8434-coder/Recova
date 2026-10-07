@@ -98,7 +98,7 @@ class DailyActivityPod extends StatelessWidget {
                       'TODAY • / 10,000',
                       style: TokType.caption.copyWith(
                         fontWeight: FontWeight.w400,
-                        color: Tok.textMuted,
+                        color: Tok.textSecondary,
                       ),
                     ),
                   ],
@@ -128,7 +128,7 @@ class DailyActivityPod extends StatelessWidget {
                       'kcal',
                       style: TokType.caption.copyWith(
                         fontWeight: FontWeight.w400,
-                        color: Tok.textMuted,
+                        color: Tok.textSecondary,
                       ),
                     ),
                   ],
@@ -158,7 +158,7 @@ class DailyActivityPod extends StatelessWidget {
                       'kcal',
                       style: TokType.caption.copyWith(
                         fontWeight: FontWeight.w400,
-                        color: Tok.textMuted,
+                        color: Tok.textSecondary,
                       ),
                     ),
                   ],

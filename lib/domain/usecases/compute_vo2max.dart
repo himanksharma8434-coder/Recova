@@ -1,11 +1,11 @@
-/// Estimates VO2 max using the Uth–Sørensen–Overgaard–Pedersen formula:
+/// Estimates VO2 max using a simplified Uth–Sørensen-derived formula:
 ///
-///   VO2max ≈ 15.3 × (HRmax / HRrest)
+///   VO2max ≈ 15 × (HRmax / HRrest)
 ///
-/// - [restingHr7dBaseline]: rolling 7-day median of daily minimum resting HR.
-///   NOT a single instantaneous low.
-/// - [maxHrFromExercise]: highest HR observed during an ExerciseSession in the
-///   last 30–60 days. Nullable — may not exist if the user hasn't exercised.
+/// Where:
+/// - [restingHr7dAvg]: average resting HR across all 7 days of the week.
+/// - [maxHrTop3Avg]: average of the highest heart rates from the top 3 days.
+///   Nullable — may not exist if the user hasn't exercised enough.
 /// - [userAge]: used only for the fallback formula (220 − age) when no
 ///   exercise data is available. Nullable — if unavailable, and there's no
 ///   exercise data, VO2max simply cannot be computed.
@@ -16,6 +16,9 @@ class ComputeVo2Max {
   const ComputeVo2Max();
 
   /// Returns the estimated VO2 max, or null if insufficient data.
+  ///
+  /// [restingHr7dBaseline] is the average resting HR over 7 days.
+  /// [maxHrFromExercise] is the average of the top 3 daily max HRs (or single peak if fewer days).
   double? call({
     required double? restingHr7dBaseline,
     required double? maxHrFromExercise,
@@ -42,4 +45,3 @@ class ComputeVo2Max {
     return vo2;
   }
 }
-

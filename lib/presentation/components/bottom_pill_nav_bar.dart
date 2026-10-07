@@ -85,7 +85,7 @@ class BottomPillNavBar extends StatelessWidget {
   }) {
     final isSelected = selectedIndex == index;
     final tabColor = _tabAccentColor(index);
-    final color = isSelected ? tabColor : Tok.textTertiary;
+    final color = isSelected ? tabColor : Tok.textSecondary;
 
     return Expanded(
       child: GestureDetector(

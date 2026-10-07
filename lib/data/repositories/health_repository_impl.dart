@@ -297,14 +297,21 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final spo2Base = baseline?.spo2Baseline7d ?? 97.0;
 
     // ── VO2max ──
-    final maxHr = await recordDao.getMaxExerciseHr(
-      start: AppDateUtils.daysAgo(60, from: now),
-      end: now,
-    );
+    // New formula: VO2max = 15 × (avg top 3 daily max HR from 7d / avg 7d RHR)
+    final avgTop3MaxHr = await recordDao.getAvgTop3DailyMaxHr(7);
+
+    // Fallback to single max exercise HR if not enough daily data
+    double? effectiveMaxHr = avgTop3MaxHr;
+    if (effectiveMaxHr == null) {
+      effectiveMaxHr = await recordDao.getMaxExerciseHr(
+        start: AppDateUtils.daysAgo(60, from: now),
+        end: now,
+      );
+    }
 
     // Determine age from health platform if no exercise max HR is available
     int? userAge;
-    if (maxHr == null) {
+    if (effectiveMaxHr == null) {
       final dob = await _platform.fetchDateOfBirth();
       if (dob != null) {
         userAge = (now.difference(dob).inDays / 365.25).floor();
@@ -321,7 +328,7 @@ class HealthRepositoryImpl implements HealthSourceRepository {
 
     final vo2max = _computeVo2Max(
       restingHr7dBaseline: vo2Rhr,
-      maxHrFromExercise: maxHr,
+      maxHrFromExercise: effectiveMaxHr,
       userAge: userAge,
     );
 
@@ -722,11 +729,15 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       targetStrain = 6.0 + (rec / 34.0) * 3.9;
     }
 
-    // Recompute VO2max with live window-specific resting HR baselines and exercise max HR
-    // Fast batch extraction of exercise max HR in a single query pass
+    // Recompute VO2max with live window-specific resting HR baselines
+    // New formula: VO2max = 15 × (avg top 3 daily max HR / avg RHR)
+    final avgTop3MaxHr7d = await _db.healthRecordDao.getAvgTop3DailyMaxHr(7);
+    final avgTop3MaxHr30d = await _db.healthRecordDao.getAvgTop3DailyMaxHr(30);
+
+    // Fallback to batch exercise max HR if not enough daily data
     final maxHrs = await _db.healthRecordDao.getExerciseMaxHrsByWindows(now);
-    final maxHr7d = maxHrs.max7d;
-    final maxHr30d = maxHrs.max30d;
+    final maxHr7d = avgTop3MaxHr7d ?? maxHrs.max7d;
+    final maxHr30d = avgTop3MaxHr30d ?? maxHrs.max30d;
     final maxHr60d = maxHrs.max60d;
     final maxHrAllTime = maxHrs.maxAllTime;
 
