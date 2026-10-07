@@ -56,7 +56,7 @@ class SleepPerformanceCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TokType.caption.copyWith(
-                          color: Tok.textTertiary,
+                          color: Tok.textSecondary,
                           letterSpacing: 1.0,
                         ),
                       ),
@@ -81,7 +81,7 @@ class SleepPerformanceCard extends StatelessWidget {
                     Icon(
                       Icons.chevron_right,
                       size: 14,
-                      color: Tok.textTertiary,
+                      color: Tok.textSecondary,
                     ),
                   ],
                 ],

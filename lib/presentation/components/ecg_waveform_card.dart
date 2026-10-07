@@ -38,7 +38,7 @@ class EcgWaveformCard extends StatelessWidget {
                     height: 5,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: hasHr ? Tok.neonAccent : Tok.textMuted,
+                      color: hasHr ? Tok.neonAccent : Tok.textSecondary,
                       boxShadow: hasHr
                           ? [
                               BoxShadow(
@@ -53,7 +53,7 @@ class EcgWaveformCard extends StatelessWidget {
                   Text(
                     hasHr ? 'HEALTH CONNECT LIVE' : 'SENSOR STANDBY',
                     style: TokType.caption.copyWith(
-                      color: hasHr ? Tok.textSecondary : Tok.textMuted,
+                      color: Tok.textSecondary,
                     ),
                   ),
                 ],
@@ -83,7 +83,7 @@ class EcgWaveformCard extends StatelessWidget {
                     ),
                     child: Icon(Icons.favorite_outline,
                         size: 15,
-                        color: hasHr ? Tok.neonAccent : Tok.textMuted),
+                        color: hasHr ? Tok.neonAccent : Tok.textSecondary),
                   ),
                   const SizedBox(width: Tok.space12),
                   Column(
@@ -104,7 +104,7 @@ class EcgWaveformCard extends StatelessWidget {
                         hasHr ? 'RESTING VASCULAR' : 'NO PULSE LOGGED',
                         style: TokType.caption.copyWith(
                           fontSize: 8,
-                          color: Tok.textMuted,
+                          color: Tok.textSecondary,
                         ),
                       ),
                     ],
@@ -144,7 +144,7 @@ class EcgWaveformCard extends StatelessWidget {
                     ),
                     child: Icon(Icons.air,
                         size: 15,
-                        color: hasRpm ? Tok.accentBlue : Tok.textMuted),
+                        color: hasRpm ? Tok.accentBlue : Tok.textSecondary),
                   ),
                   const SizedBox(width: Tok.space12),
                   Column(
@@ -165,7 +165,7 @@ class EcgWaveformCard extends StatelessWidget {
                         hasRpm ? 'RESPIRATION CYCLE' : 'NO RESPIRATION LOGGED',
                         style: TokType.caption.copyWith(
                           fontSize: 8,
-                          color: Tok.textMuted,
+                          color: Tok.textSecondary,
                         ),
                       ),
                     ],
@@ -177,7 +177,7 @@ class EcgWaveformCard extends StatelessWidget {
                 child: Text(
                   hasRpm ? 'IN RANGE' : 'AWAITING SYNC',
                   style: TokType.badge.copyWith(
-                    color: hasRpm ? Tok.textPrimary : Tok.textMuted,
+                    color: hasRpm ? Tok.textPrimary : Tok.textSecondary,
                   ),
                 ),
               ),
