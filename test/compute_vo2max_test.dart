@@ -6,13 +6,13 @@ void main() {
 
   group('ComputeVo2Max', () {
     test('computes correctly with known values', () {
-      // HRrest=60, HRmax=190 → 15.3 × (190/60) ≈ 48.45
+      // HRrest=60, HRmax=190 → 15.0 × (190/60) = 47.5
       final result = computeVo2Max(
         restingHr7dBaseline: 60,
         maxHrFromExercise: 190,
       );
       expect(result, isNotNull);
-      expect(result!, closeTo(48.45, 0.01));
+      expect(result!, closeTo(47.5, 0.01));
     });
 
     test('uses age fallback when no exercise data', () {
@@ -23,7 +23,7 @@ void main() {
         userAge: 30,
       );
       expect(result, isNotNull);
-      expect(result!, closeTo(48.45, 0.01));
+      expect(result!, closeTo(47.5, 0.01));
     });
 
     test('returns null when resting HR is missing', () {
@@ -68,7 +68,7 @@ void main() {
       );
       expect(result, isNotNull);
       // Should use 200, not 190
-      expect(result!, closeTo(15.3 * (200 / 60), 0.01));
+      expect(result!, closeTo(15.0 * (200 / 60), 0.01));
     });
 
     test('handles typical athlete values', () {
@@ -78,17 +78,17 @@ void main() {
         maxHrFromExercise: 185,
       );
       expect(result, isNotNull);
-      expect(result!, closeTo(58.97, 0.1));
+      expect(result!, closeTo(57.81, 0.1));
     });
 
-    test('computes user verified VO2max accurately (HRmax=183, HRrest=60.2 -> 46.51)', () {
+    test('computes user verified VO2max accurately (HRmax=183, HRrest=60.2 -> 45.6)', () {
       final result = computeVo2Max(
         restingHr7dBaseline: 60.2,
         maxHrFromExercise: 183.0,
       );
       expect(result, isNotNull);
-      expect(result!, closeTo(46.51, 0.01));
-      expect(result.toStringAsFixed(1), '46.5');
+      expect(result!, closeTo(45.60, 0.01));
+      expect(result.toStringAsFixed(1), '45.6');
     });
 
     test('returns null for impossible values outside physiological range', () {

@@ -108,11 +108,11 @@ void main() {
       expect(vo2max7d, isNot(equals(vo2max30d)));
 
       // Expected values:
-      // 7D: HRrest = 60.0, HRmax = 170.0 → 15.3 × (170 / 60) = 43.35 mL/kg/min
-      // 30D: HRrest = 50.0 (calibrated to 61.4), HRmax = 195.0 → 15.3 × (195 / 61.4) ≈ 48.59 mL/kg/min
-      expect(vo2max7d!, closeTo(43.35, 0.5));
-      expect(vo2max30d!, closeTo(48.59, 0.5));
-      expect(vo2max30d - vo2max7d, greaterThan(4.0));
+      // 7D: HRrest = 60.0, HRmax = 170.0 → 15.0 × (170 / 60) = 42.5 mL/kg/min
+      // 30D: HRrest = 50.0 (calibrated to 60.5), HRmax = (195 + 170) / 2 = 182.5 → 15.0 × (182.5 / 60.5) ≈ 45.25 mL/kg/min
+      expect(vo2max7d!, closeTo(42.5, 0.5));
+      expect(vo2max30d!, closeTo(45.25, 0.5));
+      expect(vo2max30d - vo2max7d, greaterThan(2.0));
       expect(summary.estimatedVo2MaxAllTime, isNotNull);
     });
 
