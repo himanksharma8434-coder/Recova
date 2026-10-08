@@ -204,7 +204,7 @@ class _StrainScreenState extends State<StrainScreen> {
                         shape: BoxShape.circle,
                         color: hasStrain
                             ? _getStrainStatusColor(dayStrain)
-                            : RecovaColors.textMuted,
+                            : RecovaColors.textSecondary,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -218,7 +218,7 @@ class _StrainScreenState extends State<StrainScreen> {
                         letterSpacing: 0.8,
                         color: hasStrain
                             ? RecovaColors.textPrimary
-                            : RecovaColors.textMuted,
+                            : RecovaColors.textSecondary,
                       ),
                     ),
                   ],
@@ -288,7 +288,7 @@ class _StrainScreenState extends State<StrainScreen> {
                         fontWeight: FontWeight.w700,
                         color: currentWorkouts.isNotEmpty
                             ? Tok.neonAccent
-                            : RecovaColors.textMuted,
+                            : RecovaColors.textSecondary,
                       ),
                     ),
                   ),
@@ -391,7 +391,7 @@ class _StrainScreenState extends State<StrainScreen> {
                       size: 13,
                       color: _timeHorizonIndex == 0
                           ? Tok.neonAccent
-                          : Tok.textMuted,
+                          : Tok.textSecondary,
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -404,7 +404,7 @@ class _StrainScreenState extends State<StrainScreen> {
                         letterSpacing: 0.8,
                         color: _timeHorizonIndex == 0
                             ? Tok.textPrimary
-                            : Tok.textMuted,
+                            : Tok.textSecondary,
                       ),
                     ),
                   ],
@@ -442,7 +442,7 @@ class _StrainScreenState extends State<StrainScreen> {
                       size: 13,
                       color: _timeHorizonIndex == 1
                           ? Tok.recoveryModerate
-                          : Tok.textMuted,
+                          : Tok.textSecondary,
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -455,7 +455,7 @@ class _StrainScreenState extends State<StrainScreen> {
                         letterSpacing: 0.8,
                         color: _timeHorizonIndex == 1
                             ? Tok.textPrimary
-                            : Tok.textMuted,
+                            : Tok.textSecondary,
                       ),
                     ),
                   ],
@@ -552,7 +552,7 @@ class _StrainScreenState extends State<StrainScreen> {
                         '/ 21.0',
                         style: TextStyle(
                           fontSize: 14,
-                          color: RecovaColors.textMuted,
+                          color: RecovaColors.textSecondary,
                         ),
                       ),
                     ],
@@ -590,7 +590,7 @@ class _StrainScreenState extends State<StrainScreen> {
                     size: 30,
                     color: hasStrain
                         ? _getStrainStatusColor(dayStrain)
-                        : RecovaColors.textMuted,
+                        : RecovaColors.textSecondary,
                   ),
                 ),
               ),
@@ -621,7 +621,7 @@ class _StrainScreenState extends State<StrainScreen> {
                         style: TextStyle(
                           fontSize: 7.5,
                           fontWeight: FontWeight.w600,
-                          color: RecovaColors.textMuted,
+                          color: RecovaColors.textSecondary,
                         ),
                       ),
                     ],
@@ -634,7 +634,7 @@ class _StrainScreenState extends State<StrainScreen> {
                       letterSpacing: 0.8,
                       color: hasStrain
                           ? _getStrainStatusColor(dayStrain)
-                          : RecovaColors.textMuted,
+                          : RecovaColors.textSecondary,
                     ),
                   ),
                 ],
@@ -755,7 +755,7 @@ class _StrainScreenState extends State<StrainScreen> {
                         '/ 21.0',
                         style: TextStyle(
                           fontSize: 13,
-                          color: RecovaColors.textMuted,
+                          color: RecovaColors.textSecondary,
                         ),
                       ),
                     ],
@@ -818,7 +818,8 @@ class _StrainScreenState extends State<StrainScreen> {
 
   // ── 7-Day Strain Bar Chart ──────────────────────────────────────────────
   Widget _build7DayStrainBars(List<HistoricalScorePoint> history) {
-    return SizedBox(
+    return RepaintBoundary(
+      child: SizedBox(
       height: 110,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -857,7 +858,7 @@ class _StrainScreenState extends State<StrainScreen> {
                       fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
                       color: isToday
                           ? Tok.recoveryModerate
-                          : (isSelected ? Tok.textPrimary : Tok.textMuted),
+                          : (isSelected ? Tok.textPrimary : Tok.textSecondary),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -896,7 +897,7 @@ class _StrainScreenState extends State<StrainScreen> {
                       fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
                       color: isToday
                           ? Tok.recoveryModerate
-                          : (isSelected ? Tok.textPrimary : Tok.textMuted),
+                          : (isSelected ? Tok.textPrimary : Tok.textSecondary),
                     ),
                   ),
                 ],
@@ -905,8 +906,9 @@ class _StrainScreenState extends State<StrainScreen> {
           );
         }),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ── 3 Key Telemetry Bento Pods ──────────────────────────────────────────
   Widget _buildTelemetryPods({
@@ -969,7 +971,7 @@ class _StrainScreenState extends State<StrainScreen> {
                   'kcal burned',
                   style: TextStyle(
                     fontSize: 8,
-                    color: RecovaColors.textMuted,
+                    color: RecovaColors.textSecondary,
                   ),
                 ),
               ],
@@ -1025,7 +1027,7 @@ class _StrainScreenState extends State<StrainScreen> {
                     fontSize: 7.5,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.3,
-                    color: RecovaColors.textMuted,
+                    color: RecovaColors.textSecondary,
                   ),
                 ),
               ],
@@ -1079,7 +1081,7 @@ class _StrainScreenState extends State<StrainScreen> {
                   'minutes active',
                   style: TextStyle(
                     fontSize: 8,
-                    color: RecovaColors.textMuted,
+                    color: RecovaColors.textSecondary,
                   ),
                 ),
               ],
@@ -1136,7 +1138,7 @@ class _StrainScreenState extends State<StrainScreen> {
                     Icon(
                       cat.icon,
                       size: 11,
-                      color: isSelected ? cat.color : RecovaColors.textMuted,
+                      color: isSelected ? cat.color : RecovaColors.textSecondary,
                     ),
                     const SizedBox(width: 5),
                     Text(
@@ -1228,7 +1230,7 @@ class _StrainScreenState extends State<StrainScreen> {
                   color: RecovaColors.textSecondary,
                 ),
               ),
-              const Text(' • ', style: TextStyle(color: Tok.textMuted, fontSize: 10)),
+              const Text(' • ', style: TextStyle(color: Tok.textSecondary, fontSize: 10)),
               Text(
                 '${totalCals.toInt()} kcal',
                 style: const TextStyle(
@@ -1237,7 +1239,7 @@ class _StrainScreenState extends State<StrainScreen> {
                   color: RecovaColors.kineticAmberGold,
                 ),
               ),
-              const Text(' • ', style: TextStyle(color: Tok.textMuted, fontSize: 10)),
+              const Text(' • ', style: TextStyle(color: Tok.textSecondary, fontSize: 10)),
               Text(
                 '⚡ ${avgStrain.toStringAsFixed(1)} avg',
                 style: const TextStyle(
@@ -1341,7 +1343,7 @@ class _StrainScreenState extends State<StrainScreen> {
                     if (workout.calories != null && workout.calories! > 0) ...[
                       const Text(' • ',
                           style:
-                              TextStyle(color: Tok.textMuted, fontSize: 9)),
+                              TextStyle(color: Tok.textSecondary, fontSize: 9)),
                       Text(
                         '${workout.calories!.toInt()} kcal',
                         style: const TextStyle(
@@ -1414,7 +1416,7 @@ class _StrainScreenState extends State<StrainScreen> {
             child: const Icon(
               Icons.directions_run_rounded,
               size: 22,
-              color: Tok.textMuted,
+              color: RecovaColors.textSecondary,
             ),
           ),
           const SizedBox(height: 10),
@@ -1437,7 +1439,7 @@ class _StrainScreenState extends State<StrainScreen> {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 10,
-              color: RecovaColors.textTertiary,
+              color: RecovaColors.textSecondary,
               height: 1.4,
             ),
           ),
@@ -1697,9 +1699,9 @@ class _AllActivitiesSheetState extends State<_AllActivitiesSheet> {
                 style: const TextStyle(fontSize: 12, color: Tok.textPrimary),
                 decoration: const InputDecoration(
                   hintText: 'Search workouts (running, cycling, weights)...',
-                  hintStyle: TextStyle(fontSize: 11, color: Tok.textMuted),
+                  hintStyle: TextStyle(fontSize: 11, color: Tok.textSecondary),
                   prefixIcon: Icon(Icons.search_rounded,
-                      size: 16, color: Tok.textTertiary),
+                      size: 16, color: Tok.textSecondary),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(vertical: 8),
                 ),
@@ -1743,7 +1745,7 @@ class _AllActivitiesSheetState extends State<_AllActivitiesSheet> {
                           children: [
                             Icon(cat.icon,
                                 size: 11,
-                                color: isSelected ? cat.color : Tok.textMuted),
+                                color: isSelected ? cat.color : Tok.textSecondary),
                             const SizedBox(width: 4),
                             Text(
                               cat.label.toUpperCase(),
@@ -1763,7 +1765,7 @@ class _AllActivitiesSheetState extends State<_AllActivitiesSheet> {
                                 '($count)',
                                 style: TextStyle(
                                   fontSize: 8,
-                                  color: isSelected ? cat.color : Tok.textMuted,
+                                  color: isSelected ? cat.color : Tok.textSecondary,
                                 ),
                               ),
                             ],
@@ -1785,11 +1787,11 @@ class _AllActivitiesSheetState extends State<_AllActivitiesSheet> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: const [
                         Icon(Icons.fitness_center_rounded,
-                            size: 32, color: Tok.textMuted),
+                            size: 32, color: Tok.textSecondary),
                         SizedBox(height: 8),
                         Text(
                           'No workouts found matching filters',
-                          style: TextStyle(fontSize: 11, color: Tok.textMuted),
+                          style: TextStyle(fontSize: 11, color: Tok.textSecondary),
                         ),
                       ],
                     ),
@@ -1847,7 +1849,7 @@ class _AllActivitiesSheetState extends State<_AllActivitiesSheet> {
                                     '$dateStr • $timeStr • ${workout.formattedDuration}',
                                     style: const TextStyle(
                                       fontSize: 9.5,
-                                      color: Tok.textTertiary,
+                                      color: Tok.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -1903,7 +1905,7 @@ class _AllActivitiesSheetState extends State<_AllActivitiesSheet> {
             fontSize: 7.5,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.6,
-            color: Tok.textTertiary,
+            color: Tok.textSecondary,
           ),
         ),
         const SizedBox(height: 2),

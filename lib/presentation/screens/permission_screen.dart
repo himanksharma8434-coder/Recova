@@ -215,7 +215,7 @@ class _PermissionScreenState extends State<PermissionScreen>
                       );
                     },
                     style: TextButton.styleFrom(
-                      foregroundColor: Tok.textTertiary,
+                      foregroundColor: Tok.textSecondary,
                     ),
                     child: Text(
                       'I\'VE ALREADY GRANTED ACCESS • PROCEED',
@@ -269,6 +269,7 @@ class _DataTypeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
+      hasBlur: false,
       padding: const EdgeInsets.symmetric(
         horizontal: Tok.space16,
         vertical: Tok.space12,
