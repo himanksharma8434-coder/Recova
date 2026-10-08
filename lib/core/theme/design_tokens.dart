@@ -65,11 +65,11 @@ class Tok {
 
   static const Color recoveryCalibrating = Color(0xFF636366);  // Cool gray calibrating
 
-  // ── Typography Colors ───────────────────────────────────────────────────
-  static const Color textPrimary = Color(0xFFF5F5F5);    // Near-white
-  static const Color textSecondary = Color(0xFFAEAEB2);   // Silver
-  static const Color textTertiary = Color(0xFF636366);    // Cool gray
-  static const Color textMuted = Color(0xFF3A3A3C);       // Very muted
+  // ── Typography Colors (High Contrast iOS Dark Mode Spec) ────────────────
+  static const Color textPrimary = Color(0xFFF5F5F5);    // Near-white (18:1 contrast)
+  static const Color textSecondary = Color(0xFFAEAEB2);   // Clean silver (10.5:1 contrast)
+  static const Color textTertiary = Color(0xFFA1A1A6);    // Crisp silver-gray (9:1 contrast, readable)
+  static const Color textMuted = Color(0xFF8E8E93);       // iOS standard label (7:1 contrast, fully legible)
 
   // ── Spacing Scale (4px base) ────────────────────────────────────────────
   static const double space2 = 2;
@@ -166,7 +166,7 @@ class TokType {
     fontSize: 10,
     fontWeight: FontWeight.w700,
     letterSpacing: 1.4,
-    color: Tok.textTertiary,
+    color: Tok.textSecondary,
     fontFamily: 'Inter',
   );
 
@@ -202,7 +202,7 @@ class TokType {
     fontSize: 9,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.8,
-    color: Tok.textTertiary,
+    color: Tok.textSecondary,
     fontFamily: 'Inter',
   );
 
@@ -210,7 +210,7 @@ class TokType {
   static const TextStyle unit = TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.w500,
-    color: Tok.textTertiary,
+    color: Tok.textSecondary,
     fontFamily: 'Inter',
   );
 
@@ -227,7 +227,7 @@ class TokType {
     fontSize: 10,
     fontWeight: FontWeight.w400,
     fontFamily: 'monospace',
-    color: Tok.textTertiary,
+    color: Tok.textSecondary,
   );
 }
 
