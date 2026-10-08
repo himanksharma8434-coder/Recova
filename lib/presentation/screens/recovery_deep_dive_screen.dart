@@ -183,10 +183,10 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         final periodDays = _selectedPeriod.days > 0 ? _selectedPeriod.days : null;
 
         // ── HRmax: avg of top 3 daily max HRs from the period ──
-        hrMax = await db.healthRecordDao.getAvgTop3DailyMaxHr(periodDays);
+        hrMax = await db.healthRecordDao.getAvgTop3DailyMaxHr(days: periodDays);
         if (hrMax == null && _selectedPeriod != Vo2Period.allTime) {
           // Fallback: try all-time avg top 3
-          hrMax = await db.healthRecordDao.getAvgTop3DailyMaxHr(null);
+          hrMax = await db.healthRecordDao.getAvgTop3DailyMaxHr();
         }
         hrMax ??= await db.healthRecordDao.getMaxExerciseHr(
           start: DateTime(2000),
@@ -216,13 +216,6 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
           start: todayStart,
           end: now,
         );
-        // If baseline reflects nocturnal sleep dips (< 56 bpm), calibrate to awake RHR.
-        if (hrRest != null && hrRest < 56.0) {
-          hrRest = (hrRest * 1.228).clamp(58.0, 60.5);
-        }
-        if (hrRest != null && (hrRest - 60.2).abs() < 1.5) {
-          hrRest = 60.2;
-        }
 
         // ── Best possible VO2 max: single best RHR and single highest HR from the week ──
         final bestPeriodDays = periodDays ?? 7; // default to 7 for best-case
@@ -232,11 +225,6 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         // Fallback to average components if single-best records not available
         bestRhr ??= hrRest;
         bestMaxHr ??= hrMax;
-
-        // Apply same awake RHR calibration to best RHR
-        if (bestRhr != null && bestRhr < 56.0) {
-          bestRhr = (bestRhr * 1.228).clamp(58.0, 60.5);
-        }
 
         if (bestRhr != null && bestRhr > 0 && bestMaxHr != null && bestMaxHr > bestRhr) {
           final raw = 15.0 * (bestMaxHr / bestRhr);

@@ -403,7 +403,7 @@ class _BloodO2DetailScreenState extends State<BloodO2DetailScreen> {
                                   letterSpacing: 0.4,
                                   color: isSelected
                                       ? Tok.canvasBase
-                                      : RecovaColors.textTertiary,
+                                      : Tok.textSecondary,
                                 ),
                               ),
                             ),
@@ -664,7 +664,7 @@ class _BloodO2DetailScreenState extends State<BloodO2DetailScreen> {
                                     'No blood oxygen records in this range.',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: RecovaColors.textMuted,
+                                      color: RecovaColors.textSecondary,
                                     ),
                                   ),
                                 )
@@ -844,7 +844,7 @@ class _BloodO2DetailScreenState extends State<BloodO2DetailScreen> {
                 '${value.toInt()}%',
                 style: const TextStyle(
                   fontSize: 8.5,
-                  color: RecovaColors.textMuted,
+                  color: RecovaColors.textSecondary,
                 ),
               );
             },
@@ -874,7 +874,7 @@ class _BloodO2DetailScreenState extends State<BloodO2DetailScreen> {
                   closest.label,
                   style: const TextStyle(
                     fontSize: 8.5,
-                    color: RecovaColors.textMuted,
+                    color: RecovaColors.textSecondary,
                   ),
                 ),
               );
