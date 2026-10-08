@@ -16,6 +16,8 @@ class GlassCard extends StatelessWidget {
   final bool elevated;             // Use elevated glass fill
   final VoidCallback? onTap;
   final double? width;
+  final bool hasBlur;
+  final IosGlassMaterial? material;
 
   const GlassCard({
     super.key,
@@ -26,6 +28,8 @@ class GlassCard extends StatelessWidget {
     this.elevated = false,
     this.onTap,
     this.width,
+    this.hasBlur = true,
+    this.material,
   });
 
   @override
@@ -36,6 +40,8 @@ class GlassCard extends StatelessWidget {
       width: width,
       onTap: onTap,
       accentGlow: accentGlow,
+      hasBlur: hasBlur,
+      material: material ?? (elevated ? IosGlassMaterial.thick : IosGlassMaterial.regular),
       enableInteractiveScale: onTap != null,
       child: child,
     );
@@ -43,11 +49,14 @@ class GlassCard extends StatelessWidget {
 }
 
 /// Lighter-weight glass card for items inside lists or secondary surfaces.
+/// Defaults to hasBlur: false for buttery smooth 60/120fps scrolling.
 class GlassCardLight extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double borderRadius;
   final VoidCallback? onTap;
+  final bool hasBlur;
+  final IosGlassMaterial material;
 
   const GlassCardLight({
     super.key,
@@ -55,6 +64,8 @@ class GlassCardLight extends StatelessWidget {
     this.padding = const EdgeInsets.all(Tok.space12),
     this.borderRadius = Tok.radiusSm,
     this.onTap,
+    this.hasBlur = false,
+    this.material = IosGlassMaterial.thin,
   });
 
   @override
@@ -63,6 +74,8 @@ class GlassCardLight extends StatelessWidget {
       borderRadius: BorderRadius.circular(borderRadius),
       padding: padding,
       onTap: onTap,
+      hasBlur: hasBlur,
+      material: material,
       enableInteractiveScale: onTap != null,
       child: child,
     );

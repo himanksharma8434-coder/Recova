@@ -1,22 +1,22 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/design_tokens.dart';
+import 'ios_glass.dart';
+
+export 'ios_glass.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// LIQUID GLASSMORPHISM ELEMENT
-// Strict Standard Specification:
-// 1. Glass Base: Highly translucent white (rgba(255, 255, 255, 0.08))
-// 2. Backdrop Blur & Saturation: 16px blur & 180% saturation
-// 3. Liquid Depth (Box Shadows):
-//    - Outer drop shadow: 0 4px 24px rgba(0, 0, 0, 0.15)
-//    - Inner top highlight: inset 0 1px 1px rgba(255, 255, 255, 0.4)
-//    - Inner bottom shadow: inset 0 -1px 1px rgba(255, 0, 128, 0.1) (neon pink)
-// 4. Border: 1px solid rgba(255, 255, 255, 0.25)
-// 5. Shape: Fully rounded edges (border-radius: 100px)
+// LIQUID GLASSMORPHISM ELEMENT (Apple iOS Material Frosted Glass)
+// Backed canonically by IosGlass:
+// 1. Single-pass TileMode.clamp Backdrop Blur
+// 2. 1.7× Saturation boost ColorFilter matrix
+// 3. Apple HIG Dark/Light luminosity tint overlay
+// 4. 0.5px specular hairline border gradient + glossy rim
+// 5. Ambient & contact drop shadows outside clip
+// 6. Native squircle continuous curvature (RoundedSuperellipseBorder)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Universal Liquid Glass container widget.
-class LiquidGlass extends StatefulWidget {
+class LiquidGlass extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final BorderRadius? borderRadius;
@@ -27,6 +27,7 @@ class LiquidGlass extends StatefulWidget {
   final Color? accentGlow;
   final bool enableInteractiveScale;
   final bool hasBlur;
+  final IosGlassMaterial material;
 
   const LiquidGlass({
     super.key,
@@ -43,172 +44,24 @@ class LiquidGlass extends StatefulWidget {
     this.accentGlow,
     this.enableInteractiveScale = true,
     this.hasBlur = true,
+    this.material = IosGlassMaterial.regular,
   });
-
-  @override
-  State<LiquidGlass> createState() => _LiquidGlassState();
-}
-
-class _LiquidGlassState extends State<LiquidGlass> {
-  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
-    final effectiveRadius = widget.borderRadius ??
-        BorderRadius.circular(Tok.liquidGlassRadiusPill);
-
-    Widget content = Container(
-      width: widget.width,
-      height: widget.height,
-      decoration: BoxDecoration(
-        borderRadius: effectiveRadius,
-        boxShadow: [
-          if (widget.accentGlow != null)
-            BoxShadow(
-              color: widget.accentGlow!,
-              blurRadius: 20.0,
-              spreadRadius: 0.5,
-            ),
-          const BoxShadow(
-            color: Tok.liquidGlassOuterShadow,
-            blurRadius: 18.0,
-            spreadRadius: 0.0,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: effectiveRadius,
-        child: Stack(
-          children: [
-            // 1. Single-pass GPU-accelerated frosted glass blur
-            if (widget.hasBlur)
-              Positioned.fill(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(
-                    sigmaX: Tok.liquidGlassBlurSigma,
-                    sigmaY: Tok.liquidGlassBlurSigma,
-                  ),
-                  child: const SizedBox.expand(),
-                ),
-              ),
-
-            // 2. Base Translucent Glass Fill & Specular Gradient
-            Container(
-              padding: widget.padding,
-              decoration: BoxDecoration(
-                borderRadius: effectiveRadius,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.14),
-                    Colors.white.withValues(alpha: 0.06),
-                    Colors.white.withValues(alpha: 0.025),
-                  ],
-                  stops: const [0.0, 0.45, 1.0],
-                ),
-                border: Border.all(
-                  color: Tok.liquidGlassBorder,
-                  width: 0.85,
-                ),
-              ),
-              child: widget.child,
-            ),
-
-            // 3. Ultra-fast GPU Specular Highlight & Rim Refraction
-            Positioned.fill(
-              child: IgnorePointer(
-                child: CustomPaint(
-                  painter: _LiquidGlassSpecularPainter(
-                    borderRadius: effectiveRadius,
-                    topHighlightColor: Tok.liquidGlassTopHighlight,
-                    bottomReflectionColor: widget.customBottomReflection ??
-                        Tok.liquidGlassBottomReflection,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return IosGlass(
+      material: material,
+      borderRadius: borderRadius ?? BorderRadius.circular(Tok.liquidGlassRadiusPill),
+      padding: padding,
+      width: width,
+      height: height,
+      onTap: onTap,
+      accentGlow: accentGlow,
+      customBottomReflection: customBottomReflection,
+      hasBlur: hasBlur,
+      enableInteractiveScale: enableInteractiveScale,
+      child: child,
     );
-
-    if (widget.onTap != null) {
-      content = GestureDetector(
-        onTap: widget.onTap,
-        onTapDown: widget.enableInteractiveScale
-            ? (_) => setState(() => _isPressed = true)
-            : null,
-        onTapUp: widget.enableInteractiveScale
-            ? (_) => setState(() => _isPressed = false)
-            : null,
-        onTapCancel: widget.enableInteractiveScale
-            ? () => setState(() => _isPressed = false)
-            : null,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedScale(
-          scale: _isPressed ? 0.96 : 1.0,
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOutCubic,
-          child: AnimatedOpacity(
-            opacity: _isPressed ? 0.86 : 1.0,
-            duration: const Duration(milliseconds: 120),
-            curve: Curves.easeOutCubic,
-            child: content,
-          ),
-        ),
-      );
-    }
-
-    return RepaintBoundary(child: content);
-  }
-}
-
-/// Ultra-fast GPU shader painter for specular top edge and subtle rim reflection.
-/// Uses a single hardware drawRRect with a linear gradient shader.
-/// 0% CPU path clipping overhead, 60/120fps hardware acceleration.
-class _LiquidGlassSpecularPainter extends CustomPainter {
-  final BorderRadius borderRadius;
-  final Color topHighlightColor;
-  final Color bottomReflectionColor;
-
-  const _LiquidGlassSpecularPainter({
-    required this.borderRadius,
-    required this.topHighlightColor,
-    required this.bottomReflectionColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (size.width <= 0 || size.height <= 0) return;
-
-    final rect = Offset.zero & size;
-    final rrect = borderRadius.toRRect(rect).deflate(0.5);
-
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          topHighlightColor,
-          Colors.transparent,
-          Colors.transparent,
-          bottomReflectionColor,
-        ],
-        stops: const [0.0, 0.35, 0.70, 1.0],
-      ).createShader(rect);
-
-    canvas.drawRRect(rrect, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _LiquidGlassSpecularPainter oldDelegate) {
-    return oldDelegate.borderRadius != borderRadius ||
-        oldDelegate.topHighlightColor != topHighlightColor ||
-        oldDelegate.bottomReflectionColor != bottomReflectionColor;
   }
 }
 
@@ -224,6 +77,7 @@ class LiquidGlassPill extends StatelessWidget {
   final Color? indicatorColor;
   final VoidCallback? onTap;
   final EdgeInsetsGeometry padding;
+  final IosGlassMaterial material;
 
   const LiquidGlassPill({
     super.key,
@@ -236,6 +90,7 @@ class LiquidGlassPill extends StatelessWidget {
       horizontal: Tok.space16,
       vertical: Tok.space8,
     ),
+    this.material = IosGlassMaterial.ultraThin,
   });
 
   @override
@@ -243,6 +98,7 @@ class LiquidGlassPill extends StatelessWidget {
     return LiquidGlass(
       padding: padding,
       hasBlur: false,
+      material: material,
       onTap: onTap,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -303,6 +159,7 @@ class LiquidGlassButton extends StatelessWidget {
   final TextStyle? textStyle;
   final BorderRadius? borderRadius;
   final bool hasBlur;
+  final IosGlassMaterial material;
 
   const LiquidGlassButton({
     super.key,
@@ -316,6 +173,7 @@ class LiquidGlassButton extends StatelessWidget {
     this.textStyle,
     this.borderRadius,
     this.hasBlur = true,
+    this.material = IosGlassMaterial.thin,
   });
 
   @override
@@ -324,7 +182,8 @@ class LiquidGlassButton extends StatelessWidget {
       width: width,
       height: height,
       onTap: onTap,
-      borderRadius: borderRadius,
+      material: material,
+      borderRadius: borderRadius ?? BorderRadius.circular(Tok.radiusFull),
       hasBlur: hasBlur,
       accentGlow: accentColor?.withValues(alpha: 0.25),
       customBottomReflection: accentColor?.withValues(alpha: 0.25),
