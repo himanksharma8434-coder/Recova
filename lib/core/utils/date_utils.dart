@@ -24,4 +24,16 @@ class AppDateUtils {
     }
     return dates;
   }
+
+  /// Returns the start of the week (Monday) for the given [dateTime].
+  static DateTime startOfWeek(DateTime dateTime) {
+    final start = startOfDay(dateTime);
+    return start.subtract(Duration(days: start.weekday - 1));
+  }
+
+  /// Returns the end of the week (Sunday) for the given [dateTime], typically used as exclusive end.
+  static DateTime endOfWeek(DateTime dateTime) {
+    final start = startOfDay(dateTime);
+    return start.add(Duration(days: 7 - start.weekday)).add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
+  }
 }

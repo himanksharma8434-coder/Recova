@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import '../../core/theme/design_tokens.dart';
-import 'liquid_glass.dart';
 
 class BottomPillNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -38,12 +38,11 @@ class BottomPillNavBar extends StatelessWidget {
             left: Tok.space20,
             right: Tok.space20,
           ),
-          child: LiquidGlass(
-            height: 62,
-            borderRadius: BorderRadius.circular(36),
-            padding: const EdgeInsets.symmetric(horizontal: Tok.space8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+          child: _LiquidGlassPremium(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Tok.space8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(
                   index: 0,
@@ -72,9 +71,10 @@ class BottomPillNavBar extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
+        ), // Close _LiquidGlassPremium
+        ), // Close Container
+      ), // Close Center
+    ); // Close SafeArea
   }
 
   Widget _buildNavItem({
@@ -145,3 +145,96 @@ class BottomPillNavBar extends StatelessWidget {
     );
   }
 }
+
+class _LiquidGlassPremium extends StatelessWidget {
+  final Widget child;
+  const _LiquidGlassPremium({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 62,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(100),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.15),
+            blurRadius: 24,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(100),
+        child: BackdropFilter(
+          filter: ImageFilter.compose(
+            outer: const ColorFilter.matrix(<double>[
+              0.2126 + 0.7874 * 1.8, 0.7152 - 0.7152 * 1.8, 0.0722 - 0.0722 * 1.8, 0, 0,
+              0.2126 - 0.2126 * 1.8, 0.7152 + 0.2848 * 1.8, 0.0722 - 0.0722 * 1.8, 0, 0,
+              0.2126 - 0.2126 * 1.8, 0.7152 - 0.7152 * 1.8, 0.0722 + 0.9278 * 1.8, 0, 0,
+              0, 0, 0, 1, 0,
+            ]),
+            inner: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Base color & Border
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color.fromRGBO(255, 255, 255, 0.08),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: const Color.fromRGBO(255, 255, 255, 0.25),
+                    width: 1,
+                  ),
+                ),
+              ),
+              // Inner top highlight
+              const Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color.fromRGBO(255, 255, 255, 0.4),
+                        Color.fromRGBO(255, 255, 255, 0.0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Inner bottom pink reflection
+              const Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Color.fromRGBO(255, 0, 128, 0.1),
+                        Color.fromRGBO(255, 0, 128, 0.0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Content
+              child,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
