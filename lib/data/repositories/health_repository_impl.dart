@@ -297,8 +297,10 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final spo2Base = baseline?.spo2Baseline7d ?? 97.0;
 
     // ── VO2max ──
-    // New formula: VO2max = 15 × (avg top 3 daily max HR from 7d / avg 7d RHR)
-    final avgTop3MaxHr = await recordDao.getAvgTop3DailyMaxHr(7, now);
+    // New formula: VO2max = 15 × (avg top 3 daily max HR from Monday-Sunday / avg RHR from Monday-Sunday)
+    final startOfWk = AppDateUtils.startOfWeek(now);
+    final endOfWk = AppDateUtils.endOfWeek(now);
+    final avgTop3MaxHr = await recordDao.getAvgTop3DailyMaxHr(start: startOfWk, end: endOfWk);
 
     // Fallback to single max exercise HR if not enough daily data
     double? effectiveMaxHr = avgTop3MaxHr;
@@ -316,13 +318,10 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       }
     }
 
-    // In the Uth-Sørensen formula, HRrest must be the awake resting HR.
-    // If the 7-day baseline reflects nocturnal sleep dips (< 56 bpm),
-    // calibrate using the autonomic awake/sleep ratio (~1.228) so HRrest is ~60.2 bpm.
-    double vo2Rhr = rhrBase;
-    if (vo2Rhr < 56.0) {
-      vo2Rhr = (vo2Rhr * 1.228).clamp(58.0, 60.5);
-    }
+    final wkRhrRecords = await recordDao.getRestingHrRecords(start: startOfWk, end: endOfWk);
+    final wkRhrs = wkRhrRecords.map((r) => r.value).toList();
+    double vo2Rhr = wkRhrs.isNotEmpty ? (wkRhrs.reduce((a, b) => a + b) / wkRhrs.length) : rhrBase;
+
 
     final vo2max = _computeVo2Max(
       restingHr7dBaseline: vo2Rhr,
@@ -729,9 +728,9 @@ class HealthRepositoryImpl implements HealthSourceRepository {
 
     // Recompute VO2max with live window-specific resting HR baselines
     // New formula: VO2max = 15 × (avg top 3 daily max HR / avg RHR)
-    final avgTop3MaxHr7d = await _db.healthRecordDao.getAvgTop3DailyMaxHr(7, now);
-    final avgTop3MaxHr30d = await _db.healthRecordDao.getAvgTop3DailyMaxHr(30, now);
-    final avgTop3MaxHrAllTime = await _db.healthRecordDao.getAvgTop3DailyMaxHr(null, now);
+    final avgTop3MaxHr7d = await _db.healthRecordDao.getAvgTop3DailyMaxHr(days: 7, relativeTo: now);
+    final avgTop3MaxHr30d = await _db.healthRecordDao.getAvgTop3DailyMaxHr(days: 30, relativeTo: now);
+    final avgTop3MaxHrAllTime = await _db.healthRecordDao.getAvgTop3DailyMaxHr(relativeTo: now);
 
     // Fallback to batch exercise max HR if not enough daily data
     final maxHrs = await _db.healthRecordDao.getExerciseMaxHrsByWindows(now);
@@ -751,13 +750,7 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final rhr30d = baseline?.restingHrBaseline30d ?? rhr7d;
 
     double vo2Rhr7d = rhr7d;
-    if (vo2Rhr7d < 56.0) {
-      vo2Rhr7d = (vo2Rhr7d * 1.228).clamp(58.0, 60.5);
-    }
     double vo2Rhr30d = rhr30d;
-    if (vo2Rhr30d < 56.0) {
-      vo2Rhr30d = (vo2Rhr30d * 1.228).clamp(58.0, 60.5);
-    }
 
     final vo2max7d = _computeVo2Max(
       restingHr7dBaseline: vo2Rhr7d,
@@ -777,9 +770,6 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       rhrAllTime = sortedRhr[sortedRhr.length ~/ 2];
     }
     double vo2RhrAllTime = rhrAllTime;
-    if (vo2RhrAllTime < 56.0) {
-      vo2RhrAllTime = (vo2RhrAllTime * 1.228).clamp(58.0, 60.5);
-    }
     double? vo2maxAllTime = _computeVo2Max(
       restingHr7dBaseline: vo2RhrAllTime,
       maxHrFromExercise: maxHrAllTime ?? maxHr30d ?? maxHr60d,
