@@ -753,6 +753,178 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
     }).toList();
   }
 
+  /// Returns the average of the top 3 highest daily max heart rates
+  /// within the last [days] days, or between [start] and [end].
+  /// Used for the VO2 max formula: VO2max = 15 × (avg top 3 HRmax / avg RHR).
+  /// Returns null if no heart rate data exists.
+  Future<double?> getAvgTop3DailyMaxHr({int? days, DateTime? relativeTo, DateTime? start, DateTime? end}) async {
+    String query = '''
+      SELECT max_val FROM (
+        SELECT 
+          date(datetime(start_time, 'unixepoch', 'localtime')) as day_str,
+          MAX(value) as max_val
+        FROM raw_health_records
+        WHERE record_type = 'HEART_RATE'
+          AND value >= 60.0 AND value <= 220.0
+    ''';
+    final variables = <Variable>[];
+    if (start != null) {
+      variables.add(Variable<int>(start.millisecondsSinceEpoch ~/ 1000));
+      query += ' AND start_time >= ? ';
+    }
+    if (end != null) {
+      variables.add(Variable<int>(end.millisecondsSinceEpoch ~/ 1000));
+      query += ' AND start_time <= ? ';
+    }
+    if (days != null && days > 0) {
+      final base = relativeTo ?? DateTime.now();
+      final cutoff = base.subtract(Duration(days: days));
+      final cutoffSec = cutoff.millisecondsSinceEpoch ~/ 1000;
+      query += ' AND start_time >= ? ';
+      variables.add(Variable<int>(cutoffSec));
+      if (relativeTo != null) {
+        final endSec = relativeTo.millisecondsSinceEpoch ~/ 1000;
+        query += ' AND start_time <= ? ';
+        variables.add(Variable<int>(endSec));
+      }
+    } else if (relativeTo != null && start == null && end == null) {
+      final endSec = relativeTo.millisecondsSinceEpoch ~/ 1000;
+      query += ' AND start_time <= ? ';
+      variables.add(Variable<int>(endSec));
+    }
+    query += '''
+        GROUP BY day_str
+        ORDER BY max_val DESC
+        LIMIT 3
+
+      )
+    ''';
+
+    final rows = await customSelect(
+      query,
+      variables: variables,
+      readsFrom: {rawHealthRecords},
+    ).get();
+
+    if (rows.isEmpty) return null;
+    final sum = rows.fold<double>(0.0, (s, r) => s + r.read<double>('max_val'));
+    return sum / rows.length;
+  }
+
+  /// Returns the single highest daily max heart rate from the week (or period).
+  /// Used for the "best possible" VO2 max calculation at the bottom of the screen.
+  Future<double?> getBestMaxHr([int? days, DateTime? relativeTo]) async {
+    String query = '''
+      SELECT MAX(value) as best_max
+      FROM raw_health_records
+      WHERE record_type = 'HEART_RATE'
+        AND value >= 60.0 AND value <= 220.0
+    ''';
+    final variables = <Variable>[];
+    if (days != null && days > 0) {
+      final base = relativeTo ?? DateTime.now();
+      final cutoff = base.subtract(Duration(days: days));
+      final cutoffSec = cutoff.millisecondsSinceEpoch ~/ 1000;
+      query += ' AND start_time >= ? ';
+      variables.add(Variable<int>(cutoffSec));
+      if (relativeTo != null) {
+        final endSec = relativeTo.millisecondsSinceEpoch ~/ 1000;
+        query += ' AND start_time <= ? ';
+        variables.add(Variable<int>(endSec));
+      }
+    } else if (relativeTo != null) {
+      final endSec = relativeTo.millisecondsSinceEpoch ~/ 1000;
+      query += ' AND start_time <= ? ';
+      variables.add(Variable<int>(endSec));
+    }
+
+    final rows = await customSelect(
+      query,
+      variables: variables,
+      readsFrom: {rawHealthRecords},
+    ).get();
+
+    if (rows.isEmpty) return null;
+    return rows.first.readNullable<double>('best_max');
+  }
+
+  /// Returns the lowest daily resting heart rate from the week (or period).
+  /// Used for the "best possible" VO2 max calculation at the bottom of the screen.
+  Future<double?> getBestRestingHr([int? days, DateTime? relativeTo]) async {
+    final base = relativeTo ?? DateTime.now();
+    // First try explicit RESTING_HEART_RATE records
+    String query = '''
+      SELECT MIN(avg_rhr) as best_rhr FROM (
+        SELECT 
+          date(datetime(start_time, 'unixepoch', 'localtime')) as day_str,
+          AVG(value) as avg_rhr
+        FROM raw_health_records
+        WHERE record_type = 'RESTING_HEART_RATE'
+    ''';
+    final variables = <Variable>[];
+    if (days != null && days > 0) {
+      final cutoff = base.subtract(Duration(days: days));
+      final cutoffSec = cutoff.millisecondsSinceEpoch ~/ 1000;
+      query += ' AND start_time >= ? ';
+      variables.add(Variable<int>(cutoffSec));
+      if (relativeTo != null) {
+        final endSec = relativeTo.millisecondsSinceEpoch ~/ 1000;
+        query += ' AND start_time <= ? ';
+        variables.add(Variable<int>(endSec));
+      }
+    } else if (relativeTo != null) {
+      final endSec = relativeTo.millisecondsSinceEpoch ~/ 1000;
+      query += ' AND start_time <= ? ';
+      variables.add(Variable<int>(endSec));
+    }
+    query += ' GROUP BY day_str )';
+
+    final rows = await customSelect(
+      query,
+      variables: variables,
+      readsFrom: {rawHealthRecords},
+    ).get();
+
+    if (rows.isNotEmpty) {
+      final val = rows.first.readNullable<double>('best_rhr');
+      if (val != null) return val;
+    }
+
+    // Fallback: minimum resting-range HR
+    String fbQuery = '''
+      SELECT MIN(value) as best_rhr
+      FROM raw_health_records
+      WHERE record_type = 'HEART_RATE'
+        AND value >= 40.0 AND value <= 120.0
+    ''';
+    final fbVars = <Variable>[];
+    if (days != null && days > 0) {
+      final cutoff = base.subtract(Duration(days: days));
+      final cutoffSec = cutoff.millisecondsSinceEpoch ~/ 1000;
+      fbQuery += ' AND start_time >= ? ';
+      fbVars.add(Variable<int>(cutoffSec));
+      if (relativeTo != null) {
+        final endSec = relativeTo.millisecondsSinceEpoch ~/ 1000;
+        fbQuery += ' AND start_time <= ? ';
+        fbVars.add(Variable<int>(endSec));
+      }
+    } else if (relativeTo != null) {
+      final endSec = relativeTo.millisecondsSinceEpoch ~/ 1000;
+      fbQuery += ' AND start_time <= ? ';
+      fbVars.add(Variable<int>(endSec));
+    }
+
+    final fbRows = await customSelect(
+      fbQuery,
+      variables: fbVars,
+      readsFrom: {rawHealthRecords},
+    ).get();
+
+    if (fbRows.isEmpty) return null;
+    return fbRows.first.readNullable<double>('best_rhr');
+  }
+
+
   /// Returns daily resting heart rates for the last [days] days,
   /// or all time if [days] is null or 0.
   Future<List<DailyMetricPoint>> getDailyRestingHeartRates([int? days]) async {
