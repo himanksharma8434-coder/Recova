@@ -344,7 +344,7 @@ class Vo2MaxDetailScreen extends StatelessWidget {
               children: [
                 Text(
                   'VO₂_Current = 3.5 + 0.2 × speed(m/min)',
-                  style: TokType.code.copyWith(
+                  style: TokType.mono.copyWith(
                     color: Tok.textPrimary,
                     fontSize: 11,
                   ),
@@ -352,7 +352,7 @@ class Vo2MaxDetailScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   '%HRR = (HR_Current - HR_Rest) / (HR_Max - HR_Rest)',
-                  style: TokType.code.copyWith(
+                  style: TokType.mono.copyWith(
                     color: Tok.textPrimary,
                     fontSize: 11,
                   ),
@@ -360,7 +360,7 @@ class Vo2MaxDetailScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   'VO₂_Max = VO₂_Current / %HRR',
-                  style: TokType.code.copyWith(
+                  style: TokType.mono.copyWith(
                     color: Tok.neonAccent,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
