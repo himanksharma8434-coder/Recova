@@ -11,6 +11,7 @@ import '../../core/theme/design_tokens.dart';
 import '../components/ambient_glow_backdrop.dart';
 import '../components/glass_card.dart';
 import '../components/liquid_glass.dart';
+import 'vo2_max_detail_screen.dart';
 
 /// Main recovery dashboard screen.
 class DashboardScreen extends StatefulWidget {
@@ -210,7 +211,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           // VO2max Card
           if (summary.estimatedVo2Max != null)
-            _Vo2MaxCard(vo2max: summary.estimatedVo2Max!),
+            _Vo2MaxCard(summary: summary),
           if (summary.estimatedVo2Max != null) const SizedBox(height: 16),
 
           // Vital Stats Row
@@ -455,63 +456,73 @@ class _ComponentBar extends StatelessWidget {
 // ── VO2max Card ──
 
 class _Vo2MaxCard extends StatelessWidget {
-  final double vo2max;
-  const _Vo2MaxCard({required this.vo2max});
+  final DerivedMetricSummary summary;
+  const _Vo2MaxCard({required this.summary});
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      accentGlow: Tok.neonAccent,
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Tok.neonAccentSurface,
-              border: Border.all(
-                color: Tok.neonAccent.withValues(alpha: 0.3),
-                width: 0.5,
+    final vo2max = summary.estimatedVo2Max!;
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => Vo2MaxDetailScreen(summary: summary),
+          ),
+        );
+      },
+      child: GlassCard(
+        accentGlow: Tok.neonAccent,
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: Tok.neonAccentSurface,
+                border: Border.all(
+                  color: Tok.neonAccent.withValues(alpha: 0.3),
+                  width: 0.5,
+                ),
+              ),
+              child: const Icon(Icons.speed, color: Tok.neonAccent),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'EST. VO₂ MAX',
+                        style: TokType.caption.copyWith(letterSpacing: 1.2),
+                      ),
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message:
+                            'Estimated from resting and max heart rate.\nNot a clinical measurement.',
+                        child: Icon(
+                          Icons.info_outline,
+                          size: 14,
+                          color: Tok.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '${vo2max.toStringAsFixed(1)} mL/kg/min',
+                    style: TokType.metricMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Tok.neonAccent,
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: const Icon(Icons.speed, color: Tok.neonAccent),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'EST. VO₂ MAX',
-                      style: TokType.caption.copyWith(letterSpacing: 1.2),
-                    ),
-                    const SizedBox(width: 4),
-                    Tooltip(
-                      message:
-                          'Estimated from resting and max heart rate.\nNot a clinical measurement.',
-                      child: Icon(
-                        Icons.info_outline,
-                        size: 14,
-                        color: Tok.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  '${vo2max.toStringAsFixed(1)} mL/kg/min',
-                  style: TokType.metricMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Tok.neonAccent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
