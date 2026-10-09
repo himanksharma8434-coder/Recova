@@ -5,6 +5,7 @@ import '../tables/raw_health_records.dart';
 import '../app_database.dart';
 import '../../../core/utils/ppg_hrv_calculator.dart';
 import '../../../domain/entities/daily_metric_point.dart';
+import '../../../domain/services/vo2_max_estimator.dart';
 
 part 'health_record_dao.g.dart';
 
@@ -505,6 +506,55 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
               r.endTime.isSmallerOrEqualValue(end))
           ..orderBy([(r) => OrderingTerm.desc(r.startTime)]))
         .get();
+  }
+
+  /// Get merged high-resolution workout streams (Heart Rate + Speed) for Garmin-style VO2 max.
+  Future<List<WorkoutDataPoint>> getWorkoutDataPoints({
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final hrRecords = await (select(rawHealthRecords)
+          ..where((r) =>
+              r.recordType.equals('HEART_RATE') &
+              r.startTime.isBiggerOrEqualValue(start) &
+              r.endTime.isSmallerOrEqualValue(end))
+          ..orderBy([(r) => OrderingTerm.asc(r.startTime)]))
+        .get();
+
+    final distRecords = await (select(rawHealthRecords)
+          ..where((r) =>
+              (r.recordType.equals('DISTANCE_DELTA') | r.recordType.equals('DISTANCE_WALKING_RUNNING')) &
+              r.startTime.isBiggerOrEqualValue(start) &
+              r.endTime.isSmallerOrEqualValue(end))
+          ..orderBy([(r) => OrderingTerm.asc(r.startTime)]))
+        .get();
+
+    if (hrRecords.isEmpty || distRecords.isEmpty) return [];
+
+    final points = <WorkoutDataPoint>[];
+    
+    // We linearly interpolate or simply match HR points to the corresponding distance chunk
+    for (final hr in hrRecords) {
+      final t = hr.startTime;
+      // Find distance interval that contains this timestamp
+      final distChunk = distRecords.where((d) => 
+        (d.startTime.isBefore(t) || d.startTime.isAtSameMomentAs(t)) &&
+        d.endTime.isAfter(t)
+      ).firstOrNull;
+
+      if (distChunk != null) {
+        final durationSecs = distChunk.endTime.difference(distChunk.startTime).inSeconds;
+        if (durationSecs > 0) {
+          final speedMps = distChunk.value / durationSecs;
+          points.add(WorkoutDataPoint(
+            timestamp: t,
+            heartRateBpm: hr.value,
+            speedMetersPerSec: speedMps,
+          ));
+        }
+      }
+    }
+    return points;
   }
 
   /// Get latest HRV (SDNN or RMSSD) record within a date range.
