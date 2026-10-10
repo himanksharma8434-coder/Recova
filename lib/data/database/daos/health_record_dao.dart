@@ -509,6 +509,11 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Get merged high-resolution workout streams (Heart Rate + Speed) for Garmin-style VO2 max.
+  ///
+  /// Uses a 3-tier data strategy:
+  /// 1. Distance records (DISTANCE_DELTA / DISTANCE_WALKING_RUNNING) → exact speed
+  /// 2. Step records during workout → cadence-derived speed (stride length × steps/s)
+  /// 3. HR-only → speed set to 0, handled by Tier 3 in Vo2MaxEstimator
   Future<List<WorkoutDataPoint>> getWorkoutDataPoints({
     required DateTime start,
     required DateTime end,
@@ -521,40 +526,107 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
           ..orderBy([(r) => OrderingTerm.asc(r.startTime)]))
         .get();
 
+    if (hrRecords.isEmpty) return [];
+
+    // ── Tier 1: Try distance-based speed ──
     final distRecords = await (select(rawHealthRecords)
           ..where((r) =>
-              (r.recordType.equals('DISTANCE_DELTA') | r.recordType.equals('DISTANCE_WALKING_RUNNING')) &
-              r.startTime.isBiggerOrEqualValue(start) &
-              r.endTime.isSmallerOrEqualValue(end))
+              (r.recordType.equals('DISTANCE_DELTA') |
+                  r.recordType.equals('DISTANCE_WALKING_RUNNING') |
+                  r.recordType.equals('SPEED')) &
+              r.startTime.isSmallerOrEqualValue(end) &
+              r.endTime.isBiggerOrEqualValue(start))
           ..orderBy([(r) => OrderingTerm.asc(r.startTime)]))
         .get();
 
-    if (hrRecords.isEmpty || distRecords.isEmpty) return [];
+    if (distRecords.isNotEmpty) {
+      final points = <WorkoutDataPoint>[];
+      for (final hr in hrRecords) {
+        final t = hr.startTime;
+        // Check for direct SPEED records first
+        final speedRecord = distRecords.where((d) =>
+          d.recordType == 'SPEED' &&
+          (d.startTime.isBefore(t) || d.startTime.isAtSameMomentAs(t)) &&
+          d.endTime.isAfter(t)
+        ).firstOrNull;
 
-    final points = <WorkoutDataPoint>[];
-    
-    // We linearly interpolate or simply match HR points to the corresponding distance chunk
-    for (final hr in hrRecords) {
-      final t = hr.startTime;
-      // Find distance interval that contains this timestamp
-      final distChunk = distRecords.where((d) => 
-        (d.startTime.isBefore(t) || d.startTime.isAtSameMomentAs(t)) &&
-        d.endTime.isAfter(t)
-      ).firstOrNull;
-
-      if (distChunk != null) {
-        final durationSecs = distChunk.endTime.difference(distChunk.startTime).inSeconds;
-        if (durationSecs > 0) {
-          final speedMps = distChunk.value / durationSecs;
+        if (speedRecord != null) {
           points.add(WorkoutDataPoint(
             timestamp: t,
             heartRateBpm: hr.value,
-            speedMetersPerSec: speedMps,
+            speedMetersPerSec: speedRecord.value,
           ));
+          continue;
+        }
+
+        // Distance chunk → derive speed
+        final distChunk = distRecords.where((d) =>
+          d.recordType != 'SPEED' &&
+          (d.startTime.isBefore(t) || d.startTime.isAtSameMomentAs(t)) &&
+          d.endTime.isAfter(t)
+        ).firstOrNull;
+
+        if (distChunk != null) {
+          final durationSecs = distChunk.endTime.difference(distChunk.startTime).inSeconds;
+          if (durationSecs > 0) {
+            final speedMps = distChunk.value / durationSecs;
+            points.add(WorkoutDataPoint(
+              timestamp: t,
+              heartRateBpm: hr.value,
+              speedMetersPerSec: speedMps,
+            ));
+          }
         }
       }
+      if (points.isNotEmpty) return points;
     }
-    return points;
+
+    // ── Tier 2: Try step-cadence derived speed ──
+    final stepRecords = await (select(rawHealthRecords)
+          ..where((r) =>
+              r.recordType.equals('STEPS') &
+              r.startTime.isSmallerOrEqualValue(end) &
+              r.endTime.isBiggerOrEqualValue(start) &
+              r.value.isBiggerOrEqualValue(1.0))
+          ..orderBy([(r) => OrderingTerm.asc(r.startTime)]))
+        .get();
+
+    if (stepRecords.isNotEmpty) {
+      final points = <WorkoutDataPoint>[];
+      // Assumed average stride length for running (0.78m walking, ~1.2m running)
+      const runningStrideLengthM = 1.1;
+
+      for (final hr in hrRecords) {
+        final t = hr.startTime;
+        final stepChunk = stepRecords.where((s) =>
+          (s.startTime.isBefore(t) || s.startTime.isAtSameMomentAs(t)) &&
+          s.endTime.isAfter(t)
+        ).firstOrNull;
+
+        if (stepChunk != null) {
+          final durationSecs = stepChunk.endTime.difference(stepChunk.startTime).inSeconds;
+          if (durationSecs > 0) {
+            final stepsPerSec = stepChunk.value / durationSecs;
+            final speedMps = stepsPerSec * runningStrideLengthM;
+            if (speedMps > 0.3) {
+              points.add(WorkoutDataPoint(
+                timestamp: t,
+                heartRateBpm: hr.value,
+                speedMetersPerSec: speedMps,
+              ));
+            }
+          }
+        }
+      }
+      if (points.isNotEmpty) return points;
+    }
+
+    // ── Tier 3: HR-only (speed = 0, Vo2MaxEstimator handles via Tier 3) ──
+    return hrRecords.map((hr) => WorkoutDataPoint(
+      timestamp: hr.startTime,
+      heartRateBpm: hr.value,
+      speedMetersPerSec: 0.0,
+    )).toList();
   }
 
   /// Get latest HRV (SDNN or RMSSD) record within a date range.
