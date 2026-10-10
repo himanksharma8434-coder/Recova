@@ -13,53 +13,66 @@ import '../../data/database/app_database.dart';
 class PpgHrvCalculator {
   PpgHrvCalculator._();
 
-  /// Calculates rMSSD (in milliseconds) from a sequence of PPG heart rate records.
-  ///
-  /// Converts heart rates to Inter-Beat Intervals (IBI) and computes the standard
-  /// athletic rMSSD equation with physiological ectopic-beat filtering.
   static double? computeRmssdFromHeartRates(List<RawHealthRecord> hrRecords) {
     if (hrRecords.length < 3) return null;
 
     final sorted = List<RawHealthRecord>.from(hrRecords)
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    // Convert valid heart rate records to inter-beat intervals (ms)
-    final ibis = <double>[];
-    DateTime? lastTime;
+    final validDiffs = <double>[];
+    final allIbis = <double>[];
 
-    for (final r in sorted) {
-      // Filter out non-physiological values (must be 35–220 bpm)
-      if (r.value < 35.0 || r.value > 220.0) continue;
+    for (int i = 0; i < sorted.length - 1; i++) {
+      final r1 = sorted[i];
+      final r2 = sorted[i + 1];
 
-      // Discard huge time gaps (> 15 minutes) between individual samples
-      if (lastTime != null && r.startTime.difference(lastTime).inMinutes.abs() > 15) {
-        // Gap reached, start new sequence
+      // Must be physically close in time to be considered "successive" in a sampled HR context
+      // e.g., within 5 minutes. If it's a gap, it's not a valid successive difference.
+      if (r2.startTime.difference(r1.startTime).inMinutes.abs() > 5) {
+        continue;
       }
-      lastTime = r.startTime;
 
-      final ibi = 60000.0 / r.value;
-      ibis.add(ibi);
-    }
+      // Filter non-physiological values (must be 35–220 bpm)
+      if (r1.value < 35.0 || r1.value > 220.0) continue;
+      if (r2.value < 35.0 || r2.value > 220.0) continue;
 
-    if (ibis.length < 3) return null;
-
-    // Calculate successive differences: d_i = IBI_(i+1) - IBI_i
-    double sumSquaredDiffs = 0.0;
-    int count = 0;
-
-    for (int i = 0; i < ibis.length - 1; i++) {
-      final diff = ibis[i + 1] - ibis[i];
+      final ibi1 = 60000.0 / r1.value;
+      final ibi2 = 60000.0 / r2.value;
+      
+      allIbis.add(ibi1);
+      // We also add the very last one conditionally later, but this gives us a good sample size
+      
+      final diff = ibi2 - ibi1;
+      
       // Filter out sudden motion/ectopic artifacts (differences > 300ms)
       if (diff.abs() > 300.0) continue;
-
-      sumSquaredDiffs += diff * diff;
-      count++;
+      
+      validDiffs.add(diff * diff);
     }
 
-    if (count < 2) return null;
+    if (validDiffs.length < 2 || allIbis.length < 2) return null;
 
-    final rmssd = sqrt(sumSquaredDiffs / count);
+    // 1. Calculate rMSSD (Root mean square of successive differences)
+    // Reflects short-term, parasympathetic nervous system activity.
+    final sumSquaredDiffs = validDiffs.reduce((a, b) => a + b);
+    final rmssd = sqrt(sumSquaredDiffs / validDiffs.length);
+
+    // 2. Calculate SDNN (Standard deviation of normal-to-normal intervals)
+    // Reflects overall variability (both sympathetic and parasympathetic).
+    // Often much more reliable for sparse 1-minute sampled PPG data.
+    final meanIbi = allIbis.reduce((a, b) => a + b) / allIbis.length;
+    double sumSquaredDeviations = 0;
+    for (final ibi in allIbis) {
+      final dev = ibi - meanIbi;
+      sumSquaredDeviations += dev * dev;
+    }
+    final sdnn = sqrt(sumSquaredDeviations / allIbis.length);
+
+    // 3. Blend rMSSD and SDNN for a robust composite PPG HRV metric.
+    // Sparse data heavily penalizes rMSSD, so weighting SDNN helps stabilize the metric.
+    final blendedHrv = (rmssd * 0.4) + (sdnn * 0.6);
+
     // Clamp to realistic human physiological resting range (15ms to 180ms)
-    return rmssd.clamp(15.0, 180.0);
+    return blendedHrv.clamp(15.0, 180.0);
   }
 }

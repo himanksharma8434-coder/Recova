@@ -6,11 +6,15 @@ import 'tables/daily_baselines.dart';
 import 'tables/derived_metrics.dart';
 import 'tables/sync_metadata.dart';
 import 'tables/sync_logs.dart';
+import 'tables/body_measurements.dart';
+import 'tables/body_age_snapshots.dart';
 
 import 'daos/health_record_dao.dart';
 import 'daos/baseline_dao.dart';
 import 'daos/derived_metric_dao.dart';
 import 'daos/sync_dao.dart';
+import 'daos/body_measurement_dao.dart';
+import 'daos/body_age_snapshot_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -21,12 +25,16 @@ part 'app_database.g.dart';
     DerivedMetrics,
     SyncMetadata,
     SyncLogs,
+    BodyMeasurements,
+    BodyAgeSnapshots,
   ],
   daos: [
     HealthRecordDao,
     BaselineDao,
     DerivedMetricDao,
     SyncDao,
+    BodyMeasurementDao,
+    BodyAgeSnapshotDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -44,12 +52,18 @@ class AppDatabase extends _$AppDatabase {
   static set instance(AppDatabase db) => _instance = db;
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(bodyMeasurements);
+            await m.createTable(bodyAgeSnapshots);
+          }
         },
         beforeOpen: (details) async {
           try {
@@ -69,6 +83,10 @@ class AppDatabase extends _$AppDatabase {
                 'CREATE INDEX IF NOT EXISTS idx_sync_metadata_type ON sync_metadata (record_type);');
             await customStatement(
                 'CREATE INDEX IF NOT EXISTS idx_sync_logs_timestamp ON sync_logs (timestamp);');
+            await customStatement(
+                'CREATE INDEX IF NOT EXISTS idx_body_measurements_date ON body_measurements (measured_at);');
+            await customStatement(
+                'CREATE INDEX IF NOT EXISTS idx_body_age_snapshots_date ON body_age_snapshots (calculated_at);');
           } catch (_) {}
         },
       );
