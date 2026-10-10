@@ -13,6 +13,7 @@ import '../components/liquid_glass.dart';
 import '../cubits/body_age/body_age_cubit.dart';
 import '../cubits/body_age/body_age_state.dart';
 import 'profile_settings_screen.dart';
+import '../../features/body_age/presentation/components/monthly_checkin_dialog.dart';
 
 /// Body Age Estimation Screen.
 /// Automatically pulls wearable data and compares against population norms
@@ -64,6 +65,10 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
         sex: profile.gender,
         heightCm: profile.heightCm,
         weightKg: profile.weightKg,
+        waistCircumferenceCm: profile.waistCircumferenceCm,
+        hipCircumferenceCm: profile.hipCircumferenceCm,
+        smokingStatus: profile.smokingStatus,
+        stressLevel: profile.stressLevel,
       );
     }
   }
@@ -125,6 +130,19 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
                   ),
                   centerTitle: true,
                   actions: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_calendar_outlined, size: 20, color: Tok.neonAccent),
+                      tooltip: 'Monthly Check-In',
+                      onPressed: () async {
+                        await showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => const MonthlyCheckinDialog(),
+                        );
+                        _initAndCompute();
+                      },
+                    ),
                     IconButton(
                       icon: const Icon(Icons.tune_rounded, size: 20),
                       tooltip: 'Profile Settings',

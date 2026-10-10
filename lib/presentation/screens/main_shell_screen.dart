@@ -17,6 +17,11 @@ import 'recovery_deep_dive_screen.dart';
 import 'strain_screen.dart';
 import 'sleep_screen.dart';
 import '../../services/background_sync_service.dart';
+import '../../features/body_age/data/repositories/body_age_repository_impl.dart';
+import '../../features/body_age/data/repositories/body_measurement_repository_impl.dart';
+import '../../features/body_age/presentation/components/monthly_checkin_dialog.dart';
+import '../../features/body_age/presentation/cubits/body_age_checkin/body_age_checkin_cubit.dart';
+import '../../features/body_age/presentation/cubits/body_age_checkin/body_age_checkin_state.dart';
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({super.key});
@@ -41,12 +46,41 @@ class _MainShellScreenState extends State<MainShellScreen> {
     registerPeriodicSync();
     // Auto-sync on startup: pull latest wearable data immediately
     _autoSync();
+    // Evaluate monthly body age check-in prompt
+    _checkMonthlyCheckin();
   }
 
   @override
   void dispose() {
     _bannerTimer?.cancel();
     super.dispose();
+  }
+
+  void _checkMonthlyCheckin() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final checkinCubit = BodyAgeCheckinCubit(
+        measurementRepo: BodyMeasurementRepositoryImpl(),
+        bodyAgeRepo: BodyAgeRepositoryImpl(),
+      );
+      await checkinCubit.evaluateEligibility(isWorkoutActive: false);
+      if (checkinCubit.state is BodyAgeCheckinPrompt && mounted) {
+        final promptState = checkinCubit.state as BodyAgeCheckinPrompt;
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => BlocProvider.value(
+            value: checkinCubit,
+            child: MonthlyCheckinDialog(
+              prefilledWeight: promptState.prefilledWeight,
+              prefilledBodyFat: promptState.prefilledBodyFat,
+              initialIsKg: promptState.isKgUnit,
+            ),
+          ),
+        );
+      }
+    });
   }
 
   void _autoSync() {

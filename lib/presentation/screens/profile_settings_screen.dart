@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
+import '../../features/body_age/presentation/cubits/body_age_checkin/body_age_checkin_cubit.dart';
 import '../../services/user_profile_service.dart';
 import '../components/ambient_glow_backdrop.dart';
 import '../components/glass_card.dart';
@@ -22,6 +25,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
   String? _selectedGender;
+  bool _monthlyReminderEnabled = true;
   bool _isLoading = true;
 
   @override
@@ -32,6 +36,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   Future<void> _loadProfile() async {
     final profile = await UserProfileService.getProfile();
+    final prefs = await SharedPreferences.getInstance();
+    final reminderOn = prefs.getBool(BodyAgeCheckinCubit.keyMonthlyReminderEnabled) ?? true;
+
     if (mounted) {
       setState(() {
         if (profile.age != null) {
@@ -44,6 +51,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           _heightController.text = profile.heightCm!.toStringAsFixed(1);
         }
         _selectedGender = profile.gender ?? 'male';
+        _monthlyReminderEnabled = reminderOn;
         _isLoading = false;
       });
     }
@@ -108,6 +116,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
 
     await UserProfileService.saveProfile(profile);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(BodyAgeCheckinCubit.keyMonthlyReminderEnabled, _monthlyReminderEnabled);
     HapticFeedback.lightImpact();
 
     if (mounted) {
@@ -448,6 +458,34 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ),
               const SizedBox(height: Tok.space20),
             ],
+
+            // Monthly Check-In Reminder Toggle
+            GlassCard(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('MONTHLY BODY CHECK-IN', style: TokType.sectionLabel),
+                        const SizedBox(height: Tok.space4),
+                        Text(
+                          'Prompt once a month to log body weight & body fat % for body age estimation.',
+                          style: TokType.bodySmall.copyWith(color: Tok.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: _monthlyReminderEnabled,
+                    activeThumbColor: Tok.neonAccent,
+                    onChanged: (val) => setState(() => _monthlyReminderEnabled = val),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: Tok.space20),
 
             // Save Button
             LiquidGlassButton(
