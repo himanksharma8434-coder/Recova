@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
 import '../../domain/repositories/health_source_repository.dart';
+import '../../domain/services/vo2_max_estimator.dart';
 import '../components/ambient_glow_backdrop.dart';
 import '../components/glass_card.dart';
 import '../components/liquid_glass.dart';
@@ -224,14 +226,14 @@ class Vo2MaxDetailScreen extends StatelessWidget {
               const Icon(Icons.psychology_rounded, color: Tok.textPrimary, size: 20),
               const SizedBox(width: Tok.space8),
               Text(
-                'GARMIN/FIRSTBEAT ENGINE',
+                'HOW IT WORKS',
                 style: TokType.cardTitle.copyWith(letterSpacing: 1.2),
               ),
             ],
           ),
           const SizedBox(height: Tok.space16),
           Text(
-            'We use the same Firstbeat Analytics algorithm that powers Garmin watches to estimate your VO₂ Max from your workout data — no lab test required.',
+            'We use the validated Uth-Sørensen baseline model to calculate your VO₂ max using simply the ratio of maximum heart rate to resting heart rate.',
             style: TokType.bodySmall.copyWith(
               color: Tok.textSecondary,
               height: 1.5,
@@ -239,27 +241,9 @@ class Vo2MaxDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: Tok.space16),
           _buildStepRow(
-            icon: Icons.gps_fixed,
-            title: 'Tier 1 — Speed + HR',
-            description: 'Uses GPS distance or step-cadence during running to calculate your speed. Combines with heart rate to estimate oxygen cost via the ACSM Running Equation.',
-          ),
-          const SizedBox(height: Tok.space12),
-          _buildStepRow(
             icon: Icons.favorite_border,
-            title: 'Tier 2 — HR Only',
-            description: 'When speed data is unavailable, uses the Swain %VO₂R model (%VO₂R = 1.12 × %HRR − 0.12) with heart rate recovery correction (Daanen 2012).',
-          ),
-          const SizedBox(height: Tok.space12),
-          _buildStepRow(
-            icon: Icons.filter_list_rounded,
-            title: 'Smart Filtering',
-            description: 'Only steady-state segments with HR >70% max are analyzed. First 5 min warmup excluded. Outlier segments removed via IQR trimming.',
-          ),
-          const SizedBox(height: Tok.space12),
-          _buildStepRow(
-            icon: Icons.auto_graph_rounded,
-            title: 'HRR Extrapolation',
-            description: 'Heart Rate Reserve (%HRR) maps your exercise HR to a percentage of your max capacity. VO₂max = VO₂_current / %HRR extrapolates to your 100% ceiling.',
+            title: 'Simple and Direct',
+            description: 'This is an estimate derived from your peak and resting heart rate data. It is not a clinical VO₂ max test.',
           ),
         ],
       ),
@@ -307,85 +291,79 @@ class Vo2MaxDetailScreen extends StatelessWidget {
   }
 
   Widget _buildAlgorithmDetailsCard(BuildContext context) {
-    return LiquidGlass(
-      hasBlur: false,
-      padding: const EdgeInsets.all(Tok.space20),
-      borderRadius: BorderRadius.circular(Tok.radiusLg),
-      customBottomReflection: Tok.accentBlue.withValues(alpha: 0.1),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return FutureBuilder<Vo2MaxResult?>(
+      future: context.read<HealthSourceRepository>().getLatestVo2MaxResult(),
+      builder: (context, snapshot) {
+        final vo2Result = snapshot.data;
+        return LiquidGlass(
+          hasBlur: false,
+          padding: const EdgeInsets.all(Tok.space20),
+          borderRadius: BorderRadius.circular(Tok.radiusLg),
+          customBottomReflection: Tok.accentBlue.withValues(alpha: 0.1),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.functions_rounded, color: Tok.accentBlue, size: 20),
-              const SizedBox(width: Tok.space8),
+              Row(
+                children: [
+                  const Icon(Icons.functions_rounded, color: Tok.accentBlue, size: 20),
+                  const SizedBox(width: Tok.space8),
+                  Text(
+                    'THE MATH',
+                    style: TokType.cardTitle.copyWith(
+                      letterSpacing: 1.2,
+                      color: Tok.accentBlue,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Tok.space16),
               Text(
-                'THE MATH',
-                style: TokType.cardTitle.copyWith(
-                  letterSpacing: 1.2,
-                  color: Tok.accentBlue,
+                'Powered by the Uth-Sørensen Baseline Equation',
+                style: TokType.bodySmall.copyWith(
+                  color: Tok.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: Tok.space16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Tok.canvasDeep.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Tok.glassBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'BASELINE COMPARISON',
+                      style: TokType.caption.copyWith(color: Tok.textSecondary),
+                    ),
+                    const SizedBox(height: 8),
+                    if (vo2Result?.userMaxHr != null && vo2Result?.userRestingHr != null) ...[
+                      Text(
+                        '15.3 × (${vo2Result!.userMaxHr!.toInt()} / ${vo2Result!.userRestingHr!.toInt()}) = ${(15.3 * (vo2Result!.userMaxHr! / vo2Result!.userRestingHr!)).toStringAsFixed(1)}',
+                        style: TokType.mono.copyWith(color: Tok.neonAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Calculated using 15.3 × (Peak HR / Avg RHR)',
+                        style: TokType.caption.copyWith(color: Tok.textSecondary),
+                      ),
+                    ] else ...[
+                      Text(
+                        '15.3 × (HRmax / HRrest) = VO₂_Max',
+                        style: TokType.mono.copyWith(color: Tok.neonAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: Tok.space16),
-          Text(
-            'The core logic relies on the linear relationship between your Heart Rate Reserve (%HRR) and your maximum oxygen uptake (%VO₂ Max).',
-            style: TokType.bodySmall.copyWith(
-              color: Tok.textSecondary,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: Tok.space16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Tok.canvasDeep.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Tok.glassBorder),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Tier 1/2 (Speed + HR)',
-                    style: TokType.caption.copyWith(color: Tok.textSecondary),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'VO₂_Cur = 3.5 + 0.2 × speed(m/min)',
-                    style: TokType.mono.copyWith(color: Tok.textPrimary, fontSize: 11),
-                  ),
-                  Text(
-                    '%HRR = (HR_Cur - HR_Rest) / (HR_Max - HR_Rest)',
-                    style: TokType.mono.copyWith(color: Tok.textPrimary, fontSize: 11),
-                  ),
-                  Text(
-                    'VO₂_Max = VO₂_Cur / %HRR',
-                    style: TokType.mono.copyWith(color: Tok.neonAccent, fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  const Divider(color: Tok.glassBorder),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Tier 3 (HR Only)',
-                    style: TokType.caption.copyWith(color: Tok.textSecondary),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '%VO₂R = 1.12 × %HRR - 0.12',
-                    style: TokType.mono.copyWith(color: Tok.textPrimary, fontSize: 11),
-                  ),
-                  Text(
-                    'VO₂_Max = 3.5 / (1 - %VO₂R)',
-                    style: TokType.mono.copyWith(color: Tok.neonAccent, fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

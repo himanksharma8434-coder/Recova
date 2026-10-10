@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../../core/theme/design_tokens.dart';
@@ -8,6 +9,7 @@ import '../../core/theme/recova_colors.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/entities/daily_metric_point.dart';
 import '../../domain/repositories/health_source_repository.dart';
+import '../../domain/services/vo2_max_estimator.dart';
 
 /// Available cardiovascular & recovery metrics for trend analysis.
 enum CardioMetric {
@@ -54,6 +56,7 @@ class _MetricDataCache {
   final double? bestRhr;
   final double? bestMaxHr;
   final double? bestVo2Max;
+  final Vo2MaxResult? latestVo2MaxResult;
 
   const _MetricDataCache({
     required this.points,
@@ -66,6 +69,7 @@ class _MetricDataCache {
     this.bestRhr,
     this.bestMaxHr,
     this.bestVo2Max,
+    this.latestVo2MaxResult,
   });
 }
 
@@ -91,6 +95,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
   double? _bestRhr;
   double? _bestMaxHr;
   double? _bestVo2Max;
+  Vo2MaxResult? _latestVo2MaxResult;
 
   @override
   void initState() {
@@ -123,6 +128,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         _bestRhr = cached.bestRhr;
         _bestMaxHr = cached.bestMaxHr;
         _bestVo2Max = cached.bestVo2Max;
+        _latestVo2MaxResult = cached.latestVo2MaxResult;
         _loading = false;
       });
       return;
@@ -177,16 +183,20 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
       double? bestRhr;
       double? bestMaxHr;
       double? bestVo2Max;
+      Vo2MaxResult? latestVo2MaxResult;
 
       if (_selectedMetric == CardioMetric.vo2Max) {
+        if (mounted) {
+          latestVo2MaxResult = await context.read<HealthSourceRepository>().getLatestVo2MaxResult();
+        }
         final now = DateTime.now();
         final periodDays = _selectedPeriod.days > 0 ? _selectedPeriod.days : null;
 
-        // ── HRmax: avg of top 3 daily max HRs from the period ──
-        hrMax = await db.healthRecordDao.getAvgTop3DailyMaxHr(days: periodDays);
+        // ── HRmax: avg of top 2 daily max HRs from the period ──
+        hrMax = await db.healthRecordDao.getAvgTop2DailyMaxHr(days: periodDays);
         if (hrMax == null && _selectedPeriod != Vo2Period.allTime) {
-          // Fallback: try all-time avg top 3
-          hrMax = await db.healthRecordDao.getAvgTop3DailyMaxHr();
+          // Fallback: try all-time avg top 2
+          hrMax = await db.healthRecordDao.getAvgTop2DailyMaxHr();
         }
         hrMax ??= await db.healthRecordDao.getMaxExerciseHr(
           start: DateTime(2000),
@@ -245,6 +255,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         bestRhr: bestRhr,
         bestMaxHr: bestMaxHr,
         bestVo2Max: bestVo2Max,
+        latestVo2MaxResult: latestVo2MaxResult,
       );
 
       if (mounted) {
@@ -259,6 +270,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
           _bestRhr = bestRhr;
           _bestMaxHr = bestMaxHr;
           _bestVo2Max = bestVo2Max;
+          _latestVo2MaxResult = latestVo2MaxResult;
           _loading = false;
         });
       }
@@ -282,7 +294,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => const _Vo2ExplainerSheet(),
+      builder: (_) => _Vo2ExplainerSheet(vo2Result: _latestVo2MaxResult),
     );
   }
 
@@ -740,9 +752,6 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                 _buildStatsStrip(),
                 const SizedBox(height: 16),
 
-                // ── Best Possible VO₂ Max (bottom section) ──
-                if (_selectedMetric == CardioMetric.vo2Max)
-                  _buildBestVo2Card(),
               ],
             ),
           ),
@@ -954,11 +963,10 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
   /// Inline mathematical calculation card visible directly on screen.
   Widget _buildCalculationCard() {
     if (_selectedMetric == CardioMetric.vo2Max) {
-      final ratio = _calcHrRest > 0 ? (_calcHrMax / _calcHrRest) : 3.63;
-      final computed = (15.0 * ratio).clamp(15.0, 85.0);
+      final hrReserve = _calcHrMax - _calcHrRest;
       final hrMaxSubtitle = _selectedPeriod == Vo2Period.allTime
-          ? 'All-Time Avg Top 3'
-          : (_selectedPeriod == Vo2Period.thirtyDays ? '30D Avg Top 3' : '7D Avg Top 3');
+          ? 'All-Time Peak'
+          : (_selectedPeriod == Vo2Period.thirtyDays ? '30D Peak' : '7D Peak');
       final hrRestSubtitle = _selectedPeriod == Vo2Period.allTime
           ? 'All-Time Avg RHR'
           : (_selectedPeriod == Vo2Period.thirtyDays ? '30D Avg RHR' : '7D Avg RHR');
@@ -988,7 +996,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                       SizedBox(width: 5),
                       Flexible(
                         child: Text(
-                          'CALCULATION BREAKDOWN',
+                          'UTH-SØRENSEN BASELINE',
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 9.5,
@@ -1013,7 +1021,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                     ),
                   ),
                   child: const Text(
-                    'UTH–SØRENSEN',
+                    'HR RATIO',
                     style: TextStyle(
                       fontSize: 8.5,
                       fontWeight: FontWeight.w700,
@@ -1026,7 +1034,18 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Live formula math box
+            // Algorithm description
+            const Text(
+              'Calculates your VO₂ max directly from the ratio of your maximum heart rate to your resting heart rate.',
+              style: TextStyle(
+                fontSize: 10,
+                height: 1.4,
+                color: RecovaColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Formula box
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
@@ -1034,17 +1053,26 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: RecovaColors.borderSubtle),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      '15 × (${_calcHrMax.toStringAsFixed(0)} ÷ ${_calcHrRest.toStringAsFixed(1)}) = ${computed.toStringAsFixed(1)} mL/kg/min',
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: RecovaColors.monochromeWhite,
-                      ),
+                  const Text(
+                    'VO₂max = 15.3 × (HRmax / HRrest)',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: RecovaColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '15.3 × (${_calcHrMax.toStringAsFixed(0)} / ${_calcHrRest.toStringAsFixed(1)}) = ${(15.3 * (_calcHrMax / _calcHrRest)).toStringAsFixed(1)} mL/kg/min',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: RecovaColors.monochromeWhite,
                     ),
                   ),
                 ],
@@ -1058,8 +1086,6 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                 _calcChip('HRmax', '${_calcHrMax.toStringAsFixed(0)} bpm', hrMaxSubtitle),
                 const SizedBox(width: 6),
                 _calcChip('HRrest', '${_calcHrRest.toStringAsFixed(1)} bpm', hrRestSubtitle),
-                const SizedBox(width: 6),
-                _calcChip('Factor', '15', 'Multiplier'),
               ],
             ),
           ],
@@ -1273,272 +1299,11 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
     );
   }
 
-  /// Best possible VO₂ Max section showing single-day best values from the period
-  /// and explaining whether the current displayed value is Best or Actual VO₂ Max.
-  Widget _buildBestVo2Card() {
-    if (_bestVo2Max == null && _bestRhr == null && _bestMaxHr == null) {
-      return const SizedBox.shrink();
-    }
 
-    final bestVo2Str = _bestVo2Max?.toStringAsFixed(1) ?? '--';
-    final bestRhrStr = _bestRhr?.toStringAsFixed(1) ?? '--';
-    final bestMaxHrStr = _bestMaxHr?.toStringAsFixed(0) ?? '--';
-    final bestTier = _vo2Tier(_bestVo2Max);
-    final currentVo2 = _calcHrRest > 0
-        ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0)
-        : null;
-    final currentVo2Str = currentVo2?.toStringAsFixed(1) ?? '--';
-    final isBestHigher = _bestVo2Max != null && currentVo2 != null && _bestVo2Max! > currentVo2;
-    final diff = isBestHigher ? (_bestVo2Max! - currentVo2) : 0.0;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: RecovaColors.surfaceElevation1,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF00D4AA).withValues(alpha: 0.35),
-          width: 1.2,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: const [
-                    Icon(Icons.emoji_events, size: 16, color: Color(0xFFFFD700)),
-                    SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'WEEKLY BEST VS. ACTUAL VO₂ MAX',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: RecovaColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00D4AA).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFF00D4AA).withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Text(
-                  bestTier,
-                  style: const TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
-                    color: Color(0xFF00D4AA),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Comparison pods: Actual VO2 vs Best Possible VO2
-          Row(
-            children: [
-              // Actual VO2 Max pod
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: RecovaColors.surfaceElevation3,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: RecovaColors.borderSubtle),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: const [
-                          Icon(Icons.check_circle_outline, size: 12, color: RecovaColors.recoveryEmerald),
-                          SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              'ACTUAL VO₂ MAX',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                                color: RecovaColors.recoveryEmerald,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        currentVo2Str,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: RecovaColors.monochromeWhite,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        '7D Avg RHR & Top 3 HRmax',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 7.5,
-                          color: RecovaColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Best Possible VO2 pod
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00D4AA).withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF00D4AA).withValues(alpha: 0.35)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: const [
-                          Icon(Icons.star_outline, size: 12, color: Color(0xFF00D4AA)),
-                          SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              'BEST POSSIBLE',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                                color: Color(0xFF00D4AA),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        bestVo2Str,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF00D4AA),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Single Best RHR & Peak HR',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 7.5,
-                          color: Color(0xFF00D4AA),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Explanatory banner telling whether this was best or actual VO2 max
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(
-              color: RecovaColors.surfaceElevation3,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF00D4AA).withValues(alpha: 0.25)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Best Formula: 15 × ($bestMaxHrStr ÷ $bestRhrStr) = $bestVo2Str mL/kg/min',
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF00D4AA),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      isBestHigher ? Icons.info_outline : Icons.check_circle_outline,
-                      size: 12,
-                      color: isBestHigher ? const Color(0xFF00D4AA) : RecovaColors.recoveryEmerald,
-                    ),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        isBestHigher
-                            ? 'The primary metric above is your ACTUAL VO₂ max ($currentVo2Str). Your BEST potential was $bestVo2Str (+${diff.toStringAsFixed(1)} higher), reached on your single best resting day paired with your peak workout.'
-                            : 'The primary metric above is your ACTUAL VO₂ max ($currentVo2Str), which matches your peak fitness capacity recorded this week.',
-                        style: TextStyle(
-                          fontSize: 9,
-                          height: 1.35,
-                          fontWeight: FontWeight.w500,
-                          color: isBestHigher ? const Color(0xFF00D4AA) : RecovaColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Single best values chips (lowest RHR and highest Max HR from the week)
-          Row(
-            children: [
-              _calcChip('Best Resting HR', '$bestRhrStr bpm', 'Lowest of Week'),
-              const SizedBox(width: 6),
-              _calcChip('Maximum HR', '$bestMaxHrStr bpm', 'Highest of Week'),
-              const SizedBox(width: 6),
-              _calcChip('Multiplier', '15', 'Factor'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
-
-
-/// Bottom sheet explaining how VO₂ Max is calculated.
 class _Vo2ExplainerSheet extends StatelessWidget {
-  const _Vo2ExplainerSheet();
+  final Vo2MaxResult? vo2Result;
+  const _Vo2ExplainerSheet({this.vo2Result});
 
   @override
   Widget build(BuildContext context) {
@@ -1597,73 +1362,68 @@ class _Vo2ExplainerSheet extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-
-              // Formula card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Tok.glassFillRecessed,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Tok.glassBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Uth–Sørensen–Overgaard–Pedersen Formula',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.8,
-                        color: Tok.textTertiary,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'VO₂max = 15 × (HRmax ÷ HRrest)',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                        color: Tok.neonAccent,
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 8),
+              const Text(
+                'Powered by the Uth-Sørensen Baseline Equation',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: Tok.textTertiary,
                 ),
               ),
               const SizedBox(height: 16),
 
-              // Data sources
+              if (vo2Result?.userMaxHr != null && vo2Result?.userRestingHr != null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Tok.glassFillRecessed,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Tok.glassBorder),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'BASELINE COMPARISON',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.8,
+                          color: Tok.textTertiary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '15.3 × (${vo2Result!.userMaxHr!.toInt()} / ${vo2Result!.userRestingHr!.toInt()}) = ${(15.3 * (vo2Result!.userMaxHr! / vo2Result!.userRestingHr!)).toStringAsFixed(1)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'monospace',
+                          color: Tok.recoveryOptimal,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Calculated using 15.3 × (7-day Peak HR / 7-day Avg RHR)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          height: 1.5,
+                          color: Tok.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 16),
+
               _explainerRow(
                 icon: Icons.favorite_border,
-                title: 'HRrest — 7-Day Average Resting Heart Rate',
+                title: 'Simple and Direct',
                 description:
-                    'Average resting heart rate calculated across all 7 days of the week, providing a stable cardiovascular baseline.',
+                    'This is a widely validated baseline model for calculating VO₂ max using simply the ratio of maximum heart rate to resting heart rate.',
               ),
-              const SizedBox(height: 12),
-              _explainerRow(
-                icon: Icons.directions_run,
-                title: 'HRmax — Top 3 Days Average Max Heart Rate',
-                description:
-                    'Average of the highest heart rates recorded from your top 3 most strenuous days of the week.',
-              ),
-              const SizedBox(height: 12),
-              _explainerRow(
-                icon: Icons.emoji_events_outlined,
-                title: 'Best vs. Actual VO₂ Max',
-                description:
-                    'Your Actual VO₂ Max is derived from your 7-day average RHR and top 3 workout peaks. The Best VO₂ Max uses your single lowest resting HR and single highest peak to reveal your peak physiological ceiling.',
-              ),
-              const SizedBox(height: 12),
-              _explainerRow(
-                icon: Icons.cake_outlined,
-                title: 'Age Fallback',
-                description:
-                    'If no workout heart rate data is available, HRmax is estimated as 220 − age using your platform profile.',
-              ),
-
               const SizedBox(height: 16),
 
               // Disclaimer
@@ -1683,7 +1443,7 @@ class _Vo2ExplainerSheet extends StatelessWidget {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'This is an estimate derived from heart rate data. It is not a clinical VO₂ max test. Values may vary from lab-measured results.',
+                        'This is an estimate derived from your peak and resting heart rate data. It is not a clinical VO₂ max test.',
                         style: TextStyle(
                           fontSize: 10.5,
                           height: 1.45,
