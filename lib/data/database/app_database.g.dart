@@ -2330,6 +2330,916 @@ class SyncLogsCompanion extends UpdateCompanion<SyncLog> {
   }
 }
 
+class $BodyMeasurementsTable extends BodyMeasurements
+    with TableInfo<$BodyMeasurementsTable, BodyMeasurement> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BodyMeasurementsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local_user'),
+  );
+  static const VerificationMeta _measuredAtMeta = const VerificationMeta(
+    'measuredAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> measuredAt = GeneratedColumn<DateTime>(
+    'measured_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _weightKgMeta = const VerificationMeta(
+    'weightKg',
+  );
+  @override
+  late final GeneratedColumn<double> weightKg = GeneratedColumn<double>(
+    'weight_kg',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyFatPctMeta = const VerificationMeta(
+    'bodyFatPct',
+  );
+  @override
+  late final GeneratedColumn<double> bodyFatPct = GeneratedColumn<double>(
+    'body_fat_pct',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('manual'),
+  );
+  static const VerificationMeta _syncedMeta = const VerificationMeta('synced');
+  @override
+  late final GeneratedColumn<bool> synced = GeneratedColumn<bool>(
+    'synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    measuredAt,
+    weightKg,
+    bodyFatPct,
+    source,
+    synced,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'body_measurements';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BodyMeasurement> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('measured_at')) {
+      context.handle(
+        _measuredAtMeta,
+        measuredAt.isAcceptableOrUnknown(data['measured_at']!, _measuredAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_measuredAtMeta);
+    }
+    if (data.containsKey('weight_kg')) {
+      context.handle(
+        _weightKgMeta,
+        weightKg.isAcceptableOrUnknown(data['weight_kg']!, _weightKgMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_weightKgMeta);
+    }
+    if (data.containsKey('body_fat_pct')) {
+      context.handle(
+        _bodyFatPctMeta,
+        bodyFatPct.isAcceptableOrUnknown(
+          data['body_fat_pct']!,
+          _bodyFatPctMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    }
+    if (data.containsKey('synced')) {
+      context.handle(
+        _syncedMeta,
+        synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BodyMeasurement map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BodyMeasurement(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      measuredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}measured_at'],
+      )!,
+      weightKg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}weight_kg'],
+      )!,
+      bodyFatPct: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}body_fat_pct'],
+      ),
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      )!,
+      synced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}synced'],
+      )!,
+    );
+  }
+
+  @override
+  $BodyMeasurementsTable createAlias(String alias) {
+    return $BodyMeasurementsTable(attachedDatabase, alias);
+  }
+}
+
+class BodyMeasurement extends DataClass implements Insertable<BodyMeasurement> {
+  final int id;
+  final String userId;
+  final DateTime measuredAt;
+  final double weightKg;
+  final double? bodyFatPct;
+  final String source;
+  final bool synced;
+  const BodyMeasurement({
+    required this.id,
+    required this.userId,
+    required this.measuredAt,
+    required this.weightKg,
+    this.bodyFatPct,
+    required this.source,
+    required this.synced,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['measured_at'] = Variable<DateTime>(measuredAt);
+    map['weight_kg'] = Variable<double>(weightKg);
+    if (!nullToAbsent || bodyFatPct != null) {
+      map['body_fat_pct'] = Variable<double>(bodyFatPct);
+    }
+    map['source'] = Variable<String>(source);
+    map['synced'] = Variable<bool>(synced);
+    return map;
+  }
+
+  BodyMeasurementsCompanion toCompanion(bool nullToAbsent) {
+    return BodyMeasurementsCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      measuredAt: Value(measuredAt),
+      weightKg: Value(weightKg),
+      bodyFatPct: bodyFatPct == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bodyFatPct),
+      source: Value(source),
+      synced: Value(synced),
+    );
+  }
+
+  factory BodyMeasurement.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BodyMeasurement(
+      id: serializer.fromJson<int>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      measuredAt: serializer.fromJson<DateTime>(json['measuredAt']),
+      weightKg: serializer.fromJson<double>(json['weightKg']),
+      bodyFatPct: serializer.fromJson<double?>(json['bodyFatPct']),
+      source: serializer.fromJson<String>(json['source']),
+      synced: serializer.fromJson<bool>(json['synced']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'userId': serializer.toJson<String>(userId),
+      'measuredAt': serializer.toJson<DateTime>(measuredAt),
+      'weightKg': serializer.toJson<double>(weightKg),
+      'bodyFatPct': serializer.toJson<double?>(bodyFatPct),
+      'source': serializer.toJson<String>(source),
+      'synced': serializer.toJson<bool>(synced),
+    };
+  }
+
+  BodyMeasurement copyWith({
+    int? id,
+    String? userId,
+    DateTime? measuredAt,
+    double? weightKg,
+    Value<double?> bodyFatPct = const Value.absent(),
+    String? source,
+    bool? synced,
+  }) => BodyMeasurement(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    measuredAt: measuredAt ?? this.measuredAt,
+    weightKg: weightKg ?? this.weightKg,
+    bodyFatPct: bodyFatPct.present ? bodyFatPct.value : this.bodyFatPct,
+    source: source ?? this.source,
+    synced: synced ?? this.synced,
+  );
+  BodyMeasurement copyWithCompanion(BodyMeasurementsCompanion data) {
+    return BodyMeasurement(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      measuredAt: data.measuredAt.present
+          ? data.measuredAt.value
+          : this.measuredAt,
+      weightKg: data.weightKg.present ? data.weightKg.value : this.weightKg,
+      bodyFatPct: data.bodyFatPct.present
+          ? data.bodyFatPct.value
+          : this.bodyFatPct,
+      source: data.source.present ? data.source.value : this.source,
+      synced: data.synced.present ? data.synced.value : this.synced,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BodyMeasurement(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('measuredAt: $measuredAt, ')
+          ..write('weightKg: $weightKg, ')
+          ..write('bodyFatPct: $bodyFatPct, ')
+          ..write('source: $source, ')
+          ..write('synced: $synced')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, userId, measuredAt, weightKg, bodyFatPct, source, synced);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BodyMeasurement &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.measuredAt == this.measuredAt &&
+          other.weightKg == this.weightKg &&
+          other.bodyFatPct == this.bodyFatPct &&
+          other.source == this.source &&
+          other.synced == this.synced);
+}
+
+class BodyMeasurementsCompanion extends UpdateCompanion<BodyMeasurement> {
+  final Value<int> id;
+  final Value<String> userId;
+  final Value<DateTime> measuredAt;
+  final Value<double> weightKg;
+  final Value<double?> bodyFatPct;
+  final Value<String> source;
+  final Value<bool> synced;
+  const BodyMeasurementsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.measuredAt = const Value.absent(),
+    this.weightKg = const Value.absent(),
+    this.bodyFatPct = const Value.absent(),
+    this.source = const Value.absent(),
+    this.synced = const Value.absent(),
+  });
+  BodyMeasurementsCompanion.insert({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    required DateTime measuredAt,
+    required double weightKg,
+    this.bodyFatPct = const Value.absent(),
+    this.source = const Value.absent(),
+    this.synced = const Value.absent(),
+  }) : measuredAt = Value(measuredAt),
+       weightKg = Value(weightKg);
+  static Insertable<BodyMeasurement> custom({
+    Expression<int>? id,
+    Expression<String>? userId,
+    Expression<DateTime>? measuredAt,
+    Expression<double>? weightKg,
+    Expression<double>? bodyFatPct,
+    Expression<String>? source,
+    Expression<bool>? synced,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (measuredAt != null) 'measured_at': measuredAt,
+      if (weightKg != null) 'weight_kg': weightKg,
+      if (bodyFatPct != null) 'body_fat_pct': bodyFatPct,
+      if (source != null) 'source': source,
+      if (synced != null) 'synced': synced,
+    });
+  }
+
+  BodyMeasurementsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? userId,
+    Value<DateTime>? measuredAt,
+    Value<double>? weightKg,
+    Value<double?>? bodyFatPct,
+    Value<String>? source,
+    Value<bool>? synced,
+  }) {
+    return BodyMeasurementsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      measuredAt: measuredAt ?? this.measuredAt,
+      weightKg: weightKg ?? this.weightKg,
+      bodyFatPct: bodyFatPct ?? this.bodyFatPct,
+      source: source ?? this.source,
+      synced: synced ?? this.synced,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (measuredAt.present) {
+      map['measured_at'] = Variable<DateTime>(measuredAt.value);
+    }
+    if (weightKg.present) {
+      map['weight_kg'] = Variable<double>(weightKg.value);
+    }
+    if (bodyFatPct.present) {
+      map['body_fat_pct'] = Variable<double>(bodyFatPct.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (synced.present) {
+      map['synced'] = Variable<bool>(synced.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BodyMeasurementsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('measuredAt: $measuredAt, ')
+          ..write('weightKg: $weightKg, ')
+          ..write('bodyFatPct: $bodyFatPct, ')
+          ..write('source: $source, ')
+          ..write('synced: $synced')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BodyAgeSnapshotsTable extends BodyAgeSnapshots
+    with TableInfo<$BodyAgeSnapshotsTable, BodyAgeSnapshot> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BodyAgeSnapshotsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local_user'),
+  );
+  static const VerificationMeta _calculatedAtMeta = const VerificationMeta(
+    'calculatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> calculatedAt = GeneratedColumn<DateTime>(
+    'calculated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyAgeMeta = const VerificationMeta(
+    'bodyAge',
+  );
+  @override
+  late final GeneratedColumn<double> bodyAge = GeneratedColumn<double>(
+    'body_age',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chronologicalAgeMeta = const VerificationMeta(
+    'chronologicalAge',
+  );
+  @override
+  late final GeneratedColumn<int> chronologicalAge = GeneratedColumn<int>(
+    'chronological_age',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _factorAgesJsonMeta = const VerificationMeta(
+    'factorAgesJson',
+  );
+  @override
+  late final GeneratedColumn<String> factorAgesJson = GeneratedColumn<String>(
+    'factor_ages_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncedMeta = const VerificationMeta('synced');
+  @override
+  late final GeneratedColumn<bool> synced = GeneratedColumn<bool>(
+    'synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    calculatedAt,
+    bodyAge,
+    chronologicalAge,
+    factorAgesJson,
+    synced,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'body_age_snapshots';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BodyAgeSnapshot> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('calculated_at')) {
+      context.handle(
+        _calculatedAtMeta,
+        calculatedAt.isAcceptableOrUnknown(
+          data['calculated_at']!,
+          _calculatedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_calculatedAtMeta);
+    }
+    if (data.containsKey('body_age')) {
+      context.handle(
+        _bodyAgeMeta,
+        bodyAge.isAcceptableOrUnknown(data['body_age']!, _bodyAgeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyAgeMeta);
+    }
+    if (data.containsKey('chronological_age')) {
+      context.handle(
+        _chronologicalAgeMeta,
+        chronologicalAge.isAcceptableOrUnknown(
+          data['chronological_age']!,
+          _chronologicalAgeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_chronologicalAgeMeta);
+    }
+    if (data.containsKey('factor_ages_json')) {
+      context.handle(
+        _factorAgesJsonMeta,
+        factorAgesJson.isAcceptableOrUnknown(
+          data['factor_ages_json']!,
+          _factorAgesJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_factorAgesJsonMeta);
+    }
+    if (data.containsKey('synced')) {
+      context.handle(
+        _syncedMeta,
+        synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BodyAgeSnapshot map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BodyAgeSnapshot(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      calculatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}calculated_at'],
+      )!,
+      bodyAge: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}body_age'],
+      )!,
+      chronologicalAge: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}chronological_age'],
+      )!,
+      factorAgesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}factor_ages_json'],
+      )!,
+      synced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}synced'],
+      )!,
+    );
+  }
+
+  @override
+  $BodyAgeSnapshotsTable createAlias(String alias) {
+    return $BodyAgeSnapshotsTable(attachedDatabase, alias);
+  }
+}
+
+class BodyAgeSnapshot extends DataClass implements Insertable<BodyAgeSnapshot> {
+  final int id;
+  final String userId;
+  final DateTime calculatedAt;
+  final double bodyAge;
+  final int chronologicalAge;
+  final String factorAgesJson;
+  final bool synced;
+  const BodyAgeSnapshot({
+    required this.id,
+    required this.userId,
+    required this.calculatedAt,
+    required this.bodyAge,
+    required this.chronologicalAge,
+    required this.factorAgesJson,
+    required this.synced,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['calculated_at'] = Variable<DateTime>(calculatedAt);
+    map['body_age'] = Variable<double>(bodyAge);
+    map['chronological_age'] = Variable<int>(chronologicalAge);
+    map['factor_ages_json'] = Variable<String>(factorAgesJson);
+    map['synced'] = Variable<bool>(synced);
+    return map;
+  }
+
+  BodyAgeSnapshotsCompanion toCompanion(bool nullToAbsent) {
+    return BodyAgeSnapshotsCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      calculatedAt: Value(calculatedAt),
+      bodyAge: Value(bodyAge),
+      chronologicalAge: Value(chronologicalAge),
+      factorAgesJson: Value(factorAgesJson),
+      synced: Value(synced),
+    );
+  }
+
+  factory BodyAgeSnapshot.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BodyAgeSnapshot(
+      id: serializer.fromJson<int>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      calculatedAt: serializer.fromJson<DateTime>(json['calculatedAt']),
+      bodyAge: serializer.fromJson<double>(json['bodyAge']),
+      chronologicalAge: serializer.fromJson<int>(json['chronologicalAge']),
+      factorAgesJson: serializer.fromJson<String>(json['factorAgesJson']),
+      synced: serializer.fromJson<bool>(json['synced']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'userId': serializer.toJson<String>(userId),
+      'calculatedAt': serializer.toJson<DateTime>(calculatedAt),
+      'bodyAge': serializer.toJson<double>(bodyAge),
+      'chronologicalAge': serializer.toJson<int>(chronologicalAge),
+      'factorAgesJson': serializer.toJson<String>(factorAgesJson),
+      'synced': serializer.toJson<bool>(synced),
+    };
+  }
+
+  BodyAgeSnapshot copyWith({
+    int? id,
+    String? userId,
+    DateTime? calculatedAt,
+    double? bodyAge,
+    int? chronologicalAge,
+    String? factorAgesJson,
+    bool? synced,
+  }) => BodyAgeSnapshot(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    calculatedAt: calculatedAt ?? this.calculatedAt,
+    bodyAge: bodyAge ?? this.bodyAge,
+    chronologicalAge: chronologicalAge ?? this.chronologicalAge,
+    factorAgesJson: factorAgesJson ?? this.factorAgesJson,
+    synced: synced ?? this.synced,
+  );
+  BodyAgeSnapshot copyWithCompanion(BodyAgeSnapshotsCompanion data) {
+    return BodyAgeSnapshot(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      calculatedAt: data.calculatedAt.present
+          ? data.calculatedAt.value
+          : this.calculatedAt,
+      bodyAge: data.bodyAge.present ? data.bodyAge.value : this.bodyAge,
+      chronologicalAge: data.chronologicalAge.present
+          ? data.chronologicalAge.value
+          : this.chronologicalAge,
+      factorAgesJson: data.factorAgesJson.present
+          ? data.factorAgesJson.value
+          : this.factorAgesJson,
+      synced: data.synced.present ? data.synced.value : this.synced,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BodyAgeSnapshot(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('calculatedAt: $calculatedAt, ')
+          ..write('bodyAge: $bodyAge, ')
+          ..write('chronologicalAge: $chronologicalAge, ')
+          ..write('factorAgesJson: $factorAgesJson, ')
+          ..write('synced: $synced')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    calculatedAt,
+    bodyAge,
+    chronologicalAge,
+    factorAgesJson,
+    synced,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BodyAgeSnapshot &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.calculatedAt == this.calculatedAt &&
+          other.bodyAge == this.bodyAge &&
+          other.chronologicalAge == this.chronologicalAge &&
+          other.factorAgesJson == this.factorAgesJson &&
+          other.synced == this.synced);
+}
+
+class BodyAgeSnapshotsCompanion extends UpdateCompanion<BodyAgeSnapshot> {
+  final Value<int> id;
+  final Value<String> userId;
+  final Value<DateTime> calculatedAt;
+  final Value<double> bodyAge;
+  final Value<int> chronologicalAge;
+  final Value<String> factorAgesJson;
+  final Value<bool> synced;
+  const BodyAgeSnapshotsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.calculatedAt = const Value.absent(),
+    this.bodyAge = const Value.absent(),
+    this.chronologicalAge = const Value.absent(),
+    this.factorAgesJson = const Value.absent(),
+    this.synced = const Value.absent(),
+  });
+  BodyAgeSnapshotsCompanion.insert({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    required DateTime calculatedAt,
+    required double bodyAge,
+    required int chronologicalAge,
+    required String factorAgesJson,
+    this.synced = const Value.absent(),
+  }) : calculatedAt = Value(calculatedAt),
+       bodyAge = Value(bodyAge),
+       chronologicalAge = Value(chronologicalAge),
+       factorAgesJson = Value(factorAgesJson);
+  static Insertable<BodyAgeSnapshot> custom({
+    Expression<int>? id,
+    Expression<String>? userId,
+    Expression<DateTime>? calculatedAt,
+    Expression<double>? bodyAge,
+    Expression<int>? chronologicalAge,
+    Expression<String>? factorAgesJson,
+    Expression<bool>? synced,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (calculatedAt != null) 'calculated_at': calculatedAt,
+      if (bodyAge != null) 'body_age': bodyAge,
+      if (chronologicalAge != null) 'chronological_age': chronologicalAge,
+      if (factorAgesJson != null) 'factor_ages_json': factorAgesJson,
+      if (synced != null) 'synced': synced,
+    });
+  }
+
+  BodyAgeSnapshotsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? userId,
+    Value<DateTime>? calculatedAt,
+    Value<double>? bodyAge,
+    Value<int>? chronologicalAge,
+    Value<String>? factorAgesJson,
+    Value<bool>? synced,
+  }) {
+    return BodyAgeSnapshotsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      calculatedAt: calculatedAt ?? this.calculatedAt,
+      bodyAge: bodyAge ?? this.bodyAge,
+      chronologicalAge: chronologicalAge ?? this.chronologicalAge,
+      factorAgesJson: factorAgesJson ?? this.factorAgesJson,
+      synced: synced ?? this.synced,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (calculatedAt.present) {
+      map['calculated_at'] = Variable<DateTime>(calculatedAt.value);
+    }
+    if (bodyAge.present) {
+      map['body_age'] = Variable<double>(bodyAge.value);
+    }
+    if (chronologicalAge.present) {
+      map['chronological_age'] = Variable<int>(chronologicalAge.value);
+    }
+    if (factorAgesJson.present) {
+      map['factor_ages_json'] = Variable<String>(factorAgesJson.value);
+    }
+    if (synced.present) {
+      map['synced'] = Variable<bool>(synced.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BodyAgeSnapshotsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('calculatedAt: $calculatedAt, ')
+          ..write('bodyAge: $bodyAge, ')
+          ..write('chronologicalAge: $chronologicalAge, ')
+          ..write('factorAgesJson: $factorAgesJson, ')
+          ..write('synced: $synced')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2340,6 +3250,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DerivedMetricsTable derivedMetrics = $DerivedMetricsTable(this);
   late final $SyncMetadataTable syncMetadata = $SyncMetadataTable(this);
   late final $SyncLogsTable syncLogs = $SyncLogsTable(this);
+  late final $BodyMeasurementsTable bodyMeasurements = $BodyMeasurementsTable(
+    this,
+  );
+  late final $BodyAgeSnapshotsTable bodyAgeSnapshots = $BodyAgeSnapshotsTable(
+    this,
+  );
   late final HealthRecordDao healthRecordDao = HealthRecordDao(
     this as AppDatabase,
   );
@@ -2348,6 +3264,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this as AppDatabase,
   );
   late final SyncDao syncDao = SyncDao(this as AppDatabase);
+  late final BodyMeasurementDao bodyMeasurementDao = BodyMeasurementDao(
+    this as AppDatabase,
+  );
+  late final BodyAgeSnapshotDao bodyAgeSnapshotDao = BodyAgeSnapshotDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2358,6 +3280,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     derivedMetrics,
     syncMetadata,
     syncLogs,
+    bodyMeasurements,
+    bodyAgeSnapshots,
   ];
 }
 
@@ -3564,6 +4488,510 @@ typedef $$SyncLogsTableProcessedTableManager =
       SyncLog,
       PrefetchHooks Function()
     >;
+typedef $$BodyMeasurementsTableCreateCompanionBuilder =
+    BodyMeasurementsCompanion Function({
+      Value<int> id,
+      Value<String> userId,
+      required DateTime measuredAt,
+      required double weightKg,
+      Value<double?> bodyFatPct,
+      Value<String> source,
+      Value<bool> synced,
+    });
+typedef $$BodyMeasurementsTableUpdateCompanionBuilder =
+    BodyMeasurementsCompanion Function({
+      Value<int> id,
+      Value<String> userId,
+      Value<DateTime> measuredAt,
+      Value<double> weightKg,
+      Value<double?> bodyFatPct,
+      Value<String> source,
+      Value<bool> synced,
+    });
+
+class $$BodyMeasurementsTableFilterComposer
+    extends Composer<_$AppDatabase, $BodyMeasurementsTable> {
+  $$BodyMeasurementsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get measuredAt => $composableBuilder(
+    column: $table.measuredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get weightKg => $composableBuilder(
+    column: $table.weightKg,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get bodyFatPct => $composableBuilder(
+    column: $table.bodyFatPct,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get synced => $composableBuilder(
+    column: $table.synced,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BodyMeasurementsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BodyMeasurementsTable> {
+  $$BodyMeasurementsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get measuredAt => $composableBuilder(
+    column: $table.measuredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get weightKg => $composableBuilder(
+    column: $table.weightKg,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get bodyFatPct => $composableBuilder(
+    column: $table.bodyFatPct,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get synced => $composableBuilder(
+    column: $table.synced,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BodyMeasurementsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BodyMeasurementsTable> {
+  $$BodyMeasurementsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get measuredAt => $composableBuilder(
+    column: $table.measuredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get weightKg =>
+      $composableBuilder(column: $table.weightKg, builder: (column) => column);
+
+  GeneratedColumn<double> get bodyFatPct => $composableBuilder(
+    column: $table.bodyFatPct,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<bool> get synced =>
+      $composableBuilder(column: $table.synced, builder: (column) => column);
+}
+
+class $$BodyMeasurementsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BodyMeasurementsTable,
+          BodyMeasurement,
+          $$BodyMeasurementsTableFilterComposer,
+          $$BodyMeasurementsTableOrderingComposer,
+          $$BodyMeasurementsTableAnnotationComposer,
+          $$BodyMeasurementsTableCreateCompanionBuilder,
+          $$BodyMeasurementsTableUpdateCompanionBuilder,
+          (
+            BodyMeasurement,
+            BaseReferences<
+              _$AppDatabase,
+              $BodyMeasurementsTable,
+              BodyMeasurement
+            >,
+          ),
+          BodyMeasurement,
+          PrefetchHooks Function()
+        > {
+  $$BodyMeasurementsTableTableManager(
+    _$AppDatabase db,
+    $BodyMeasurementsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BodyMeasurementsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BodyMeasurementsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BodyMeasurementsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<DateTime> measuredAt = const Value.absent(),
+                Value<double> weightKg = const Value.absent(),
+                Value<double?> bodyFatPct = const Value.absent(),
+                Value<String> source = const Value.absent(),
+                Value<bool> synced = const Value.absent(),
+              }) => BodyMeasurementsCompanion(
+                id: id,
+                userId: userId,
+                measuredAt: measuredAt,
+                weightKg: weightKg,
+                bodyFatPct: bodyFatPct,
+                source: source,
+                synced: synced,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                required DateTime measuredAt,
+                required double weightKg,
+                Value<double?> bodyFatPct = const Value.absent(),
+                Value<String> source = const Value.absent(),
+                Value<bool> synced = const Value.absent(),
+              }) => BodyMeasurementsCompanion.insert(
+                id: id,
+                userId: userId,
+                measuredAt: measuredAt,
+                weightKg: weightKg,
+                bodyFatPct: bodyFatPct,
+                source: source,
+                synced: synced,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BodyMeasurementsTable, BodyMeasurement>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $BodyMeasurementsTable,
+                    BodyMeasurement
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BodyMeasurementsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BodyMeasurementsTable,
+      BodyMeasurement,
+      $$BodyMeasurementsTableFilterComposer,
+      $$BodyMeasurementsTableOrderingComposer,
+      $$BodyMeasurementsTableAnnotationComposer,
+      $$BodyMeasurementsTableCreateCompanionBuilder,
+      $$BodyMeasurementsTableUpdateCompanionBuilder,
+      (
+        BodyMeasurement,
+        BaseReferences<_$AppDatabase, $BodyMeasurementsTable, BodyMeasurement>,
+      ),
+      BodyMeasurement,
+      PrefetchHooks Function()
+    >;
+typedef $$BodyAgeSnapshotsTableCreateCompanionBuilder =
+    BodyAgeSnapshotsCompanion Function({
+      Value<int> id,
+      Value<String> userId,
+      required DateTime calculatedAt,
+      required double bodyAge,
+      required int chronologicalAge,
+      required String factorAgesJson,
+      Value<bool> synced,
+    });
+typedef $$BodyAgeSnapshotsTableUpdateCompanionBuilder =
+    BodyAgeSnapshotsCompanion Function({
+      Value<int> id,
+      Value<String> userId,
+      Value<DateTime> calculatedAt,
+      Value<double> bodyAge,
+      Value<int> chronologicalAge,
+      Value<String> factorAgesJson,
+      Value<bool> synced,
+    });
+
+class $$BodyAgeSnapshotsTableFilterComposer
+    extends Composer<_$AppDatabase, $BodyAgeSnapshotsTable> {
+  $$BodyAgeSnapshotsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get calculatedAt => $composableBuilder(
+    column: $table.calculatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get bodyAge => $composableBuilder(
+    column: $table.bodyAge,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get chronologicalAge => $composableBuilder(
+    column: $table.chronologicalAge,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get factorAgesJson => $composableBuilder(
+    column: $table.factorAgesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get synced => $composableBuilder(
+    column: $table.synced,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BodyAgeSnapshotsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BodyAgeSnapshotsTable> {
+  $$BodyAgeSnapshotsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get calculatedAt => $composableBuilder(
+    column: $table.calculatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get bodyAge => $composableBuilder(
+    column: $table.bodyAge,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get chronologicalAge => $composableBuilder(
+    column: $table.chronologicalAge,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get factorAgesJson => $composableBuilder(
+    column: $table.factorAgesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get synced => $composableBuilder(
+    column: $table.synced,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BodyAgeSnapshotsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BodyAgeSnapshotsTable> {
+  $$BodyAgeSnapshotsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get calculatedAt => $composableBuilder(
+    column: $table.calculatedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get bodyAge =>
+      $composableBuilder(column: $table.bodyAge, builder: (column) => column);
+
+  GeneratedColumn<int> get chronologicalAge => $composableBuilder(
+    column: $table.chronologicalAge,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get factorAgesJson => $composableBuilder(
+    column: $table.factorAgesJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get synced =>
+      $composableBuilder(column: $table.synced, builder: (column) => column);
+}
+
+class $$BodyAgeSnapshotsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BodyAgeSnapshotsTable,
+          BodyAgeSnapshot,
+          $$BodyAgeSnapshotsTableFilterComposer,
+          $$BodyAgeSnapshotsTableOrderingComposer,
+          $$BodyAgeSnapshotsTableAnnotationComposer,
+          $$BodyAgeSnapshotsTableCreateCompanionBuilder,
+          $$BodyAgeSnapshotsTableUpdateCompanionBuilder,
+          (
+            BodyAgeSnapshot,
+            BaseReferences<
+              _$AppDatabase,
+              $BodyAgeSnapshotsTable,
+              BodyAgeSnapshot
+            >,
+          ),
+          BodyAgeSnapshot,
+          PrefetchHooks Function()
+        > {
+  $$BodyAgeSnapshotsTableTableManager(
+    _$AppDatabase db,
+    $BodyAgeSnapshotsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BodyAgeSnapshotsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BodyAgeSnapshotsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BodyAgeSnapshotsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<DateTime> calculatedAt = const Value.absent(),
+                Value<double> bodyAge = const Value.absent(),
+                Value<int> chronologicalAge = const Value.absent(),
+                Value<String> factorAgesJson = const Value.absent(),
+                Value<bool> synced = const Value.absent(),
+              }) => BodyAgeSnapshotsCompanion(
+                id: id,
+                userId: userId,
+                calculatedAt: calculatedAt,
+                bodyAge: bodyAge,
+                chronologicalAge: chronologicalAge,
+                factorAgesJson: factorAgesJson,
+                synced: synced,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                required DateTime calculatedAt,
+                required double bodyAge,
+                required int chronologicalAge,
+                required String factorAgesJson,
+                Value<bool> synced = const Value.absent(),
+              }) => BodyAgeSnapshotsCompanion.insert(
+                id: id,
+                userId: userId,
+                calculatedAt: calculatedAt,
+                bodyAge: bodyAge,
+                chronologicalAge: chronologicalAge,
+                factorAgesJson: factorAgesJson,
+                synced: synced,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BodyAgeSnapshotsTable, BodyAgeSnapshot>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $BodyAgeSnapshotsTable,
+                    BodyAgeSnapshot
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BodyAgeSnapshotsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BodyAgeSnapshotsTable,
+      BodyAgeSnapshot,
+      $$BodyAgeSnapshotsTableFilterComposer,
+      $$BodyAgeSnapshotsTableOrderingComposer,
+      $$BodyAgeSnapshotsTableAnnotationComposer,
+      $$BodyAgeSnapshotsTableCreateCompanionBuilder,
+      $$BodyAgeSnapshotsTableUpdateCompanionBuilder,
+      (
+        BodyAgeSnapshot,
+        BaseReferences<_$AppDatabase, $BodyAgeSnapshotsTable, BodyAgeSnapshot>,
+      ),
+      BodyAgeSnapshot,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3578,4 +5006,8 @@ class $AppDatabaseManager {
       $$SyncMetadataTableTableManager(_db, _db.syncMetadata);
   $$SyncLogsTableTableManager get syncLogs =>
       $$SyncLogsTableTableManager(_db, _db.syncLogs);
+  $$BodyMeasurementsTableTableManager get bodyMeasurements =>
+      $$BodyMeasurementsTableTableManager(_db, _db.bodyMeasurements);
+  $$BodyAgeSnapshotsTableTableManager get bodyAgeSnapshots =>
+      $$BodyAgeSnapshotsTableTableManager(_db, _db.bodyAgeSnapshots);
 }

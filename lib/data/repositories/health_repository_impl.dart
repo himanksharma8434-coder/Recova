@@ -9,6 +9,7 @@ import '../../domain/usecases/compute_vo2max.dart';
 import '../../domain/usecases/compute_recovery_score.dart';
 import '../../domain/usecases/compute_body_age.dart';
 import '../../domain/entities/body_age_result.dart';
+import '../../domain/entities/daily_metric_point.dart';
 import '../../domain/services/vo2_max_estimator.dart';
 import '../../core/utils/sleep_data_sanitizer.dart';
 import '../database/app_database.dart';
@@ -287,60 +288,6 @@ class HealthRepositoryImpl implements HealthSourceRepository {
   /// Uses a 3-tier approach:
   /// 1. GPS/distance speed + HR → ACSM running equation + HRR extrapolation
   /// 2. Step-cadence derived speed + HR → same ACSM approach
-  /// 3. HR-only exercise analysis → Swain %VO2R model with recovery correction
-  ///
-  /// Returns the best estimate from the most recent qualifying workout.
-  Future<Vo2MaxResult?> _computeGarminVo2Max(DateTime start, DateTime end, double fallbackMaxHr, double fallbackRestHr) async {
-    final workouts = await _db.healthRecordDao.getWorkouts(start: start, end: end);
-    if (workouts.isEmpty) return null;
-
-    // The user requested specifically focusing on Nothing X app and "Indoor Run" and "Outdoor Run".
-    // We will prioritize them:
-    final prioritized = <RawHealthRecord>[
-      ...workouts.where((w) {
-        final type = w.unit.toUpperCase();
-        final source = w.sourceId.toLowerCase();
-        return source.contains('nothing') && (type.contains('INDOOR RUN') || type.contains('OUTDOOR RUN') || type.contains('RUN'));
-      }),
-      ...workouts.where((w) {
-        final type = w.unit.toUpperCase();
-        final source = w.sourceId.toLowerCase();
-        return (type.contains('RUN') || type.contains('CARDIO') || type.contains('CYCLE') || type.contains('AEROBIC')) && 
-               !(source.contains('nothing') && (type.contains('INDOOR RUN') || type.contains('OUTDOOR RUN') || type.contains('RUN')));
-      }),
-      ...workouts.where((w) {
-        final type = w.unit.toUpperCase();
-        return !(type.contains('RUN') || type.contains('CARDIO') || type.contains('CYCLE') || type.contains('AEROBIC'));
-      }),
-    ];
-
-    for (final w in prioritized) {
-      final stream = await _db.healthRecordDao.getWorkoutDataPoints(
-        start: w.startTime,
-        end: w.endTime,
-      );
-      if (stream.length < 10) continue; // Need at least 10 HR samples
-
-      // Get the day boundaries for this specific workout
-      final dayStart = DateTime(w.startTime.year, w.startTime.month, w.startTime.day);
-      final dayEnd = dayStart.add(const Duration(days: 1));
-
-      // Retrieve max HR and resting HR for this specific day
-      final dayMaxHr = await _db.healthRecordDao.getMaxExerciseHr(start: dayStart, end: dayEnd) ?? fallbackMaxHr;
-      final dayRestHr = await _db.healthRecordDao.getTodayRestingHr(start: dayStart, end: dayEnd) ?? fallbackRestHr;
-
-      final estimator = Vo2MaxEstimator(userMaxHr: dayMaxHr, userRestingHr: dayRestHr);
-      final result = estimator.estimateFromWorkout(stream);
-      if (result != null && result.estimatedVo2Max >= 15.0 && result.estimatedVo2Max <= 85.0) {
-        return result.copyWith(
-          date: w.startTime,
-          activityType: w.unit,
-        );
-      }
-    }
-    return null;
-  }
-
   @override
   Future<Vo2MaxResult?> getLatestVo2MaxResult() async {
     final now = DateTime.now();
@@ -351,7 +298,20 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final rhrs = await _db.healthRecordDao.getDailyRestingHeartRates(30);
     final restHr = rhrs.isNotEmpty ? (rhrs.fold<double>(0.0, (s, p) => s + p.value) / rhrs.length) : 60.0;
 
-    return _computeGarminVo2Max(thirtyDaysAgo, now, maxHr, restHr);
+    final vo2 = _computeVo2Max(
+      restingHr7dBaseline: restHr,
+      maxHrFromExercise: maxHr,
+    );
+
+    if (vo2 == null) return null;
+
+    return Vo2MaxResult(
+      estimatedVo2Max: vo2,
+      segmentsUsed: 0,
+      userMaxHr: maxHr,
+      userRestingHr: restHr,
+      date: now,
+    );
   }
 
   /// Recompute VO2max and recovery score for today.
@@ -395,17 +355,9 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final wkRhrs = wkRhrRecords.map((r) => r.value).toList();
     double vo2Rhr = wkRhrs.isNotEmpty ? (wkRhrs.reduce((a, b) => a + b) / wkRhrs.length) : rhrBase;
 
-
-    double? vo2max = (await _computeGarminVo2Max(
-      AppDateUtils.daysAgo(30, from: now),
-      now,
-      effectiveMaxHr ?? 190.0,
-      vo2Rhr,
-    ))?.estimatedVo2Max;
-
-    vo2max ??= _computeVo2Max(
+    double? vo2max = _computeVo2Max(
       restingHr7dBaseline: vo2Rhr,
-      maxHrFromExercise: effectiveMaxHr,
+      maxHrFromExercise: effectiveMaxHr ?? 190.0,
       userAge: userAge,
     );
 
@@ -832,17 +784,13 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     double vo2Rhr7d = rhr7d;
     double vo2Rhr30d = rhr30d;
 
-    double? vo2max7d = (await _computeGarminVo2Max(
-      AppDateUtils.daysAgo(7, from: now), now, maxHr7d ?? maxHr30d ?? maxHr60d ?? 190.0, vo2Rhr7d))?.estimatedVo2Max;
-    vo2max7d ??= _computeVo2Max(
+    double? vo2max7d = _computeVo2Max(
       restingHr7dBaseline: vo2Rhr7d,
       maxHrFromExercise: maxHr7d ?? maxHr30d ?? maxHr60d,
       userAge: userAge,
     );
 
-    double? vo2max30d = (await _computeGarminVo2Max(
-      AppDateUtils.daysAgo(30, from: now), now, maxHr30d ?? maxHr60d ?? 190.0, vo2Rhr30d))?.estimatedVo2Max;
-    vo2max30d ??= _computeVo2Max(
+    double? vo2max30d = _computeVo2Max(
       restingHr7dBaseline: vo2Rhr30d,
       maxHrFromExercise: maxHr30d ?? maxHr60d,
       userAge: userAge,
@@ -856,9 +804,7 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     }
     double vo2RhrAllTime = rhrAllTime;
     
-    double? vo2maxAllTime = (await _computeGarminVo2Max(
-      DateTime(2000), now, maxHrAllTime ?? maxHr30d ?? maxHr60d ?? 190.0, vo2RhrAllTime))?.estimatedVo2Max;
-    vo2maxAllTime ??= _computeVo2Max(
+    double? vo2maxAllTime = _computeVo2Max(
       restingHr7dBaseline: vo2RhrAllTime,
       maxHrFromExercise: maxHrAllTime ?? maxHr30d ?? maxHr60d,
       userAge: userAge,
@@ -965,24 +911,37 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final start14d = AppDateUtils.daysAgo(14, from: now);
     final start7d = AppDateUtils.daysAgo(7, from: now);
 
+    // Parallelize all main independent DB queries to dramatically reduce load time/lag
+    final dbResults = await Future.wait([
+      _db.healthRecordDao.getDailyRestingHeartRates(30), // 0
+      _db.baselineDao.getLatestBaseline(), // 1
+      _db.healthRecordDao.getHrvBaselineRecords(start: start30d, end: now), // 2
+      _db.healthRecordDao.getLatestRecordByType(recordType: 'HEIGHT', start: start30d, end: now), // 3
+      _db.healthRecordDao.getLatestRecordByType(recordType: 'WEIGHT', start: start30d, end: now), // 4
+      _db.healthRecordDao.getLatestRecordByType(recordType: 'BLOOD_PRESSURE_SYSTOLIC', start: start30d, end: now), // 5
+      _db.healthRecordDao.getLatestRecordByType(recordType: 'BLOOD_PRESSURE_DIASTOLIC', start: start30d, end: now), // 6
+      _db.derivedMetricDao.getLatestMetric(), // 7
+    ]);
+
+    final rhrRecords = dbResults[0] as List<DailyMetricPoint>;
+    final baseline = dbResults[1] as DailyBaseline?;
+    final hrvRecords = dbResults[2] as List<RawHealthRecord>;
+    final heightRecords = dbResults[3] as RawHealthRecord?;
+    final weightRecords = dbResults[4] as RawHealthRecord?;
+    final bpSys = dbResults[5] as RawHealthRecord?;
+    final bpDia = dbResults[6] as RawHealthRecord?;
+    final latestMetric = dbResults[7] as DerivedMetric?;
+
     // ── Resting Heart Rate (30-day average) ──
-    final rhrRecords = await _db.healthRecordDao.getDailyRestingHeartRates(30);
     double? restingHrAvg30d;
     if (rhrRecords.isNotEmpty) {
-      restingHrAvg30d =
-          rhrRecords.map((p) => p.value).reduce((a, b) => a + b) /
-              rhrRecords.length;
+      restingHrAvg30d = rhrRecords.map((p) => p.value).reduce((a, b) => a + b) / rhrRecords.length;
     }
 
     // ── RHR 7-day baseline ──
-    final baseline = await _db.baselineDao.getLatestBaseline();
     final rhr7d = baseline?.restingHrBaseline7d;
 
     // ── HRV (30-day average) ──
-    final hrvRecords = await _db.healthRecordDao.getHrvBaselineRecords(
-      start: start30d,
-      end: now,
-    );
     double? hrvAvg30d;
     String? hrvMetricType;
     if (hrvRecords.isNotEmpty) {
@@ -991,9 +950,9 @@ class HealthRepositoryImpl implements HealthSourceRepository {
               hrvRecords.length;
       // Determine HRV metric type from record type name
       final firstType = hrvRecords.first.recordType;
-      if (firstType.contains('RMSSD')) {
+      if (firstType?.contains('RMSSD') == true) {
         hrvMetricType = 'RMSSD';
-      } else if (firstType.contains('SDNN')) {
+      } else if (firstType?.contains('SDNN') == true) {
         hrvMetricType = 'SDNN';
       }
     }
@@ -1022,7 +981,6 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     }
 
     // ── VO2 Max (from latest derived metric) ──
-    final latestMetric = await _db.derivedMetricDao.getLatestMetric();
     final vo2max = latestMetric?.estimatedVo2Max;
 
     // ── Sleep (14-day averages) ──
@@ -1080,42 +1038,16 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     // ── Height / Weight from Health Connect (if not provided manually) ──
     double? finalHeight = heightCm;
     double? finalWeight = weightKg;
-    if (finalHeight == null) {
-      final heightRecords = await _db.healthRecordDao.getLatestRecordByType(
-        recordType: 'HEIGHT',
-        start: start30d,
-        end: now,
-      );
-      if (heightRecords != null && heightRecords.value > 0) {
-        finalHeight = heightRecords.value;
-      }
+    if (finalHeight == null && heightRecords != null && heightRecords.value > 0) {
+      finalHeight = heightRecords.value;
     }
-    if (finalWeight == null) {
-      final weightRecords = await _db.healthRecordDao.getLatestRecordByType(
-        recordType: 'WEIGHT',
-        start: start30d,
-        end: now,
-      );
-      if (weightRecords != null && weightRecords.value > 0) {
-        finalWeight = weightRecords.value;
-      }
+    if (finalWeight == null && weightRecords != null && weightRecords.value > 0) {
+      finalWeight = weightRecords.value;
     }
 
     // ── Blood Pressure (if available) ──
-    double? systolic;
-    double? diastolic;
-    final bpSys = await _db.healthRecordDao.getLatestRecordByType(
-      recordType: 'BLOOD_PRESSURE_SYSTOLIC',
-      start: start30d,
-      end: now,
-    );
-    final bpDia = await _db.healthRecordDao.getLatestRecordByType(
-      recordType: 'BLOOD_PRESSURE_DIASTOLIC',
-      start: start30d,
-      end: now,
-    );
-    if (bpSys != null) systolic = bpSys.value;
-    if (bpDia != null) diastolic = bpDia.value;
+    double? systolic = bpSys?.value;
+    double? diastolic = bpDia?.value;
 
     // ── Build Input & Compute ──
     final input = BodyAgeInput(
