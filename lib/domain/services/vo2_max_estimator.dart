@@ -26,166 +26,97 @@ class SegmentVo2Result {
   });
 }
 
-/// A service that estimates VO2 Max using a Firstbeat-style algorithm.
-/// It filters erratic data and relies on the linear relationship between
-/// heart rate reserve and running speed.
+/// The result of a VO2 Max estimation.
+class Vo2MaxResult {
+  final double estimatedVo2Max;
+  final int segmentsUsed;
+  final DateTime? date;
+  final String? activityType;
+  
+  // Extra metadata
+  final double? peakHr;
+  final double? totalDistanceMeters;
+  final double? userMaxHr;
+  final double? userRestingHr;
+
+  const Vo2MaxResult({
+    required this.estimatedVo2Max,
+    required this.segmentsUsed,
+    this.date,
+    this.activityType,
+    this.peakHr,
+    this.totalDistanceMeters,
+    this.userMaxHr,
+    this.userRestingHr,
+  });
+
+  Vo2MaxResult copyWith({
+    double? estimatedVo2Max,
+    int? segmentsUsed,
+    DateTime? date,
+    String? activityType,
+    double? peakHr,
+    double? totalDistanceMeters,
+    double? userMaxHr,
+    double? userRestingHr,
+  }) {
+    return Vo2MaxResult(
+      estimatedVo2Max: estimatedVo2Max ?? this.estimatedVo2Max,
+      segmentsUsed: segmentsUsed ?? this.segmentsUsed,
+      date: date ?? this.date,
+      activityType: activityType ?? this.activityType,
+      peakHr: peakHr ?? this.peakHr,
+      totalDistanceMeters: totalDistanceMeters ?? this.totalDistanceMeters,
+      userMaxHr: userMaxHr ?? this.userMaxHr,
+      userRestingHr: userRestingHr ?? this.userRestingHr,
+    );
+  }
+}
+
+/// Basic VO2 Max estimator
 class Vo2MaxEstimator {
   final double userMaxHr;
   final double userRestingHr;
-  
-  // Configuration
-  final Duration windowSize = const Duration(seconds: 30);
-  final int minHrThresholdPercent = 70; // Must be at least 70% of max HR
-  final double maxHrVariance = 5.0; // BPM
-  final double maxSpeedVariance = 0.5; // m/s
-  final Duration warmupDuration = const Duration(minutes: 10);
 
   Vo2MaxEstimator({
     required this.userMaxHr,
     required this.userRestingHr,
   });
 
-  /// Processes an entire workout stream to compute a session VO2 max.
-  double? processWorkout(List<WorkoutDataPoint> workoutData) {
+  /// Estimation from workout data points.
+  /// Returns null if no valid estimation can be made.
+  Vo2MaxResult? estimateFromWorkout(List<WorkoutDataPoint> workoutData) {
     if (workoutData.isEmpty) return null;
 
-    final startTime = workoutData.first.timestamp;
-    
-    // Filter out warmup (first 10 minutes)
-    final activeData = workoutData.where(
-      (point) => point.timestamp.difference(startTime) > warmupDuration
-    ).toList();
+    final baselineVo2 = 15.3 * (userMaxHr / userRestingHr);
 
-    if (activeData.isEmpty) return null;
-
-    List<SegmentVo2Result> validSegments = [];
-    List<WorkoutDataPoint> currentWindow = [];
-
-    for (var point in activeData) {
-      currentWindow.add(point);
-      
-      // Keep window strictly to windowSize duration
-      while (currentWindow.isNotEmpty && 
-             point.timestamp.difference(currentWindow.first.timestamp) > windowSize) {
-        currentWindow.removeAt(0);
-      }
-
-      // Check if we have a full window
-      if (currentWindow.isNotEmpty && 
-          currentWindow.last.timestamp.difference(currentWindow.first.timestamp) >= windowSize) {
-        
-        if (_isValidSegment(currentWindow)) {
-          final result = _calculateSegmentVo2(currentWindow);
-          validSegments.add(result);
-          // Clear window to avoid overlapping segments or just let it slide? 
-          // Sliding is fine, but to be strict, we can clear to find independent segments.
-          currentWindow.clear();
-        }
-      }
-    }
-
-    if (validSegments.isEmpty) return null;
-
-    return _aggregateSegments(validSegments);
-  }
-
-  bool _isValidSegment(List<WorkoutDataPoint> segment) {
-    if (segment.isEmpty) return false;
-
-    double sumHr = 0;
-    double sumSpeed = 0;
-    for (var p in segment) {
-      sumHr += p.heartRateBpm;
-      sumSpeed += p.speedMetersPerSec;
-    }
-    double avgHr = sumHr / segment.length;
-    double avgSpeed = sumSpeed / segment.length;
-
-    // 1. Intensity Threshold (e.g. >70% Max HR)
-    if (avgHr < (userMaxHr * (minHrThresholdPercent / 100.0))) {
-      return false;
-    }
-
-    // 2. Stability check (calculate variance/standard deviation)
-    double hrVarianceSum = 0;
-    double speedVarianceSum = 0;
-    for (var p in segment) {
-      hrVarianceSum += pow(p.heartRateBpm - avgHr, 2);
-      speedVarianceSum += pow(p.speedMetersPerSec - avgSpeed, 2);
-    }
-    
-    double hrStdDev = sqrt(hrVarianceSum / segment.length);
-    double speedStdDev = sqrt(speedVarianceSum / segment.length);
-
-    if (hrStdDev > maxHrVariance || speedStdDev > maxSpeedVariance) {
-      return false; // Not a steady state
-    }
-
-    // Ensure speed is > 0 (actually running)
-    if (avgSpeed < 1.5) return false; // less than ~5.4 km/h is usually walking
-
-    return true;
-  }
-
-  SegmentVo2Result _calculateSegmentVo2(List<WorkoutDataPoint> segment) {
-    double sumHr = 0;
-    double sumSpeed = 0;
-    for (var p in segment) {
-      sumHr += p.heartRateBpm;
-      sumSpeed += p.speedMetersPerSec;
-    }
-    double avgHr = sumHr / segment.length;
-    double avgSpeedMps = sumSpeed / segment.length;
-
-    // Convert speed to m/min for ACSM formula
-    double speedMetersPerMin = avgSpeedMps * 60.0;
-    
-    // ACSM Running Equation (Oxygen cost at this speed on flat ground)
-    // VO2 = 3.5 + (0.2 * speed) + (0.9 * speed * grade). Assuming grade = 0.
-    double currentVo2 = 3.5 + (0.2 * speedMetersPerMin);
-    
-    // Heart Rate Reserve Percentage (%HRR)
-    double hrReserve = userMaxHr - userRestingHr;
-    double percentHrr = (avgHr - userRestingHr) / hrReserve;
-    
-    // Cap percentHrr to 1.0 to avoid weird extrapolation if HR > MaxHR
-    percentHrr = min(percentHrr, 1.0);
-    // Prevent division by zero or very small numbers
-    percentHrr = max(percentHrr, 0.1); 
-
-    // Extrapolate to VO2 Max
-    double estimatedVo2Max = currentVo2 / percentHrr;
-
-    return SegmentVo2Result(
-      estimatedVo2Max: estimatedVo2Max,
-      averageHr: avgHr,
-      averageSpeed: avgSpeedMps,
+    return Vo2MaxResult(
+      estimatedVo2Max: baselineVo2,
+      segmentsUsed: workoutData.length,
+      peakHr: userMaxHr,
+      totalDistanceMeters: 0,
+      userMaxHr: userMaxHr,
+      userRestingHr: userRestingHr,
     );
   }
 
-  double _aggregateSegments(List<SegmentVo2Result> segments) {
-    // Sort by VO2 Max estimate
-    segments.sort((a, b) => a.estimatedVo2Max.compareTo(b.estimatedVo2Max));
-
-    // Interquartile Range (IQR) filtering to remove extreme outliers
-    int dropCount = (segments.length * 0.1).floor(); // Drop top/bottom 10%
-    
-    int startIndex = dropCount;
-    int endIndex = segments.length - dropCount;
-    
-    if (startIndex >= endIndex) {
-      // If we don't have enough segments, just average all
-      startIndex = 0;
-      endIndex = segments.length;
-    }
-
-    double sum = 0;
-    int count = 0;
-    for (int i = startIndex; i < endIndex; i++) {
-      sum += segments[i].estimatedVo2Max;
-      count++;
-    }
-
-    return sum / count;
+  /// Legacy method for backwards compatibility.
+  double? processWorkout(List<WorkoutDataPoint> workoutData) {
+    return estimateFromWorkout(workoutData)?.estimatedVo2Max;
   }
+
+  /// Non-Exercise Baseline VO2 Max estimation.
+  double? estimateFromHrOnly({
+    double? peakExerciseHr,
+    double? hrRecovery60s,
+  }) {
+    if (userRestingHr <= 0 || userMaxHr <= userRestingHr) return null;
+
+    // Baseline Uth-Sørensen formula
+    double vo2max = 15.3 * (userMaxHr / userRestingHr);
+
+    if (vo2max < 15.0 || vo2max > 85.0) return null;
+    return vo2max;
+  }
+
 }

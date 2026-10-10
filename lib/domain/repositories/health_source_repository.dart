@@ -1,5 +1,6 @@
 import '../entities/body_age_result.dart';
 import '../entities/health_record.dart';
+import '../services/vo2_max_estimator.dart';
 
 /// Abstract interface for the health data source.
 /// Wraps Health Connect (Android) and HealthKit (iOS) behind a
@@ -26,6 +27,9 @@ abstract class HealthSourceRepository {
   /// recompute baselines and derived metrics.
   /// Returns the number of new records written.
   Future<int> syncHealthData({required String taskType});
+
+  /// Get the details of the most recent workout that successfully generated a VO2 Max estimate.
+  Future<Vo2MaxResult?> getLatestVo2MaxResult();
 
   /// Get the latest derived metrics for the dashboard.
   Future<DerivedMetricSummary?> getLatestSummary();

@@ -224,14 +224,14 @@ class Vo2MaxDetailScreen extends StatelessWidget {
               const Icon(Icons.psychology_rounded, color: Tok.textPrimary, size: 20),
               const SizedBox(width: Tok.space8),
               Text(
-                'HOW IT WORKS',
+                'GARMIN/FIRSTBEAT ENGINE',
                 style: TokType.cardTitle.copyWith(letterSpacing: 1.2),
               ),
             ],
           ),
           const SizedBox(height: Tok.space16),
           Text(
-            'We use an advanced algorithm inspired by Firstbeat Analytics (the engine behind Garmin devices) to estimate your VO₂ Max without a lab test.',
+            'We use the same Firstbeat Analytics algorithm that powers Garmin watches to estimate your VO₂ Max from your workout data — no lab test required.',
             style: TokType.bodySmall.copyWith(
               color: Tok.textSecondary,
               height: 1.5,
@@ -239,21 +239,27 @@ class Vo2MaxDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: Tok.space16),
           _buildStepRow(
-            icon: Icons.monitor_heart_rounded,
-            title: '1. Heart Rate & Speed',
-            description: 'We track your heart rate (internal load) relative to your GPS running speed (external output).',
+            icon: Icons.gps_fixed,
+            title: 'Tier 1 — Speed + HR',
+            description: 'Uses GPS distance or step-cadence during running to calculate your speed. Combines with heart rate to estimate oxygen cost via the ACSM Running Equation.',
+          ),
+          const SizedBox(height: Tok.space12),
+          _buildStepRow(
+            icon: Icons.favorite_border,
+            title: 'Tier 2 — HR Only',
+            description: 'When speed data is unavailable, uses the Swain %VO₂R model (%VO₂R = 1.12 × %HRR − 0.12) with heart rate recovery correction (Daanen 2012).',
           ),
           const SizedBox(height: Tok.space12),
           _buildStepRow(
             icon: Icons.filter_list_rounded,
-            title: '2. Smart Filtering',
-            description: 'Erratic data is removed. We only analyze steady-state segments where your heart rate is >70% of your maximum.',
+            title: 'Smart Filtering',
+            description: 'Only steady-state segments with HR >70% max are analyzed. First 5 min warmup excluded. Outlier segments removed via IQR trimming.',
           ),
           const SizedBox(height: Tok.space12),
           _buildStepRow(
             icon: Icons.auto_graph_rounded,
-            title: '3. Max Extrapolation',
-            description: 'By calculating the oxygen cost of your speed using the ACSM running formula, we extrapolate to find your 100% capacity.',
+            title: 'HRR Extrapolation',
+            description: 'Heart Rate Reserve (%HRR) maps your exercise HR to a percentage of your max capacity. VO₂max = VO₂_current / %HRR extrapolates to your 100% ceiling.',
           ),
         ],
       ),
@@ -331,44 +337,53 @@ class Vo2MaxDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: Tok.space16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Tok.canvasDeep.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Tok.glassBorder),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Tok.canvasDeep.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Tok.glassBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tier 1/2 (Speed + HR)',
+                    style: TokType.caption.copyWith(color: Tok.textSecondary),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'VO₂_Cur = 3.5 + 0.2 × speed(m/min)',
+                    style: TokType.mono.copyWith(color: Tok.textPrimary, fontSize: 11),
+                  ),
+                  Text(
+                    '%HRR = (HR_Cur - HR_Rest) / (HR_Max - HR_Rest)',
+                    style: TokType.mono.copyWith(color: Tok.textPrimary, fontSize: 11),
+                  ),
+                  Text(
+                    'VO₂_Max = VO₂_Cur / %HRR',
+                    style: TokType.mono.copyWith(color: Tok.neonAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(color: Tok.glassBorder),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tier 3 (HR Only)',
+                    style: TokType.caption.copyWith(color: Tok.textSecondary),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '%VO₂R = 1.12 × %HRR - 0.12',
+                    style: TokType.mono.copyWith(color: Tok.textPrimary, fontSize: 11),
+                  ),
+                  Text(
+                    'VO₂_Max = 3.5 / (1 - %VO₂R)',
+                    style: TokType.mono.copyWith(color: Tok.neonAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'VO₂_Current = 3.5 + 0.2 × speed(m/min)',
-                  style: TokType.mono.copyWith(
-                    color: Tok.textPrimary,
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '%HRR = (HR_Current - HR_Rest) / (HR_Max - HR_Rest)',
-                  style: TokType.mono.copyWith(
-                    color: Tok.textPrimary,
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'VO₂_Max = VO₂_Current / %HRR',
-                  style: TokType.mono.copyWith(
-                    color: Tok.neonAccent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
