@@ -282,24 +282,76 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     ));
   }
 
-  /// Tries to compute VO2 max using the Garmin/Firstbeat algorithm from raw high-res streams.
-  Future<double?> _computeGarminVo2Max(DateTime start, DateTime end, double maxHr, double restHr) async {
+  /// Tries to compute VO2 max using the Garmin/Firstbeat algorithm from workout streams.
+  ///
+  /// Uses a 3-tier approach:
+  /// 1. GPS/distance speed + HR → ACSM running equation + HRR extrapolation
+  /// 2. Step-cadence derived speed + HR → same ACSM approach
+  /// 3. HR-only exercise analysis → Swain %VO2R model with recovery correction
+  ///
+  /// Returns the best estimate from the most recent qualifying workout.
+  Future<Vo2MaxResult?> _computeGarminVo2Max(DateTime start, DateTime end, double fallbackMaxHr, double fallbackRestHr) async {
     final workouts = await _db.healthRecordDao.getWorkouts(start: start, end: end);
-    // Find the most recent running/cardio workout with valid stream data
-    for (final w in workouts) {
-      final type = w.unit.toUpperCase();
-      if (type.contains('RUN') || type.contains('CARDIO')) {
-        final stream = await _db.healthRecordDao.getWorkoutDataPoints(start: w.startTime, end: w.endTime);
-        if (stream.isNotEmpty) {
-          final estimator = Vo2MaxEstimator(userMaxHr: maxHr, userRestingHr: restHr);
-          final estimate = estimator.processWorkout(stream);
-          if (estimate != null && estimate >= 15.0 && estimate <= 85.0) {
-            return estimate;
-          }
-        }
+    if (workouts.isEmpty) return null;
+
+    // The user requested specifically focusing on Nothing X app and "Indoor Run" and "Outdoor Run".
+    // We will prioritize them:
+    final prioritized = <RawHealthRecord>[
+      ...workouts.where((w) {
+        final type = w.unit.toUpperCase();
+        final source = w.sourceId.toLowerCase();
+        return source.contains('nothing') && (type.contains('INDOOR RUN') || type.contains('OUTDOOR RUN') || type.contains('RUN'));
+      }),
+      ...workouts.where((w) {
+        final type = w.unit.toUpperCase();
+        final source = w.sourceId.toLowerCase();
+        return (type.contains('RUN') || type.contains('CARDIO') || type.contains('CYCLE') || type.contains('AEROBIC')) && 
+               !(source.contains('nothing') && (type.contains('INDOOR RUN') || type.contains('OUTDOOR RUN') || type.contains('RUN')));
+      }),
+      ...workouts.where((w) {
+        final type = w.unit.toUpperCase();
+        return !(type.contains('RUN') || type.contains('CARDIO') || type.contains('CYCLE') || type.contains('AEROBIC'));
+      }),
+    ];
+
+    for (final w in prioritized) {
+      final stream = await _db.healthRecordDao.getWorkoutDataPoints(
+        start: w.startTime,
+        end: w.endTime,
+      );
+      if (stream.length < 10) continue; // Need at least 10 HR samples
+
+      // Get the day boundaries for this specific workout
+      final dayStart = DateTime(w.startTime.year, w.startTime.month, w.startTime.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+
+      // Retrieve max HR and resting HR for this specific day
+      final dayMaxHr = await _db.healthRecordDao.getMaxExerciseHr(start: dayStart, end: dayEnd) ?? fallbackMaxHr;
+      final dayRestHr = await _db.healthRecordDao.getTodayRestingHr(start: dayStart, end: dayEnd) ?? fallbackRestHr;
+
+      final estimator = Vo2MaxEstimator(userMaxHr: dayMaxHr, userRestingHr: dayRestHr);
+      final result = estimator.estimateFromWorkout(stream);
+      if (result != null && result.estimatedVo2Max >= 15.0 && result.estimatedVo2Max <= 85.0) {
+        return result.copyWith(
+          date: w.startTime,
+          activityType: w.unit,
+        );
       }
     }
     return null;
+  }
+
+  @override
+  Future<Vo2MaxResult?> getLatestVo2MaxResult() async {
+    final now = DateTime.now();
+    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+    
+    // We need Max HR and Rest HR for the calculation
+    final maxHr = await _db.healthRecordDao.getMaxExerciseHr(start: thirtyDaysAgo, end: now) ?? 183.0;
+    final rhrs = await _db.healthRecordDao.getDailyRestingHeartRates(30);
+    final restHr = rhrs.isNotEmpty ? (rhrs.fold<double>(0.0, (s, p) => s + p.value) / rhrs.length) : 60.0;
+
+    return _computeGarminVo2Max(thirtyDaysAgo, now, maxHr, restHr);
   }
 
   /// Recompute VO2max and recovery score for today.
@@ -318,13 +370,13 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final spo2Base = baseline?.spo2Baseline7d ?? 97.0;
 
     // ── VO2max ──
-    // New formula: VO2max = 15 × (avg top 3 daily max HR from Monday-Sunday / avg RHR from Monday-Sunday)
+    // New formula: VO2max = 15.3 × (avg top 2 daily max HR from Monday-Sunday / avg RHR from Monday-Sunday)
     final startOfWk = AppDateUtils.startOfWeek(now);
     final endOfWk = AppDateUtils.endOfWeek(now);
-    final avgTop3MaxHr = await recordDao.getAvgTop3DailyMaxHr(start: startOfWk, end: endOfWk);
+    final avgTop2MaxHr = await recordDao.getAvgTop2DailyMaxHr(start: startOfWk, end: endOfWk);
 
     // Fallback to single max exercise HR if not enough daily data
-    double? effectiveMaxHr = avgTop3MaxHr;
+    double? effectiveMaxHr = avgTop2MaxHr;
     effectiveMaxHr ??= await recordDao.getMaxExerciseHr(
       start: AppDateUtils.daysAgo(60, from: now),
       end: now,
@@ -344,12 +396,12 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     double vo2Rhr = wkRhrs.isNotEmpty ? (wkRhrs.reduce((a, b) => a + b) / wkRhrs.length) : rhrBase;
 
 
-    double? vo2max = await _computeGarminVo2Max(
+    double? vo2max = (await _computeGarminVo2Max(
       AppDateUtils.daysAgo(30, from: now),
       now,
       effectiveMaxHr ?? 190.0,
       vo2Rhr,
-    );
+    ))?.estimatedVo2Max;
 
     vo2max ??= _computeVo2Max(
       restingHr7dBaseline: vo2Rhr,
@@ -755,17 +807,17 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     }
 
     // Recompute VO2max with live window-specific resting HR baselines
-    // New formula: VO2max = 15 × (avg top 3 daily max HR / avg RHR)
-    final avgTop3MaxHr7d = await _db.healthRecordDao.getAvgTop3DailyMaxHr(days: 7, relativeTo: now);
-    final avgTop3MaxHr30d = await _db.healthRecordDao.getAvgTop3DailyMaxHr(days: 30, relativeTo: now);
-    final avgTop3MaxHrAllTime = await _db.healthRecordDao.getAvgTop3DailyMaxHr(relativeTo: now);
+    // New formula: VO2max = 15.3 × (avg top 2 daily max HR / avg RHR)
+    final avgTop2MaxHr7d = await _db.healthRecordDao.getAvgTop2DailyMaxHr(days: 7, relativeTo: now);
+    final avgTop2MaxHr30d = await _db.healthRecordDao.getAvgTop2DailyMaxHr(days: 30, relativeTo: now);
+    final avgTop2MaxHrAllTime = await _db.healthRecordDao.getAvgTop2DailyMaxHr(relativeTo: now);
 
     // Fallback to batch exercise max HR if not enough daily data
     final maxHrs = await _db.healthRecordDao.getExerciseMaxHrsByWindows(now);
-    final maxHr7d = avgTop3MaxHr7d ?? maxHrs.max7d;
-    final maxHr30d = avgTop3MaxHr30d ?? maxHrs.max30d;
+    final maxHr7d = avgTop2MaxHr7d ?? maxHrs.max7d;
+    final maxHr30d = avgTop2MaxHr30d ?? maxHrs.max30d;
     final maxHr60d = maxHrs.max60d;
-    final maxHrAllTime = avgTop3MaxHrAllTime ?? maxHrs.maxAllTime;
+    final maxHrAllTime = avgTop2MaxHrAllTime ?? maxHrs.maxAllTime;
 
     int? userAge;
     if (maxHr60d == null) {
@@ -780,16 +832,16 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     double vo2Rhr7d = rhr7d;
     double vo2Rhr30d = rhr30d;
 
-    double? vo2max7d = await _computeGarminVo2Max(
-      AppDateUtils.daysAgo(7, from: now), now, maxHr7d ?? maxHr30d ?? maxHr60d ?? 190.0, vo2Rhr7d);
+    double? vo2max7d = (await _computeGarminVo2Max(
+      AppDateUtils.daysAgo(7, from: now), now, maxHr7d ?? maxHr30d ?? maxHr60d ?? 190.0, vo2Rhr7d))?.estimatedVo2Max;
     vo2max7d ??= _computeVo2Max(
       restingHr7dBaseline: vo2Rhr7d,
       maxHrFromExercise: maxHr7d ?? maxHr30d ?? maxHr60d,
       userAge: userAge,
     );
 
-    double? vo2max30d = await _computeGarminVo2Max(
-      AppDateUtils.daysAgo(30, from: now), now, maxHr30d ?? maxHr60d ?? 190.0, vo2Rhr30d);
+    double? vo2max30d = (await _computeGarminVo2Max(
+      AppDateUtils.daysAgo(30, from: now), now, maxHr30d ?? maxHr60d ?? 190.0, vo2Rhr30d))?.estimatedVo2Max;
     vo2max30d ??= _computeVo2Max(
       restingHr7dBaseline: vo2Rhr30d,
       maxHrFromExercise: maxHr30d ?? maxHr60d,
@@ -804,8 +856,8 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     }
     double vo2RhrAllTime = rhrAllTime;
     
-    double? vo2maxAllTime = await _computeGarminVo2Max(
-      DateTime(2000), now, maxHrAllTime ?? maxHr30d ?? maxHr60d ?? 190.0, vo2RhrAllTime);
+    double? vo2maxAllTime = (await _computeGarminVo2Max(
+      DateTime(2000), now, maxHrAllTime ?? maxHr30d ?? maxHr60d ?? 190.0, vo2RhrAllTime))?.estimatedVo2Max;
     vo2maxAllTime ??= _computeVo2Max(
       restingHr7dBaseline: vo2RhrAllTime,
       maxHrFromExercise: maxHrAllTime ?? maxHr30d ?? maxHr60d,

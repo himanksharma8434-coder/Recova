@@ -877,9 +877,9 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
 
   /// Returns the average of the top 3 highest daily max heart rates
   /// within the last [days] days, or between [start] and [end].
-  /// Used for the VO2 max formula: VO2max = 15 × (avg top 3 HRmax / avg RHR).
+  /// Used for the VO2 max formula: VO2max = 15.3 × (avg top 2 HRmax / avg RHR).
   /// Returns null if no heart rate data exists.
-  Future<double?> getAvgTop3DailyMaxHr({int? days, DateTime? relativeTo, DateTime? start, DateTime? end}) async {
+  Future<double?> getAvgTop2DailyMaxHr({int? days, DateTime? relativeTo, DateTime? start, DateTime? end}) async {
     String query = '''
       SELECT max_val FROM (
         SELECT 
@@ -917,7 +917,7 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
     query += '''
         GROUP BY day_str
         ORDER BY max_val DESC
-        LIMIT 3
+        LIMIT 2
 
       )
     ''';
