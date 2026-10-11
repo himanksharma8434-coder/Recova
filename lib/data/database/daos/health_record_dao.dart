@@ -329,9 +329,10 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
     return (select(rawHealthRecords)
           ..where((r) =>
               (r.recordType.equals('SLEEP_SESSION') |
-                  r.recordType.equals('SLEEP_ASLEEP')) &
-              r.startTime.isBiggerOrEqualValue(start) &
-              r.endTime.isSmallerOrEqualValue(end))
+                  r.recordType.equals('SLEEP_ASLEEP') |
+                  r.recordType.equals('SLEEP_IN_BED')) &
+              r.startTime.isSmallerOrEqualValue(end) &
+              r.endTime.isBiggerOrEqualValue(start))
           ..orderBy([(r) => OrderingTerm.asc(r.startTime)]))
         .get();
   }
@@ -659,8 +660,7 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Get sleep stages records within a date range.
-  /// Only returns actual stage breakdowns (deep, light, rem, awake),
-  /// NOT session-level records (SLEEP_SESSION, SLEEP_ASLEEP).
+  /// Returns stage breakdowns and sleep sub-intervals.
   Future<List<RawHealthRecord>> getSleepStages({
     required DateTime start,
     required DateTime end,
@@ -670,9 +670,13 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
               (r.recordType.equals('SLEEP_DEEP') |
                   r.recordType.equals('SLEEP_LIGHT') |
                   r.recordType.equals('SLEEP_REM') |
-                  r.recordType.equals('SLEEP_AWAKE')) &
-              r.startTime.isBiggerOrEqualValue(start) &
-              r.endTime.isSmallerOrEqualValue(end))
+                  r.recordType.equals('SLEEP_AWAKE') |
+                  r.recordType.equals('SLEEP_AWAKE_IN_BED') |
+                  r.recordType.equals('SLEEP_OUT_OF_BED') |
+                  r.recordType.equals('SLEEP_UNKNOWN') |
+                  r.recordType.equals('SLEEP_ASLEEP')) &
+              r.startTime.isSmallerOrEqualValue(end) &
+              r.endTime.isBiggerOrEqualValue(start))
           ..orderBy([(r) => OrderingTerm.asc(r.startTime)]))
         .get();
   }
@@ -700,9 +704,10 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
     final records = await (select(rawHealthRecords)
           ..where((r) =>
               (r.recordType.equals('SLEEP_SESSION') |
-                  r.recordType.equals('SLEEP_ASLEEP')) &
-              r.startTime.isBiggerOrEqualValue(start) &
-              r.endTime.isSmallerOrEqualValue(end))
+                  r.recordType.equals('SLEEP_ASLEEP') |
+                  r.recordType.equals('SLEEP_IN_BED')) &
+              r.startTime.isSmallerOrEqualValue(end) &
+              r.endTime.isBiggerOrEqualValue(start))
           ..orderBy([(r) => OrderingTerm.desc(r.startTime)])
           ..limit(1))
         .get();

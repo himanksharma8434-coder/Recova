@@ -98,15 +98,23 @@ class HealthRepositoryImpl implements HealthSourceRepository {
         final typeName = type.name;
         final lastSynced = await syncDao.getLastSyncedAt(typeName);
 
-        // First sync: use initial lookback window
-        final startTime =
-            lastSynced ?? now.subtract(HealthTypes.initialLookback);
+        final isSleepType = typeName.startsWith('SLEEP');
+        // For sleep records: sessions span across midnight into the morning.
+        // A standard delta sync from lastSynced (e.g. 3 AM) would cause Health Connect
+        // TimeRangeFilter to miss sessions that started before lastSynced (e.g. 11 PM).
+        // Therefore, always query at least 48 hours back for sleep data to ensure full coverage.
+        final startTime = isSleepType
+            ? (lastSynced != null
+                ? now.subtract(const Duration(hours: 48))
+                : now.subtract(HealthTypes.initialLookback))
+            : (lastSynced ?? now.subtract(HealthTypes.initialLookback));
+        final endTime = isSleepType ? now.add(const Duration(hours: 4)) : now;
 
         try {
           final records = await _platform.fetchRecordsForType(
             type: type,
             startTime: startTime,
-            endTime: now,
+            endTime: endTime,
           );
 
           if (records.isNotEmpty) {
@@ -231,35 +239,36 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     // ── Sleep baseline (clean nightly extractions to prevent multi-source duplicates) ──
     final sleepRecords = await recordDao.getSleepRecords(
       start: AppDateUtils.daysAgo(10, from: now),
-      end: now,
+      end: now.add(const Duration(hours: 4)),
     );
     final stageRecords = await recordDao.getSleepStages(
       start: AppDateUtils.daysAgo(10, from: now),
-      end: now,
+      end: now.add(const Duration(hours: 4)),
     );
 
     final List<double> sleepDurations = [];
     for (int i = 1; i <= 7; i++) {
       final nightEnd = AppDateUtils.daysAgo(i - 1, from: today);
       final nightStart = nightEnd.subtract(const Duration(hours: 14));
-      final nightWindowEnd = nightEnd.add(const Duration(hours: 12));
+      final nightWindowEnd = nightEnd.add(const Duration(hours: 14));
 
       final nightStages = stageRecords
           .where((r) =>
-              r.endTime.isAfter(nightStart) && r.endTime.isBefore(nightWindowEnd))
+              r.endTime.isAfter(nightStart) && r.startTime.isBefore(nightWindowEnd))
           .toList();
       final nightSessions = sleepRecords
           .where((r) =>
-              r.endTime.isAfter(nightStart) && r.endTime.isBefore(nightWindowEnd))
+              r.endTime.isAfter(nightStart) && r.startTime.isBefore(nightWindowEnd))
           .toList();
 
       if (nightStages.isNotEmpty || nightSessions.isNotEmpty) {
-        final clean = SleepDataSanitizer.sanitizeOvernightStages(
+        final cleanDistributed = SleepDataSanitizer.extractDistributedSessions(
           stageRecords: nightStages,
-          sessionRecord: nightSessions.isNotEmpty ? nightSessions.last : null,
+          sessionRecords: nightSessions,
         );
-        if (clean.totalAsleepMinutes >= 60 && clean.totalAsleepMinutes <= 720) {
-          sleepDurations.add(clean.totalAsleepMinutes.toDouble());
+        if (cleanDistributed.totalMinutes >= 60 &&
+            cleanDistributed.totalMinutes <= 720) {
+          sleepDurations.add(cleanDistributed.totalMinutes.toDouble());
         }
       }
     }
@@ -389,19 +398,19 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     }
 
     // 3. Clean Overnight Sleep & Stages (including daytime and evening naps)
-    final sleepSearchStart = today.subtract(const Duration(hours: 10));
+    final sleepSearchStart = today.subtract(const Duration(hours: 14));
+    final sleepSearchEnd = now.add(const Duration(hours: 4));
     final nightStages = await recordDao.getSleepStages(
       start: sleepSearchStart,
-      end: now,
+      end: sleepSearchEnd,
     );
     final nightSessions = await recordDao.getSleepRecords(
       start: sleepSearchStart,
-      end: now,
+      end: sleepSearchEnd,
     );
     final cleanDistributed = SleepDataSanitizer.extractDistributedSessions(
       stageRecords: nightStages,
       sessionRecords: nightSessions,
-      fallbackHours: sleepBase / 60.0,
     );
     final double? totalSleepMinutes = cleanDistributed.totalMinutes > 0
         ? cleanDistributed.totalMinutes.toDouble()
@@ -553,8 +562,8 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     );
 
     // ── Real Distributed Sleep & Stages (Night Sleep + Daytime/Evening Naps) ──
-    final sleepSearchStart = todayStart.subtract(const Duration(hours: 10));
-    final sleepSearchEnd = now;
+    final sleepSearchStart = todayStart.subtract(const Duration(hours: 14));
+    final sleepSearchEnd = now.add(const Duration(hours: 4));
 
     final rawSleepStages = await _db.healthRecordDao.getSleepStages(
       start: sleepSearchStart,
@@ -568,9 +577,6 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final cleanDistributed = SleepDataSanitizer.extractDistributedSessions(
       stageRecords: rawSleepStages,
       sessionRecords: rawSleepSessions,
-      fallbackHours: baseline?.sleepDurationBaseline7d != null
-          ? baseline!.sleepDurationBaseline7d! / 60.0
-          : null,
     );
 
     final cleanSleep = cleanDistributed.mainSleep;
@@ -850,10 +856,7 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       estimatedVo2MaxAllTime: vo2maxAllTime,
       restingHr: todayRhr ?? baseline?.restingHrBaseline7d,
       baselineRestingHr: rhrBaseline,
-      sleepHours: actualSleepHours ??
-          (baseline?.sleepDurationBaseline7d != null
-              ? (baseline!.sleepDurationBaseline7d! / 60.0).clamp(3.0, 12.0)
-              : null),
+      sleepHours: actualSleepHours,
       baselineSleepHours: sleepBaselineMinutes / 60.0,
       nightSleepHours: cleanDistributed.nightHours > 0 ? cleanDistributed.nightHours : null,
       napSleepHours: cleanDistributed.napHours > 0 ? cleanDistributed.napHours : null,
@@ -905,6 +908,7 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     double? hipCircumferenceCm,
     String? smokingStatus,
     int? stressLevel,
+    double? bodyFatPct,
   }) async {
     final now = DateTime.now();
     final start30d = AppDateUtils.daysAgo(30, from: now);
@@ -921,6 +925,7 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       _db.healthRecordDao.getLatestRecordByType(recordType: 'BLOOD_PRESSURE_SYSTOLIC', start: start30d, end: now), // 5
       _db.healthRecordDao.getLatestRecordByType(recordType: 'BLOOD_PRESSURE_DIASTOLIC', start: start30d, end: now), // 6
       _db.derivedMetricDao.getLatestMetric(), // 7
+      _db.bodyMeasurementDao.getLatestMeasurement(), // 8
     ]);
 
     final rhrRecords = dbResults[0] as List<DailyMetricPoint>;
@@ -931,6 +936,7 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final bpSys = dbResults[5] as RawHealthRecord?;
     final bpDia = dbResults[6] as RawHealthRecord?;
     final latestMetric = dbResults[7] as DerivedMetric?;
+    final latestMeasurement = dbResults[8] as BodyMeasurement?;
 
     // ── Resting Heart Rate (30-day average) ──
     double? restingHrAvg30d;
@@ -1044,6 +1050,13 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     if (finalWeight == null && weightRecords != null && weightRecords.value > 0) {
       finalWeight = weightRecords.value;
     }
+    if (finalWeight == null &&
+        latestMeasurement?.weightKg != null &&
+        latestMeasurement!.weightKg! > 0) {
+      finalWeight = latestMeasurement.weightKg;
+    }
+
+    final finalBodyFat = bodyFatPct ?? latestMeasurement?.bodyFatPct;
 
     // ── Blood Pressure (if available) ──
     double? systolic = bpSys?.value;
@@ -1055,6 +1068,7 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       sex: sex,
       heightCm: finalHeight,
       weightKg: finalWeight,
+      bodyFatPct: finalBodyFat,
       waistCircumferenceCm: waistCircumferenceCm,
       hipCircumferenceCm: hipCircumferenceCm,
       smokingStatus: smokingStatus,
