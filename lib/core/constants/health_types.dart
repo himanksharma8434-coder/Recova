@@ -52,6 +52,9 @@ class HealthTypes {
         HealthDataType.SLEEP_DEEP,
         HealthDataType.SLEEP_LIGHT,
         HealthDataType.SLEEP_REM,
+        HealthDataType.SLEEP_AWAKE_IN_BED,
+        HealthDataType.SLEEP_OUT_OF_BED,
+        HealthDataType.SLEEP_UNKNOWN,
 
         // Blood Oxygen & Respiration
         HealthDataType.BLOOD_OXYGEN,
@@ -84,6 +87,7 @@ class HealthTypes {
         HealthDataType.HEART_RATE_VARIABILITY_SDNN,
 
         // Sleep Architecture
+        HealthDataType.SLEEP_IN_BED,
         HealthDataType.SLEEP_ASLEEP,
         HealthDataType.SLEEP_AWAKE,
         HealthDataType.SLEEP_DEEP,

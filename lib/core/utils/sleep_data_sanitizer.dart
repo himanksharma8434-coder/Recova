@@ -83,7 +83,17 @@ class SleepDataSanitizer {
     double? fallbackHours,
   }) {
     if (stageRecords.isEmpty && sessionRecord == null) {
-      final h = fallbackHours ?? 6.0;
+      if (fallbackHours == null || fallbackHours <= 0) {
+        return const CleanNightSleep(
+          deepMinutes: 0,
+          coreMinutes: 0,
+          remMinutes: 0,
+          awakeMinutes: 0,
+          hasStageData: false,
+          totalHours: 0.0,
+        );
+      }
+      final h = fallbackHours;
       final totalM = (h * 60).round();
       final deep = (totalM * 0.222).round();
       final rem = (totalM * 0.236).round();
@@ -135,13 +145,27 @@ class SleepDataSanitizer {
     final remRecs =
         activeStageRecords.where((r) => r.recordType == 'SLEEP_REM').toList();
     final awakeRecs = activeStageRecords
-        .where((r) => r.recordType == 'SLEEP_AWAKE')
+        .where((r) =>
+            r.recordType == 'SLEEP_AWAKE' ||
+            r.recordType == 'SLEEP_AWAKE_IN_BED' ||
+            r.recordType == 'SLEEP_OUT_OF_BED')
+        .toList();
+    final asleepRecs = activeStageRecords
+        .where((r) =>
+            r.recordType == 'SLEEP_ASLEEP' ||
+            r.recordType == 'SLEEP_UNKNOWN' ||
+            r.recordType == 'SLEEP_IN_BED')
         .toList();
 
     int deep = calculateMergedMinutes(deepRecs);
     int core = calculateMergedMinutes(lightRecs);
     int rem = calculateMergedMinutes(remRecs);
     int awake = calculateMergedMinutes(awakeRecs);
+
+    // If explicit core/light was missing but generic asleep records exist, use asleep as core
+    if (core == 0 && deep == 0 && rem == 0 && asleepRecs.isNotEmpty) {
+      core = calculateMergedMinutes(asleepRecs);
+    }
 
     final hasStages = (deep + core + rem) > 0;
 
@@ -216,29 +240,20 @@ class SleepDataSanitizer {
     double? fallbackHours,
   }) {
     if (stageRecords.isEmpty && sessionRecords.isEmpty) {
-      final fallback = sanitizeOvernightStages(
-        stageRecords: [],
-        sessionRecord: null,
-        fallbackHours: fallbackHours,
-      );
-      return CleanDistributedSleep(
-        totalHours: fallback.totalHours,
-        totalMinutes: fallback.totalAsleepMinutes,
-        nightHours: fallback.totalHours,
+      return const CleanDistributedSleep(
+        totalHours: 0.0,
+        totalMinutes: 0,
+        nightHours: 0.0,
         napHours: 0.0,
-        sessions: [
-          CleanDistributedSession(
-            title: 'Night Sleep',
-            sessionType: 'NIGHT_SLEEP',
-            startTime: fallback.startTime ?? DateTime.now().subtract(const Duration(hours: 8)),
-            endTime: fallback.endTime ?? DateTime.now(),
-            durationHours: fallback.totalHours,
-            durationMinutes: fallback.totalAsleepMinutes,
-            sleepData: fallback,
-            isMainSleep: true,
-          ),
-        ],
-        mainSleep: fallback,
+        sessions: [],
+        mainSleep: CleanNightSleep(
+          deepMinutes: 0,
+          coreMinutes: 0,
+          remMinutes: 0,
+          awakeMinutes: 0,
+          hasStageData: false,
+          totalHours: 0.0,
+        ),
       );
     }
 
@@ -340,29 +355,20 @@ class SleepDataSanitizer {
     }
 
     if (analyzedSessions.isEmpty) {
-      final fallback = sanitizeOvernightStages(
-        stageRecords: stageRecords,
-        sessionRecord: sessionRecords.isNotEmpty ? sessionRecords.last : null,
-        fallbackHours: fallbackHours,
-      );
-      return CleanDistributedSleep(
-        totalHours: fallback.totalHours,
-        totalMinutes: fallback.totalAsleepMinutes,
-        nightHours: fallback.totalHours,
+      return const CleanDistributedSleep(
+        totalHours: 0.0,
+        totalMinutes: 0,
+        nightHours: 0.0,
         napHours: 0.0,
-        sessions: [
-          CleanDistributedSession(
-            title: 'Night Sleep',
-            sessionType: 'NIGHT_SLEEP',
-            startTime: fallback.startTime ?? DateTime.now(),
-            endTime: fallback.endTime ?? DateTime.now(),
-            durationHours: fallback.totalHours,
-            durationMinutes: fallback.totalAsleepMinutes,
-            sleepData: fallback,
-            isMainSleep: true,
-          ),
-        ],
-        mainSleep: fallback,
+        sessions: [],
+        mainSleep: CleanNightSleep(
+          deepMinutes: 0,
+          coreMinutes: 0,
+          remMinutes: 0,
+          awakeMinutes: 0,
+          hasStageData: false,
+          totalHours: 0.0,
+        ),
       );
     }
 
@@ -383,6 +389,7 @@ class SleepDataSanitizer {
     final classified = <CleanDistributedSession>[];
     double nightH = 0.0;
     double napH = 0.0;
+    final mainSleepStart = analyzedSessions[mainIndex].startTime;
 
     for (int i = 0; i < analyzedSessions.length; i++) {
       final s = analyzedSessions[i];
@@ -391,6 +398,11 @@ class SleepDataSanitizer {
       // Skip phantom / spurious non-main sessions that are too short to be real naps.
       // Main sleep is always kept regardless of duration.
       if (!isMain && s.durationMinutes < minNapMinutes) {
+        continue;
+      }
+
+      // Skip naps that ended well before main nocturnal sleep started (they belong to prior cycle)
+      if (!isMain && s.endTime.isBefore(mainSleepStart.subtract(const Duration(hours: 3)))) {
         continue;
       }
 
@@ -432,6 +444,24 @@ class SleepDataSanitizer {
         sleepData: s.sleepData,
         isMainSleep: isMain,
       ));
+    }
+
+    if (classified.isEmpty) {
+      return const CleanDistributedSleep(
+        totalHours: 0.0,
+        totalMinutes: 0,
+        nightHours: 0.0,
+        napHours: 0.0,
+        sessions: [],
+        mainSleep: CleanNightSleep(
+          deepMinutes: 0,
+          coreMinutes: 0,
+          remMinutes: 0,
+          awakeMinutes: 0,
+          hasStageData: false,
+          totalHours: 0.0,
+        ),
+      );
     }
 
     final totalH = nightH + napH;
