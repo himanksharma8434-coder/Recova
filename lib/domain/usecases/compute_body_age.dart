@@ -13,6 +13,7 @@ class BodyAgeInput {
   // ── Body Composition (from Health Connect / manual) ──
   final double? heightCm;
   final double? weightKg;
+  final double? bodyFatPct;
 
   // ── Wearable: Cardiorespiratory ──
   final double? vo2maxDevice;
@@ -57,6 +58,7 @@ class BodyAgeInput {
     this.sex,
     this.heightCm,
     this.weightKg,
+    this.bodyFatPct,
     this.vo2maxDevice,
     this.restingHrAvg30d,
     this.hrRecovery1min,
@@ -275,6 +277,9 @@ class ComputeBodyAge {
           bmi: bmi,
           bmrKcal: bmrKcal,
           vo2maxUsed: vo2maxUsed,
+          bodyFatPct: input.bodyFatPct != null
+              ? double.parse(input.bodyFatPct!.toStringAsFixed(1))
+              : null,
         ),
         missingInputs: missingInputs,
         dataQualityFlags: dataQualityFlags,
@@ -354,6 +359,9 @@ class ComputeBodyAge {
         bmrKcal:
             bmrKcal != null ? double.parse(bmrKcal.toStringAsFixed(0)) : null,
         vo2maxUsed: vo2maxUsed,
+        bodyFatPct: input.bodyFatPct != null
+            ? double.parse(input.bodyFatPct!.toStringAsFixed(1))
+            : null,
       ),
       missingInputs: missingInputs,
       dataQualityFlags: dataQualityFlags,
@@ -411,7 +419,7 @@ class ComputeBodyAge {
   }
 
   /// Body Composition — 20% base weight.
-  /// Prioritizes waist-to-height ratio (WHtR) and waist circumference,
+  /// Prioritizes body fat percentage, waist-to-height ratio (WHtR) and waist circumference,
   /// with BMI as secondary / de-emphasized.
   _ScoredCategory? _scoreBodyComposition(
       BodyAgeInput input,
@@ -422,6 +430,16 @@ class ComputeBodyAge {
       bool weightValid) {
     final inputs = <String>[];
     final percentiles = <double>[];
+
+    // Body fat percentage (clinical standard for lean vs fat mass)
+    if (input.bodyFatPct != null &&
+        input.bodyFatPct! >= 3.0 &&
+        input.bodyFatPct! <= 60.0) {
+      inputs.add('Body fat (${input.bodyFatPct!.toStringAsFixed(1)}%)');
+      final isFemale = input.sex == 'female';
+      final p = _bodyFatPercentile(input.bodyFatPct!, isFemale);
+      percentiles.add(p);
+    }
 
     // WHtR (Waist-to-Height Ratio) - highest clinical value for central adiposity
     if (whtr != null) {
@@ -469,7 +487,7 @@ class ComputeBodyAge {
       percentileRange: _percentileRangeString(avgPercentile),
       offsetYears: offset,
       inputsUsed: inputs,
-      note: _bodyCompNote(bmi ?? 22.0),
+      note: _bodyCompNote(bmi ?? 22.0, input.bodyFatPct),
     );
   }
 
@@ -723,6 +741,32 @@ class ComputeBodyAge {
     return 15;
   }
 
+  /// Body Fat % percentile (Jackson-Pollock & American Council on Exercise standards).
+  double _bodyFatPercentile(double fat, bool isFemale) {
+    final athleticMax = isFemale ? 20.0 : 13.0;
+    final fitnessMax = isFemale ? 24.0 : 17.0;
+    final averageMax = isFemale ? 31.0 : 24.0;
+    final overfatMax = isFemale ? 38.0 : 30.0;
+
+    if (fat <= athleticMax) {
+      final min = isFemale ? 14.0 : 6.0;
+      final t = ((athleticMax - fat) / (athleticMax - min)).clamp(0.0, 1.0);
+      return 85.0 + t * 10.0;
+    } else if (fat <= fitnessMax) {
+      final t = (fitnessMax - fat) / (fitnessMax - athleticMax);
+      return 65.0 + t * 20.0;
+    } else if (fat <= averageMax) {
+      final t = (averageMax - fat) / (averageMax - fitnessMax);
+      return 40.0 + t * 25.0;
+    } else if (fat <= overfatMax) {
+      final t = (overfatMax - fat) / (overfatMax - averageMax);
+      return 20.0 + t * 20.0;
+    } else {
+      final excess = fat - overfatMax;
+      return (20.0 - excess * 2.0).clamp(5.0, 20.0);
+    }
+  }
+
   /// BMI percentile for body composition. Optimum ~20-24.
   double _bmiPercentile(double bmi, String? sex) {
     // U-shaped mortality curve; optimum 20-24
@@ -859,7 +903,13 @@ class ComputeBodyAge {
     return 'Significantly below average; gradual exercise progression recommended';
   }
 
-  String _bodyCompNote(double bmi) {
+  String _bodyCompNote(double bmi, [double? bodyFat]) {
+    if (bodyFat != null) {
+      if (bodyFat <= 15) return 'Body fat percentage is in the athletic range';
+      if (bodyFat <= 24) return 'Body fat percentage is in the healthy fitness range';
+      if (bodyFat <= 30) return 'Body fat percentage is in the moderate range';
+      return 'Body fat percentage is elevated; consistent training & nutrition will optimize this';
+    }
     if (bmi >= 20 && bmi <= 24) return 'BMI in the optimal range';
     if (bmi >= 18.5 && bmi <= 25) return 'BMI within the healthy range';
     if (bmi > 25 && bmi <= 30) return 'BMI suggests overweight; waist measurement would improve accuracy';

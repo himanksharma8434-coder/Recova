@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/design_tokens.dart';
 import '../../../../presentation/components/ambient_glow_backdrop.dart';
+import '../../../../presentation/components/edit_body_fat_dialog.dart';
 import '../../../../presentation/components/glass_card.dart';
+import '../../../../services/user_profile_service.dart';
 import '../../data/repositories/body_age_repository_impl.dart';
 import '../../domain/entities/body_age_factor.dart';
 import '../../domain/entities/body_age_result.dart';
@@ -65,6 +67,18 @@ class _BodyAgeFitnessScreenState extends State<BodyAgeFitnessScreen> {
         prefilledWeight: null,
         initialIsKg: true,
       ),
+    );
+    _loadData();
+  }
+
+  void _openEditBodyFat() async {
+    final profile = await UserProfileService.getProfile();
+    if (!mounted) return;
+    await EditBodyFatDialog.show(
+      context,
+      initialBodyFat: profile.bodyFatPct,
+      gender: profile.gender,
+      onSaved: _loadData,
     );
     _loadData();
   }
@@ -268,59 +282,115 @@ class _BodyAgeFitnessScreenState extends State<BodyAgeFitnessScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'PHYSIOLOGICAL BREAKDOWN',
-          style: TokType.sectionLabel,
-        ),
-        const SizedBox(height: Tok.space12),
-        ...BodyAgeFactor.values.map((factor) {
-          final age = result.factorAges[factor];
-          final isMissing = age == null;
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: Tok.space10),
-            child: GlassCard(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Tok.space16,
-                vertical: Tok.space12,
-              ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'PHYSIOLOGICAL BREAKDOWN',
+              style: TokType.sectionLabel,
+            ),
+            GestureDetector(
+              onTap: _openEditBodyFat,
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    _iconForFactor(factor),
-                    color: isMissing ? Tok.textMuted : Tok.neonAccent,
-                    size: 22,
-                  ),
-                  const SizedBox(width: Tok.space14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          factor.displayName,
-                          style: TokType.cardTitle,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isMissing ? 'No data recorded yet' : factor.description,
-                          style: TokType.caption.copyWith(color: Tok.textMuted),
-                        ),
-                      ],
-                    ),
-                  ),
+                  const Icon(Icons.tune_rounded, size: 12, color: Tok.neonAccent),
+                  const SizedBox(width: 4),
                   Text(
-                    isMissing ? '—' : '${age.toStringAsFixed(1)} yr',
-                    style: TokType.cardTitle.copyWith(
-                      color: isMissing
-                          ? Tok.textMuted
-                          : age <= result.chronologicalAge
-                              ? Colors.greenAccent
-                              : Colors.orangeAccent,
+                    'EDIT BODY FAT',
+                    style: TokType.caption.copyWith(
+                      color: Tok.neonAccent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
                     ),
                   ),
                 ],
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: Tok.space12),
+        ...BodyAgeFactor.values.map((factor) {
+          final age = result.factorAges[factor];
+          final isMissing = age == null;
+          final isBodyComp = factor == BodyAgeFactor.bodyComposition;
+
+          Widget card = GlassCard(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Tok.space16,
+              vertical: Tok.space12,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _iconForFactor(factor),
+                  color: isMissing ? Tok.textMuted : Tok.neonAccent,
+                  size: 22,
+                ),
+                const SizedBox(width: Tok.space14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            factor.displayName,
+                            style: TokType.cardTitle,
+                          ),
+                          if (isBodyComp) ...[
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.edit_outlined,
+                              size: 12,
+                              color: Tok.neonAccent,
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isMissing
+                            ? (isBodyComp
+                                ? 'Tap to log body fat %'
+                                : 'No data recorded yet')
+                            : (isBodyComp
+                                ? '${factor.description} • Tap to edit'
+                                : factor.description),
+                        style: TokType.caption.copyWith(
+                          color: isBodyComp && isMissing
+                              ? Tok.neonAccent
+                              : Tok.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  isMissing ? '—' : '${age.toStringAsFixed(1)} yr',
+                  style: TokType.cardTitle.copyWith(
+                    color: isMissing
+                        ? Tok.textMuted
+                        : age <= result.chronologicalAge
+                            ? Colors.greenAccent
+                            : Colors.orangeAccent,
+                  ),
+                ),
+              ],
+            ),
+          );
+
+          if (isBodyComp) {
+            card = GestureDetector(
+              onTap: _openEditBodyFat,
+              child: card,
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: Tok.space10),
+            child: card,
           );
         }),
       ],

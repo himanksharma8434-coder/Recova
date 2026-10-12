@@ -13,6 +13,7 @@ import '../components/liquid_glass.dart';
 import '../cubits/body_age/body_age_cubit.dart';
 import '../cubits/body_age/body_age_state.dart';
 import 'profile_settings_screen.dart';
+import '../components/edit_body_fat_dialog.dart';
 import '../../features/body_age/presentation/components/monthly_checkin_dialog.dart';
 
 /// Body Age Estimation Screen.
@@ -69,7 +70,20 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
         hipCircumferenceCm: profile.hipCircumferenceCm,
         smokingStatus: profile.smokingStatus,
         stressLevel: profile.stressLevel,
+        bodyFatPct: profile.bodyFatPct,
       );
+    }
+  }
+
+  Future<void> _openEditBodyFat() async {
+    final updated = await EditBodyFatDialog.show(
+      context,
+      initialBodyFat: _profile?.bodyFatPct,
+      gender: _profile?.gender,
+    );
+
+    if (updated != null && mounted) {
+      _initAndCompute();
     }
   }
 
@@ -276,8 +290,9 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
             RepaintBoundary(child: _buildComponentBreakdown(result)),
             const SizedBox(height: Tok.space16),
 
-            // Derived metrics (BMI, VO2 Max, BMR)
+            // Derived metrics (BMI, Body Fat, VO2 Max, BMR)
             if (result.derivedMetrics.bmi != null ||
+                result.derivedMetrics.bodyFatPct != null ||
                 result.derivedMetrics.vo2maxUsed != null ||
                 result.derivedMetrics.bmrKcal != null) ...[
               RepaintBoundary(child: _buildDerivedMetrics(result)),
@@ -315,6 +330,9 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
     final height = _profile?.heightCm != null
         ? ' • ${_profile!.heightCm!.toStringAsFixed(0)} cm'
         : '';
+    final bodyFat = _profile?.bodyFatPct != null
+        ? ' • ${_profile!.bodyFatPct!.toStringAsFixed(1)}% BF'
+        : '';
 
     return LiquidGlass(
       hasBlur: false,
@@ -330,7 +348,7 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
               size: 13, color: Tok.textPrimary),
           const SizedBox(width: 6),
           Text(
-            '$age yrs • $gender$weight$height',
+            '$age yrs • $gender$weight$height$bodyFat',
             style: TokType.caption.copyWith(
               color: Tok.textPrimary,
               fontSize: 10.5,
@@ -829,6 +847,16 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
     if (metrics.bmi != null) {
       items.add(_buildMetricTile('BMI', metrics.bmi!.toStringAsFixed(1), 'kg/m²'));
     }
+    if (metrics.bodyFatPct != null) {
+      items.add(
+        _buildMetricTile(
+          'BODY FAT',
+          '${metrics.bodyFatPct!.toStringAsFixed(1)}%',
+          'tap to edit',
+          onTap: _openEditBodyFat,
+        ),
+      );
+    }
     if (metrics.vo2maxUsed != null) {
       items.add(_buildMetricTile(
           'VO₂MAX', metrics.vo2maxUsed!.toStringAsFixed(1), 'mL/kg/min'));
@@ -844,9 +872,34 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'DERIVED METRICS',
-            style: TokType.sectionLabel.copyWith(color: Tok.textSecondary),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'DERIVED METRICS',
+                style: TokType.sectionLabel.copyWith(color: Tok.textSecondary),
+              ),
+              GestureDetector(
+                onTap: _openEditBodyFat,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.edit_outlined,
+                        size: 11, color: Tok.neonAccent),
+                    const SizedBox(width: 4),
+                    Text(
+                      metrics.bodyFatPct != null ? 'EDIT BODY FAT' : 'ADD BODY FAT',
+                      style: TokType.caption.copyWith(
+                        color: Tok.neonAccent,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: Tok.space12),
           Row(children: items),
@@ -855,17 +908,23 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
     );
   }
 
-  Widget _buildMetricTile(String label, String value, String unit) {
+  Widget _buildMetricTile(
+    String label,
+    String value,
+    String unit, {
+    VoidCallback? onTap,
+  }) {
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         child: LiquidGlass(
           hasBlur: false,
+          onTap: onTap,
           padding: const EdgeInsets.symmetric(
             horizontal: Tok.space12,
             vertical: Tok.space12,
           ),
-          borderRadius: BorderRadius.circular(100),
+          borderRadius: BorderRadius.circular(Tok.radiusMd),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -889,8 +948,9 @@ class _BodyAgeScreenState extends State<BodyAgeScreen>
                 Text(
                   unit,
                   style: TokType.caption.copyWith(
-                    color: Tok.textSecondary,
+                    color: onTap != null ? Tok.neonAccent : Tok.textSecondary,
                     fontSize: 9.0,
+                    fontWeight: onTap != null ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
             ],
