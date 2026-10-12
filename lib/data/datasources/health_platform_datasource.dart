@@ -224,11 +224,17 @@ class HealthPlatformDatasource {
         point.type == HealthDataType.SLEEP_AWAKE ||
         point.type == HealthDataType.SLEEP_DEEP ||
         point.type == HealthDataType.SLEEP_LIGHT ||
-        point.type == HealthDataType.SLEEP_REM;
+        point.type == HealthDataType.SLEEP_REM ||
+        point.type == HealthDataType.SLEEP_IN_BED ||
+        point.type == HealthDataType.SLEEP_AWAKE_IN_BED ||
+        point.type == HealthDataType.SLEEP_OUT_OF_BED ||
+        point.type == HealthDataType.SLEEP_UNKNOWN;
 
     if (isSleep) {
-      // Sleep values are always elapsed duration in minutes from timestamps
-      value = point.dateTo.difference(point.dateFrom).inMinutes.abs().toDouble();
+      // Sleep values are elapsed duration in minutes from timestamps (preserving fractional minutes)
+      final diffMins =
+          point.dateTo.difference(point.dateFrom).inSeconds.abs() / 60.0;
+      value = diffMins > 0 ? diffMins : 1.0;
     } else if (numValue is NumericHealthValue) {
       value = numValue.numericValue.toDouble();
     } else if (numValue is WorkoutHealthValue) {

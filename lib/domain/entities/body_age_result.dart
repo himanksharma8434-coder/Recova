@@ -16,6 +16,7 @@ class BodyAgeDerivedMetrics extends Equatable {
   final double? whr;
   final double? bmrKcal;
   final double? vo2maxUsed;
+  final double? bodyFatPct;
 
   const BodyAgeDerivedMetrics({
     this.bmi,
@@ -23,6 +24,7 @@ class BodyAgeDerivedMetrics extends Equatable {
     this.whr,
     this.bmrKcal,
     this.vo2maxUsed,
+    this.bodyFatPct,
   });
 
   Map<String, dynamic> toJson() => {
@@ -31,10 +33,11 @@ class BodyAgeDerivedMetrics extends Equatable {
         'whr': whr,
         'bmr_kcal': bmrKcal,
         'vo2max_used': vo2maxUsed,
+        'body_fat_pct': bodyFatPct,
       };
 
   @override
-  List<Object?> get props => [bmi, whtr, whr, bmrKcal, vo2maxUsed];
+  List<Object?> get props => [bmi, whtr, whr, bmrKcal, vo2maxUsed, bodyFatPct];
 }
 
 /// A single scored category contributing to body age.

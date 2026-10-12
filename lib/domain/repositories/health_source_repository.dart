@@ -52,6 +52,7 @@ abstract class HealthSourceRepository {
     double? hipCircumferenceCm,
     String? smokingStatus,
     int? stressLevel,
+    double? bodyFatPct,
   });
 }
 
