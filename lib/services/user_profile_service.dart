@@ -6,6 +6,7 @@ class UserProfile {
   final String? gender; // 'male' | 'female'
   final double? heightCm;
   final double? weightKg;
+  final double? bodyFatPct;
   final double? waistCircumferenceCm;
   final double? hipCircumferenceCm;
   final String? smokingStatus;
@@ -16,6 +17,7 @@ class UserProfile {
     this.gender,
     this.heightCm,
     this.weightKg,
+    this.bodyFatPct,
     this.waistCircumferenceCm,
     this.hipCircumferenceCm,
     this.smokingStatus,
@@ -32,6 +34,7 @@ class UserProfile {
     String? gender,
     double? heightCm,
     double? weightKg,
+    double? bodyFatPct,
     double? waistCircumferenceCm,
     double? hipCircumferenceCm,
     String? smokingStatus,
@@ -42,6 +45,7 @@ class UserProfile {
       gender: gender ?? this.gender,
       heightCm: heightCm ?? this.heightCm,
       weightKg: weightKg ?? this.weightKg,
+      bodyFatPct: bodyFatPct ?? this.bodyFatPct,
       waistCircumferenceCm: waistCircumferenceCm ?? this.waistCircumferenceCm,
       hipCircumferenceCm: hipCircumferenceCm ?? this.hipCircumferenceCm,
       smokingStatus: smokingStatus ?? this.smokingStatus,
@@ -56,6 +60,7 @@ class UserProfileService {
   static const String _keyGender = 'user_profile_gender';
   static const String _keyHeight = 'user_profile_height_cm';
   static const String _keyWeight = 'user_profile_weight_kg';
+  static const String _keyBodyFat = 'user_profile_body_fat_pct';
 
   static const String _keyWaist = 'user_profile_waist_cm';
   static const String _keyHip = 'user_profile_hip_cm';
@@ -69,6 +74,7 @@ class UserProfileService {
     final gender = prefs.getString(_keyGender);
     final height = prefs.getDouble(_keyHeight);
     final weight = prefs.getDouble(_keyWeight);
+    final bodyFat = prefs.getDouble(_keyBodyFat);
     final waist = prefs.getDouble(_keyWaist);
     final hip = prefs.getDouble(_keyHip);
     final smoking = prefs.getString(_keySmoking);
@@ -79,6 +85,7 @@ class UserProfileService {
       gender: gender,
       heightCm: height,
       weightKg: weight,
+      bodyFatPct: bodyFat,
       waistCircumferenceCm: waist,
       hipCircumferenceCm: hip,
       smokingStatus: smoking,
@@ -112,6 +119,12 @@ class UserProfileService {
       await prefs.setDouble(_keyWeight, profile.weightKg!);
     } else {
       await prefs.remove(_keyWeight);
+    }
+
+    if (profile.bodyFatPct != null) {
+      await prefs.setDouble(_keyBodyFat, profile.bodyFatPct!);
+    } else {
+      await prefs.remove(_keyBodyFat);
     }
     
     if (profile.waistCircumferenceCm != null) {

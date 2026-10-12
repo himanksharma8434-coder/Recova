@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
+import '../../features/body_age/data/repositories/body_measurement_repository_impl.dart';
+import '../../features/body_age/presentation/components/body_fat_guide_sheet.dart';
 import '../../features/body_age/presentation/cubits/body_age_checkin/body_age_checkin_cubit.dart';
 import '../../services/user_profile_service.dart';
 import '../components/ambient_glow_backdrop.dart';
@@ -12,7 +14,7 @@ import '../components/glass_card.dart';
 import '../components/liquid_glass.dart';
 
 /// Screen allowing the user to configure their baseline biometrics
-/// (body weight, height, age, and gender) for body age and recovery.
+/// (body weight, height, age, body fat %, and gender) for body age and recovery.
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({super.key});
 
@@ -24,6 +26,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   final _ageController = TextEditingController();
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
+  final _bodyFatController = TextEditingController();
   String? _selectedGender;
   bool _monthlyReminderEnabled = true;
   bool _isLoading = true;
@@ -38,6 +41,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     final profile = await UserProfileService.getProfile();
     final prefs = await SharedPreferences.getInstance();
     final reminderOn = prefs.getBool(BodyAgeCheckinCubit.keyMonthlyReminderEnabled) ?? true;
+    double? bodyFat = profile.bodyFatPct;
+
+    if (bodyFat == null) {
+      final latest = await BodyMeasurementRepositoryImpl().getLatestMeasurement();
+      bodyFat = latest?.bodyFatPct;
+    }
 
     if (mounted) {
       setState(() {
@@ -49,6 +58,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         }
         if (profile.heightCm != null) {
           _heightController.text = profile.heightCm!.toStringAsFixed(1);
+        }
+        if (bodyFat != null) {
+          _bodyFatController.text = bodyFat.toStringAsFixed(1);
         }
         _selectedGender = profile.gender ?? 'male';
         _monthlyReminderEnabled = reminderOn;
@@ -62,12 +74,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     _ageController.dispose();
     _weightController.dispose();
     _heightController.dispose();
+    _bodyFatController.dispose();
     super.dispose();
   }
 
   double? get _parsedHeight => double.tryParse(_heightController.text.trim());
   double? get _parsedWeight => double.tryParse(_weightController.text.trim());
   int? get _parsedAge => int.tryParse(_ageController.text.trim());
+  double? get _parsedBodyFat => double.tryParse(_bodyFatController.text.trim());
 
   double? get _liveBmi {
     final h = _parsedHeight;
@@ -107,15 +121,38 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
     final height = _parsedHeight;
     final weight = _parsedWeight;
+    final bodyFat = _parsedBodyFat;
+
+    if (bodyFat != null && (bodyFat < 3.0 || bodyFat > 60.0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Body fat percentage must be between 3.0% and 60.0%'),
+          backgroundColor: Tok.recoverySuppressed,
+        ),
+      );
+      return;
+    }
 
     final profile = UserProfile(
       age: age,
       gender: _selectedGender,
       heightCm: height,
       weightKg: weight,
+      bodyFatPct: bodyFat,
     );
 
     await UserProfileService.saveProfile(profile);
+
+    // Save to Drift DB BodyMeasurements so it updates history and body age tracking
+    final effectiveWeight = weight ?? (await UserProfileService.getProfile()).weightKg;
+    if (effectiveWeight != null && effectiveWeight > 0) {
+      await BodyMeasurementRepositoryImpl().saveMeasurement(
+        weightKg: effectiveWeight,
+        bodyFatPct: bodyFat,
+        source: 'manual',
+      );
+    }
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(BodyAgeCheckinCubit.keyMonthlyReminderEnabled, _monthlyReminderEnabled);
     HapticFeedback.lightImpact();
@@ -391,6 +428,119 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
             const SizedBox(height: Tok.space16),
 
+            // Body Fat Card
+            GlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('BODY COMPOSITION', style: TokType.sectionLabel),
+                      GestureDetector(
+                        onTap: () => BodyFatGuideSheet.show(context),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.info_outline_rounded,
+                              size: 13,
+                              color: Tok.neonAccent,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'MEASURE GUIDE',
+                              style: TokType.caption.copyWith(
+                                color: Tok.neonAccent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: Tok.space16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('BODY FAT PERCENTAGE', style: TokType.caption),
+                            const SizedBox(height: Tok.space8),
+                            TextField(
+                              controller: _bodyFatController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style:
+                                  TokType.metricMedium.copyWith(fontSize: 18),
+                              onChanged: (_) => setState(() {}),
+                              decoration: InputDecoration(
+                                hintText: '18.0',
+                                hintStyle: TokType.metricMedium.copyWith(
+                                  fontSize: 18,
+                                  color: Tok.textSecondary,
+                                ),
+                                suffixText: '%',
+                                suffixStyle: TokType.unit,
+                                filled: true,
+                                fillColor: Tok.glassFillRecessed,
+                                border: OutlineInputBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(Tok.radiusSm),
+                                  borderSide: BorderSide(
+                                      color: Tok.glassBorder, width: 0.5),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(Tok.radiusSm),
+                                  borderSide: BorderSide(
+                                      color: Tok.glassBorder, width: 0.5),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(Tok.radiusSm),
+                                  borderSide: BorderSide(
+                                      color: Tok.glassBorderBright, width: 1),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: Tok.space12,
+                                  vertical: Tok.space8,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: Tok.space16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('CATEGORY', style: TokType.caption),
+                          const SizedBox(height: Tok.space8),
+                          _buildBodyFatCategoryBadge(_parsedBodyFat, _selectedGender),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: Tok.space12),
+                  Text(
+                    'Body fat % provides direct insight into lean mass vs adipose tissue, heavily refining body age precision.',
+                    style: TokType.bodySmall.copyWith(
+                      color: Tok.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: Tok.space16),
+
             // Live Calculated Biomarkers
             if (bmi != null || bmr != null) ...[
               GlassCard(
@@ -542,6 +692,70 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBodyFatCategoryBadge(double? fat, String? gender) {
+    if (fat == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Tok.space12,
+          vertical: Tok.space8,
+        ),
+        decoration: BoxDecoration(
+          color: Tok.glassFillRecessed,
+          borderRadius: BorderRadius.circular(Tok.radiusSm),
+          border: Border.all(color: Tok.glassBorder, width: 0.5),
+        ),
+        child: Text(
+          'OPTIONAL',
+          style: TokType.caption.copyWith(
+            color: Tok.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    final isFemale = gender == 'female';
+    final athleticMax = isFemale ? 20.0 : 13.0;
+    final fitnessMax = isFemale ? 24.0 : 17.0;
+    final averageMax = isFemale ? 31.0 : 24.0;
+
+    String label;
+    Color color;
+    if (fat <= athleticMax) {
+      label = 'ATHLETIC';
+      color = Tok.neonAccent;
+    } else if (fat <= fitnessMax) {
+      label = 'FITNESS';
+      color = Colors.greenAccent;
+    } else if (fat <= averageMax) {
+      label = 'AVERAGE';
+      color = Colors.amberAccent;
+    } else {
+      label = 'MODERATE';
+      color = Colors.orangeAccent;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Tok.space12,
+        vertical: Tok.space8,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(Tok.radiusSm),
+        border: Border.all(color: color.withValues(alpha: 0.8), width: 0.5),
+      ),
+      child: Text(
+        label,
+        style: TokType.caption.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
         ),
       ),
     );

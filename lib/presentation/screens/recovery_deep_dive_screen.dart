@@ -996,7 +996,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                       SizedBox(width: 5),
                       Flexible(
                         child: Text(
-                          'UTH-SØRENSEN BASELINE',
+                          'CALCULATION BREAKDOWN',
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 9.5,
@@ -1021,7 +1021,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                     ),
                   ),
                   child: const Text(
-                    'HR RATIO',
+                    'UTH\u2013S\u00d8RENSEN',
                     style: TextStyle(
                       fontSize: 8.5,
                       fontWeight: FontWeight.w700,
@@ -1369,6 +1369,41 @@ class _Vo2ExplainerSheet extends StatelessWidget {
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                   color: Tok.textTertiary,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Tok.glassFillRecessed,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Tok.glassBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'FORMULA',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                        color: Tok.textTertiary,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'VO₂max = 15 × (HRmax ÷ HRrest)',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                        color: Tok.recoveryOptimal,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
