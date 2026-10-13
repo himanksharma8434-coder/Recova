@@ -752,6 +752,10 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       spo2Baseline7d: spo2Baseline,
       todayRespiratoryRate: todayResp,
       respiratoryRateBaseline: baselineResp,
+      dayStrain: dayStrain,
+      asOfTime: now,
+      todaySteps: todaySteps,
+      workoutMinutes: workouts.fold<int>(0, (sum, w) => sum + w.durationMinutes),
     );
 
     // Dynamic Target Strain based on the live calculated score
@@ -844,6 +848,10 @@ class HealthRepositoryImpl implements HealthSourceRepository {
 
     final summaryResult = DerivedMetricSummary(
       recoveryScore: liveRecovery.score,
+      baselineRecoveryScore: liveRecovery.baselineScore,
+      strainImpact: liveRecovery.strainImpact,
+      restReplenishment: liveRecovery.restReplenishment,
+      restHours: liveRecovery.restHours,
       recoveryComponentHrv: liveRecovery.hrvComponent,
       recoveryComponentRhr: liveRecovery.rhrComponent,
       recoveryComponentSleep: liveRecovery.sleepComponent,
