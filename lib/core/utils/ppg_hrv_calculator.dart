@@ -19,22 +19,22 @@ class PpgHrvCalculator {
     final sorted = List<RawHealthRecord>.from(hrRecords)
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
+    final validRecords = sorted
+        .where((r) => r.value >= 35.0 && r.value <= 220.0)
+        .toList();
+
     final validDiffs = <double>[];
     final allIbis = <double>[];
 
-    for (int i = 0; i < sorted.length - 1; i++) {
-      final r1 = sorted[i];
-      final r2 = sorted[i + 1];
+    for (int i = 0; i < validRecords.length - 1; i++) {
+      final r1 = validRecords[i];
+      final r2 = validRecords[i + 1];
 
       // Must be physically close in time to be considered "successive" in a sampled HR context
       // e.g., within 5 minutes. If it's a gap, it's not a valid successive difference.
       if (r2.startTime.difference(r1.startTime).inMinutes.abs() > 5) {
         continue;
       }
-
-      // Filter non-physiological values (must be 35–220 bpm)
-      if (r1.value < 35.0 || r1.value > 220.0) continue;
-      if (r2.value < 35.0 || r2.value > 220.0) continue;
 
       final ibi1 = 60000.0 / r1.value;
       final ibi2 = 60000.0 / r2.value;

@@ -39,7 +39,7 @@ class ComputeVo2Max {
     // Guard against unreasonable ratios
     if (hrMax <= hrRest) return null;
 
-    final vo2 = 15.3 * (hrMax / hrRest);
+    final vo2 = 15.0 * (hrMax / hrRest);
     if (vo2 < 15.0 || vo2 > 85.0) return null;
 
     return vo2;
