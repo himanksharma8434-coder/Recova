@@ -10,6 +10,8 @@ import '../../data/database/app_database.dart';
 import '../../domain/entities/daily_metric_point.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../../domain/services/vo2_max_estimator.dart';
+import '../components/glass_card.dart';
+import 'recovery_calculation_screen.dart';
 
 /// Available cardiovascular & recovery metrics for trend analysis.
 enum CardioMetric {
@@ -443,6 +445,14 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
           ),
           const SizedBox(height: 16),
 
+          // ── Dynamic Recovery & Strain Hero Card ──
+          _buildRecoveryHeroCard(tier, score),
+          const SizedBox(height: 20),
+
+          // ── Cardio Capacity Header ──
+          _buildCardioSectionHeader(),
+          const SizedBox(height: 12),
+
           // ── Metric Selector Pills (VO2 MAX / MAX HR / RESTING HR) ──
           Container(
             padding: const EdgeInsets.all(4),
@@ -755,6 +765,22 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 20),
+
+          // ── Strain & Autonomic Load Tuning ──
+          _buildAutonomicTrainingZoneCard(),
+          const SizedBox(height: 16),
+
+          // ── Rest Replenishment Engine Tracker ──
+          _buildRestReplenishmentEngineCard(),
+          const SizedBox(height: 16),
+
+          // ── 5 Biometric Recovery Pillars ──
+          _buildBiometricPillarsSection(),
+          const SizedBox(height: 16),
+
+          // ── 7-Day Strain vs Recovery Interplay ──
+          _buildHistoricalInterplayCard(),
         ],
       ),
     );
@@ -1299,7 +1325,1225 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ENHANCED RECOVERY & STRAIN HERO DYNAMICS
+  // ═══════════════════════════════════════════════════════════════════════════
 
+  Widget _buildRecoveryHeroCard(RecoveryTier tier, double? score) {
+    final baseline = widget.summary?.baselineRecoveryScore ?? score ?? 51.0;
+    final strainImpact = widget.summary?.strainImpact ?? 0.0;
+    final restReplenishment = widget.summary?.restReplenishment ?? 0.0;
+    final isRecharging = restReplenishment > 0 && strainImpact <= restReplenishment;
+    final hasFatigue = strainImpact > 0 && strainImpact > restReplenishment;
+
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      borderRadius: 16,
+      accentGlow: tier.color.withValues(alpha: 0.18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top row: Score + Tier & Realtime Dynamics Tag
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Score Display
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    score != null ? score.round().toString() : '--',
+                    style: TextStyle(
+                      fontSize: 38,
+                      fontWeight: FontWeight.w300,
+                      letterSpacing: -1.0,
+                      color: tier.color,
+                    ),
+                  ),
+                  Text(
+                    '%',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: tier.color.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 8),
+              // Status and Tier Chips
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: tier.containerColor,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: tier.borderColor),
+                      ),
+                      child: Text(
+                        tier.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.7,
+                          color: tier.color,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isRecharging
+                              ? Icons.bolt
+                              : (hasFatigue ? Icons.local_fire_department : Icons.shield_outlined),
+                          size: 11,
+                          color: isRecharging
+                              ? Tok.accentBlue
+                              : (hasFatigue ? Tok.accentAmber : Tok.textSecondary),
+                        ),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            isRecharging
+                                ? 'REST REPLENISHING (+${restReplenishment.toStringAsFixed(1)}%)'
+                                : (hasFatigue
+                                    ? 'STRAIN FATIGUE (-${strainImpact.toStringAsFixed(1)}%)'
+                                    : 'WAKING BASELINE'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                              color: isRecharging
+                                  ? Tok.accentBlue
+                                  : (hasFatigue ? Tok.accentAmber : Tok.textSecondary),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // ── Dynamic Intraday Recovery Equation Strip ──
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: RecovaColors.surfaceElevation2,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: RecovaColors.borderSubtle),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildEquationCell(
+                    label: 'WAKING',
+                    val: '${baseline.round()}%',
+                    color: RecovaColors.textPrimary,
+                  ),
+                ),
+                _buildEquationOp('–'),
+                Expanded(
+                  child: _buildEquationCell(
+                    label: 'STRAIN',
+                    val: '-${strainImpact.toStringAsFixed(1)}%',
+                    color: strainImpact > 0 ? Tok.accentAmber : RecovaColors.textSecondary,
+                  ),
+                ),
+                _buildEquationOp('+'),
+                Expanded(
+                  child: _buildEquationCell(
+                    label: 'REST GAIN',
+                    val: '+${restReplenishment.toStringAsFixed(1)}%',
+                    color: restReplenishment > 0 ? Tok.accentBlue : RecovaColors.textSecondary,
+                  ),
+                ),
+                _buildEquationOp('='),
+                Expanded(
+                  child: _buildEquationCell(
+                    label: 'CURRENT',
+                    val: '${score != null ? score.round() : '--'}%',
+                    color: tier.color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Explanatory micro-text
+          const Text(
+            'Recovery responds intraday: daytime cardiovascular strain depletes capacity, while restful periods allow parasympathetic recharge (+1.25%/hr).',
+            style: TextStyle(
+              fontSize: 9.5,
+              height: 1.35,
+              color: RecovaColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Full Algorithm Button Link
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => RecoveryCalculationScreen(summary: widget.summary),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Tok.neonAccentSurface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Tok.neonAccentGlow),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: const [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(Icons.auto_graph, size: 13, color: Tok.neonAccent),
+                        SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'EXPLORE 5-PILLAR ALGORITHM',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
+                              color: Tok.neonAccent,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 6),
+                  Icon(Icons.arrow_forward_ios, size: 10, color: Tok.neonAccent),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEquationCell({
+    required String label,
+    required String val,
+    required Color color,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 7.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.4,
+            color: RecovaColors.textTertiary,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          val,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEquationOp(String op) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Text(
+        op,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: RecovaColors.textTertiary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardioSectionHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        Text(
+          'CARDIO CAPACITY & TELEMETRY',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.9,
+            color: RecovaColors.textPrimary,
+          ),
+        ),
+        SizedBox(height: 3),
+        Text(
+          'Aerobic power (VO₂ Max) and cardiovascular threshold boundaries.',
+          style: TextStyle(
+            fontSize: 9.5,
+            color: RecovaColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAutonomicTrainingZoneCard() {
+    final strain = widget.summary?.dayStrain ?? 0.0;
+    final target = widget.summary?.targetStrain ?? 10.0;
+    final minTarget = (target - 1.5).clamp(0.0, 21.0);
+    final maxTarget = (target + 1.5).clamp(0.0, 21.0);
+
+    final String zoneName;
+    final String zoneDescription;
+    final Color zoneColor;
+    final IconData zoneIcon;
+
+    if (strain < minTarget) {
+      zoneName = 'RESTORATIVE ZONE';
+      zoneDescription = 'Low cardiovascular load allows parasympathetic replenishment.';
+      zoneColor = Tok.neonAccent;
+      zoneIcon = Icons.spa_outlined;
+    } else if (strain <= maxTarget) {
+      zoneName = 'OPTIMAL ADAPTIVE ZONE';
+      zoneDescription = 'Cardiac stimulus matched to autonomic recovery capacity.';
+      zoneColor = Tok.accentBlue;
+      zoneIcon = Icons.check_circle_outline;
+    } else {
+      zoneName = 'OVERREACHING ZONE';
+      zoneDescription = 'Heavy sympathetic fatigue accumulating. Expect delayed recovery.';
+      zoneColor = Tok.accentAmber;
+      zoneIcon = Icons.warning_amber_rounded;
+    }
+
+    final strainNormalized = (strain / 21.0).clamp(0.0, 1.0);
+    final minTargetNorm = (minTarget / 21.0).clamp(0.0, 1.0);
+    final maxTargetNorm = (maxTarget / 21.0).clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: RecovaColors.surfaceElevation1,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: RecovaColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: const [
+                    Icon(Icons.tune, size: 14, color: Tok.accentAmber),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'STRAIN & AUTONOMIC LOAD TUNING',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.9,
+                          color: RecovaColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: zoneColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: zoneColor.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(zoneIcon, size: 10, color: zoneColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      zoneName,
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: zoneColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Strain metrics comparison
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'DAY STRAIN',
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                      color: RecovaColors.textTertiary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    strain.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w300,
+                      color: RecovaColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    'TARGET CEILING',
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                      color: RecovaColors.textTertiary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${minTarget.toStringAsFixed(1)} - ${maxTarget.toStringAsFixed(1)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Tok.accentBlue,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Visual Spectrum Bar (0 to 21)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final leftTarget = minTargetNorm * width;
+              final targetWidth = ((maxTargetNorm - minTargetNorm) * width).clamp(4.0, width);
+              final strainPosition = (strainNormalized * width).clamp(0.0, width - 6);
+
+              return Column(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        height: 8,
+                        width: width,
+                        decoration: BoxDecoration(
+                          color: RecovaColors.surfaceElevation3,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      Positioned(
+                        left: leftTarget,
+                        width: targetWidth,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Tok.accentBlue.withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Tok.accentBlue.withValues(alpha: 0.6)),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        width: strainPosition,
+                        top: 1,
+                        bottom: 1,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Tok.neonAccent.withValues(alpha: 0.6),
+                                zoneColor,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: (strainPosition - 3).clamp(0.0, width - 6),
+                        top: -2,
+                        child: Container(
+                          width: 6,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: RecovaColors.monochromeWhite,
+                            borderRadius: BorderRadius.circular(3),
+                            boxShadow: [
+                              BoxShadow(
+                                color: zoneColor.withValues(alpha: 0.8),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Flexible(
+                        child: Text(
+                          '0.0 (REST)',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 8, color: RecovaColors.textTertiary),
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'TARGET ZONE',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 8, color: Tok.accentBlue),
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          '21.0 (MAX)',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 8, color: RecovaColors.textTertiary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          Text(
+            zoneDescription,
+            style: const TextStyle(
+              fontSize: 9.5,
+              height: 1.35,
+              color: RecovaColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRestReplenishmentEngineCard() {
+    final restHours = widget.summary?.restHours ?? 0.0;
+    final restGain = widget.summary?.restReplenishment ?? 0.0;
+    final progress = (restGain / 18.0).clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: RecovaColors.surfaceElevation1,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: RecovaColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: const [
+                    Icon(Icons.battery_charging_full, size: 15, color: Tok.accentBlue),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'REST REPLENISHMENT ENGINE',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.9,
+                          color: RecovaColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Tok.accentBlueSurface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Tok.accentBlue.withValues(alpha: 0.3)),
+                ),
+                child: const Text(
+                  '+1.25%/HR',
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w700,
+                    color: Tok.accentBlue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // 3 mini-stat tiles
+          Row(
+            children: [
+              Expanded(
+                child: _buildMiniStatTile(
+                  title: 'REST LOGGED',
+                  val: '${restHours.toStringAsFixed(1)}h',
+                  sub: 'Low exertion',
+                  valColor: RecovaColors.textPrimary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMiniStatTile(
+                  title: 'HOURLY RECHARGE',
+                  val: '+1.25%',
+                  sub: 'Vagal rebound',
+                  valColor: Tok.accentBlue,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMiniStatTile(
+                  title: 'DAY GAIN',
+                  val: '+${restGain.toStringAsFixed(1)}%',
+                  sub: 'Earned today',
+                  valColor: Tok.neonAccent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Rest recharging progress bar towards intraday cap
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Flexible(
+                    child: Text(
+                      'PARASYMPATHETIC CHARGE',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                        color: RecovaColors.textTertiary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '+${restGain.toStringAsFixed(1)}% / +18% max',
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w600,
+                      color: Tok.accentBlue,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: RecovaColors.surfaceElevation3,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Tok.accentBlue),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Low heart rates and minimal exertion activate the parasympathetic branch, allowing cellular restoration to replenish waking recovery by 1.25% each resting hour.',
+            style: TextStyle(
+              fontSize: 9.5,
+              height: 1.35,
+              color: RecovaColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniStatTile({
+    required String title,
+    required String val,
+    required String sub,
+    required Color valColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: RecovaColors.surfaceElevation2,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: RecovaColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 7.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+              color: RecovaColors.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            val,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: valColor,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            sub,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 7.5,
+              color: RecovaColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBiometricPillarsSection() {
+    final hrv = widget.summary?.hrvMs;
+    final baseHrv = widget.summary?.baselineHrv;
+    final hrvComp = widget.summary?.recoveryComponentHrv ?? 50.0;
+
+    final rhr = widget.summary?.restingHr;
+    final baseRhr = widget.summary?.baselineRestingHr;
+    final rhrComp = widget.summary?.recoveryComponentRhr ?? 50.0;
+
+    final sleepHours = widget.summary?.sleepHours;
+    final baseSleep = widget.summary?.baselineSleepHours ?? 7.5;
+    final sleepComp = widget.summary?.recoveryComponentSleep ?? 50.0;
+
+    final spo2 = widget.summary?.spo2;
+    final baseSpo2 = widget.summary?.baselineSpo2 ?? 98.0;
+    final spo2Comp = widget.summary?.recoveryComponentSpo2 ?? 50.0;
+
+    final resp = widget.summary?.respiratoryRate;
+    final baseResp = widget.summary?.baselineRespiratoryRate ?? 15.0;
+    final respComp = widget.summary?.recoveryComponentRespiratory ?? 100.0;
+
+    final isSleepDeficit = sleepHours != null && sleepHours < 6.0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: RecovaColors.surfaceElevation1,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: RecovaColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.shield_outlined, size: 14, color: Tok.neonAccent),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        '5 AUTONOMIC RECOVERY PILLARS',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.9,
+                          color: RecovaColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8),
+              Text(
+                'WEIGHTED',
+                style: TextStyle(
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                  color: RecovaColors.textTertiary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Composite biological algorithm determining your waking recovery baseline.',
+            style: TextStyle(
+              fontSize: 9.5,
+              color: RecovaColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          _buildPillarRow(
+            icon: Icons.monitor_heart,
+            name: 'HEART RATE VARIABILITY (HRV)',
+            weight: '40% WEIGHT',
+            currentVal: hrv != null ? '${hrv.round()} ms' : '--',
+            baselineVal: baseHrv != null ? 'Base ${baseHrv.round()} ms' : 'Calibrating',
+            score: hrvComp,
+            accentColor: Tok.neonAccent,
+          ),
+          const SizedBox(height: 10),
+
+          _buildPillarRow(
+            icon: Icons.favorite,
+            name: 'RESTING HEART RATE (RHR)',
+            weight: '30% WEIGHT',
+            currentVal: rhr != null ? '${rhr.round()} bpm' : '--',
+            baselineVal: baseRhr != null ? 'Base ${baseRhr.round()} bpm' : 'Calibrating',
+            score: rhrComp,
+            accentColor: Tok.accentBlue,
+          ),
+          const SizedBox(height: 10),
+
+          _buildPillarRow(
+            icon: Icons.bedtime,
+            name: 'SLEEP PERFORMANCE & DURATION',
+            weight: '20% WEIGHT',
+            currentVal: sleepHours != null ? '${sleepHours.toStringAsFixed(1)}h' : '--',
+            baselineVal: 'Need ${baseSleep.toStringAsFixed(1)}h',
+            score: sleepComp,
+            accentColor: isSleepDeficit ? Tok.accentAmber : Tok.accentViolet,
+            warningTag: isSleepDeficit ? 'DEFICIT GOVERNOR CLAMPED BASELINE CEILING' : null,
+          ),
+          const SizedBox(height: 10),
+
+          _buildPillarRow(
+            icon: Icons.water_drop,
+            name: 'BLOOD OXYGEN (SpO₂)',
+            weight: '5% WEIGHT',
+            currentVal: spo2 != null ? '${spo2.toStringAsFixed(1)}%' : '--',
+            baselineVal: 'Base ${baseSpo2.toStringAsFixed(1)}%',
+            score: spo2Comp,
+            accentColor: Tok.accentBlue,
+          ),
+          const SizedBox(height: 10),
+
+          _buildPillarRow(
+            icon: Icons.air,
+            name: 'RESPIRATORY RATE',
+            weight: '5% WEIGHT',
+            currentVal: resp != null ? '${resp.toStringAsFixed(1)} rpm' : '--',
+            baselineVal: 'Base ${baseResp.toStringAsFixed(1)} rpm',
+            score: respComp,
+            accentColor: Tok.neonAccent,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPillarRow({
+    required IconData icon,
+    required String name,
+    required String weight,
+    required String currentVal,
+    required String baselineVal,
+    required double score,
+    required Color accentColor,
+    String? warningTag,
+  }) {
+    final normScore = (score / 100.0).clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: RecovaColors.surfaceElevation2,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: RecovaColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(icon, size: 13, color: accentColor),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                          color: RecovaColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: RecovaColors.surfaceElevation3,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  weight,
+                  style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    color: RecovaColors.textTertiary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(
+                      currentVal,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: RecovaColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        '($baselineVal)',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: RecovaColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${score.round()}% Score',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: accentColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: normScore,
+              minHeight: 4,
+              backgroundColor: RecovaColors.surfaceElevation3,
+              valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+            ),
+          ),
+
+          if (warningTag != null) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.info_outline, size: 10, color: Tok.accentAmber),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    warningTag,
+                    style: const TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                      color: Tok.accentAmber,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoricalInterplayCard() {
+    final strainHistory = widget.summary?.strainHistory7d ?? [];
+    final recoveryHistory = widget.summary?.recoveryHistory14d ?? [];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: RecovaColors.surfaceElevation1,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: RecovaColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.compare_arrows, size: 14, color: Tok.accentBlue),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        '7-DAY STRAIN VS RECOVERY INTERPLAY',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.9,
+                          color: RecovaColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8),
+              Text(
+                'WEEKLY DYNAMICS',
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                  color: RecovaColors.textTertiary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Shows how cumulative cardiac exertion directly predicts autonomic readiness.',
+            style: TextStyle(
+              fontSize: 9.5,
+              color: RecovaColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 7-day bars
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(7, (index) {
+              final dayOffset = 6 - index;
+              final now = DateTime.now();
+              final dayDate = now.subtract(Duration(days: dayOffset));
+              const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+              final dayLabel = weekdays[dayDate.weekday - 1];
+
+              // Look up point if available, else derive sensible score
+              double strainVal = 10.0;
+              if (index < strainHistory.length) {
+                strainVal = strainHistory[index].score;
+              } else if (index == 6 && widget.summary?.dayStrain != null) {
+                strainVal = widget.summary!.dayStrain!;
+              }
+
+              double recVal = 55.0;
+              if (index < recoveryHistory.length) {
+                recVal = recoveryHistory[index].score;
+              } else if (index == 6 && widget.summary?.recoveryScore != null) {
+                recVal = widget.summary!.recoveryScore!;
+              }
+
+              final recTier = RecoveryTier.fromScore(recVal);
+
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Column(
+                    children: [
+                      // Recovery pill
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 1),
+                        decoration: BoxDecoration(
+                          color: recTier.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: recTier.color.withValues(alpha: 0.4)),
+                        ),
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${recVal.round()}%',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: recTier.color,
+                              ),
+                            ),
+                            const Text(
+                              'REC',
+                              style: TextStyle(
+                                fontSize: 6.5,
+                                color: RecovaColors.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+
+                      // Strain pill
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 1),
+                        decoration: BoxDecoration(
+                          color: Tok.accentAmber.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Tok.accentAmber.withValues(alpha: 0.35)),
+                        ),
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              strainVal.toStringAsFixed(1),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                                color: Tok.accentAmber,
+                              ),
+                            ),
+                            const Text(
+                              'STR',
+                              style: TextStyle(
+                                fontSize: 6.5,
+                                color: RecovaColors.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+
+                      Text(
+                        index == 6 ? 'TODAY' : dayLabel,
+                        style: TextStyle(
+                          fontSize: index == 6 ? 7 : 8,
+                          fontWeight: index == 6 ? FontWeight.w800 : FontWeight.w600,
+                          color: index == 6 ? RecovaColors.monochromeWhite : RecovaColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
 }
 class _Vo2ExplainerSheet extends StatelessWidget {
   final Vo2MaxResult? vo2Result;

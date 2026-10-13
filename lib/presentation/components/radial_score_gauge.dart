@@ -9,12 +9,18 @@ import 'liquid_glass.dart';
 /// bold % readout, vital pulsing indicator, and semantic status badge.
 class RadialScoreGauge extends StatefulWidget {
   final double? score;
+  final double? baselineScore;
+  final double? strainImpact;
+  final double? restReplenishment;
   final double size;
   final VoidCallback? onTap;
 
   const RadialScoreGauge({
     super.key,
     required this.score,
+    this.baselineScore,
+    this.strainImpact,
+    this.restReplenishment,
     this.size = 200,
     this.onTap,
   });
@@ -51,6 +57,23 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
   Widget build(BuildContext context) {
     final effectiveScore = widget.score ?? 0;
     final tier = RecoveryTier.fromScore(widget.score);
+
+    String statusText = tier.statusSubtitle;
+    Color statusAccentColor = tier.color;
+    bool showDot = false;
+
+    if (widget.strainImpact != null &&
+        widget.strainImpact! > 3.0 &&
+        widget.strainImpact! >= (widget.restReplenishment ?? 0.0)) {
+      statusText = 'STRAIN FATIGUE • -${widget.strainImpact!.round()}%';
+      statusAccentColor = Tok.accentAmber;
+      showDot = true;
+    } else if (widget.restReplenishment != null &&
+        widget.restReplenishment! >= 1.0) {
+      statusText = 'REST REPLENISHING • +${widget.restReplenishment!.round()}%';
+      statusAccentColor = Tok.recoveryOptimal;
+      showDot = true;
+    }
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -152,26 +175,43 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
                 ),
                 const SizedBox(height: Tok.space8),
 
-                // Status Pill (Primed for strain / status info)
+                // Status Pill (Dynamic live strain & rest replenishment indicator)
                 LiquidGlass(
                   padding: const EdgeInsets.symmetric(
                     horizontal: Tok.space10,
                     vertical: 3,
                   ),
                   hasBlur: false,
-                  customBottomReflection: tier.color.withValues(alpha: 0.2),
+                  customBottomReflection: statusAccentColor.withValues(alpha: 0.2),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (showDot) ...[
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: statusAccentColor,
+                            boxShadow: [
+                              BoxShadow(
+                                color: statusAccentColor.withValues(alpha: 0.8),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                      ],
                       Flexible(
                         child: Text(
-                          tier.statusSubtitle,
+                          statusText,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TokType.caption.copyWith(
                             fontSize: 8.5,
                             fontWeight: FontWeight.w600,
-                            color: Tok.textSecondary,
+                            color: showDot ? Tok.textPrimary : Tok.textSecondary,
                             letterSpacing: 0.7,
                           ),
                         ),

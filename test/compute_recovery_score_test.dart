@@ -190,5 +190,77 @@ void main() {
       expect(result.sleepComponent, lessThan(60));
       expect(result.score, lessThan(67));
     });
+
+    test('morning recovery stuck around 51 slowly increases as daytime rest continues with low activity', () {
+      // User with 4.5h sleep (waking baseline ~51)
+      final morningBaseline = computeRecoveryScore(
+        todayRhr: 60,
+        rhrBaseline7d: 60,
+        lastNightSleepMinutes: 275,
+        sleepBaseline7d: 480,
+      );
+      expect(morningBaseline.score, closeTo(51, 1));
+      expect(morningBaseline.baselineScore, closeTo(51, 1));
+
+      // 6 hours of daytime rest (e.g. 1:00 PM, 6 hrs awake since 7:00 AM) with very low activity (strain = 1.0)
+      final middayRest = computeRecoveryScore(
+        todayRhr: 60,
+        rhrBaseline7d: 60,
+        lastNightSleepMinutes: 275,
+        sleepBaseline7d: 480,
+        dayStrain: 1.0,
+        asOfTime: DateTime(2026, 10, 13, 13, 0),
+      );
+
+      // Score has slowly increased through restful replenishment!
+      expect(middayRest.baselineScore, closeTo(51, 1));
+      expect(middayRest.restReplenishment, greaterThanOrEqualTo(6.0));
+      expect(middayRest.strainImpact, closeTo(0, 1));
+      expect(middayRest.score, greaterThan(morningBaseline.score));
+      expect(middayRest.score, closeTo(58, 2));
+
+      // Evening (7:00 PM, 12 hrs awake) with low activity (strain = 2.0)
+      final eveningRest = computeRecoveryScore(
+        todayRhr: 60,
+        rhrBaseline7d: 60,
+        lastNightSleepMinutes: 275,
+        sleepBaseline7d: 480,
+        dayStrain: 2.0,
+        asOfTime: DateTime(2026, 10, 13, 19, 0),
+      );
+
+      // Even higher replenishment over the day of rest
+      expect(eveningRest.restReplenishment, greaterThan(middayRest.restReplenishment));
+      expect(eveningRest.score, closeTo(66, 2));
+      expect(eveningRest.primaryFactor, contains('Active daytime rest'));
+    });
+
+    test('strenuous cardiovascular strain reduces dynamic recovery score', () {
+      final base = computeRecoveryScore(
+        todayHrv: 65,
+        hrvBaseline: 55,
+        todayRhr: 58,
+        rhrBaseline7d: 60,
+        lastNightSleepMinutes: 480,
+        sleepBaseline7d: 480,
+      );
+      expect(base.score, greaterThanOrEqualTo(85));
+
+      // Strenuous workout pushing strain to 15.5 at 11:00 AM
+      final underStrain = computeRecoveryScore(
+        todayHrv: 65,
+        hrvBaseline: 55,
+        todayRhr: 58,
+        rhrBaseline7d: 60,
+        lastNightSleepMinutes: 480,
+        sleepBaseline7d: 480,
+        dayStrain: 15.5,
+        asOfTime: DateTime(2026, 10, 13, 11, 0),
+      );
+
+      expect(underStrain.strainImpact, greaterThanOrEqualTo(10.0));
+      expect(underStrain.score, lessThan(base.score));
+      expect(underStrain.primaryFactor, contains('Exertion strain'));
+    });
   });
 }
