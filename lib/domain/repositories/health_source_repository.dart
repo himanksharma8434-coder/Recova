@@ -162,6 +162,10 @@ class HistoricalScorePoint {
 /// Summary object for the dashboard and all tabs. 100% computed from real data.
 class DerivedMetricSummary {
   final double? recoveryScore;
+  final double? baselineRecoveryScore;
+  final double? strainImpact;
+  final double? restReplenishment;
+  final double? restHours;
   final double? recoveryComponentHrv;
   final double? recoveryComponentRhr;
   final double? recoveryComponentSleep;
@@ -202,6 +206,10 @@ class DerivedMetricSummary {
 
   const DerivedMetricSummary({
     this.recoveryScore,
+    this.baselineRecoveryScore,
+    this.strainImpact,
+    this.restReplenishment,
+    this.restHours,
     this.recoveryComponentHrv,
     this.recoveryComponentRhr,
     this.recoveryComponentSleep,
