@@ -123,39 +123,40 @@ class _SleepArchitectureDetailScreenState
 
       if (isToday) {
         // Authoritative live data for Today
-        final rawHours = widget.summary?.sleepHours ?? 6.0;
-        // Guard against any external double-counted 13h value
-        final hours = (rawHours > 12.0 ? (rawHours / 2.0) : rawHours).clamp(1.0, 12.0);
-        final totalM = (hours * 60).round();
+        final rawHours = widget.summary?.sleepHours;
+        if (rawHours != null && rawHours > 0) {
+          final hours =
+              (rawHours > 12.0 ? (rawHours / 2.0) : rawHours).clamp(0.2, 12.0);
+          final totalM = (hours * 60).round();
 
-        if (widget.summary?.sleepStages != null &&
-            widget.summary!.sleepStages!.hasStageData &&
-            widget.summary!.sleepStages!.deepMinutes > 0) {
-          final st = widget.summary!.sleepStages!;
-          final stTotal = st.deepMinutes + st.lightMinutes + st.remMinutes;
-          if (stTotal > 720) {
-            // Guard: halved if doubled across multiple sources
-            final scale = (hours * 60) / stTotal;
-            deep = (st.deepMinutes * scale).round();
-            rem = (st.remMinutes * scale).round();
-            core = (st.lightMinutes * scale).round();
-            awake = (st.awakeMinutes * scale).round().clamp(10, 30);
+          if (widget.summary?.sleepStages != null &&
+              widget.summary!.sleepStages!.hasStageData &&
+              widget.summary!.sleepStages!.deepMinutes > 0) {
+            final st = widget.summary!.sleepStages!;
+            final stTotal = st.deepMinutes + st.lightMinutes + st.remMinutes;
+            if (stTotal > 720) {
+              final scale = (hours * 60) / stTotal;
+              deep = (st.deepMinutes * scale).round();
+              rem = (st.remMinutes * scale).round();
+              core = (st.lightMinutes * scale).round();
+              awake = (st.awakeMinutes * scale).round().clamp(10, 30);
+            } else {
+              deep = st.deepMinutes;
+              rem = st.remMinutes;
+              core = st.lightMinutes;
+              awake = st.awakeMinutes > 0 ? st.awakeMinutes : 18;
+            }
           } else {
-            deep = st.deepMinutes;
-            rem = st.remMinutes;
-            core = st.lightMinutes;
-            awake = st.awakeMinutes > 0 ? st.awakeMinutes : 18;
+            deep = (totalM * 0.222).round();
+            rem = (totalM * 0.236).round();
+            core = max(30, totalM - deep - rem);
+            awake = 18;
           }
         } else {
-          // Perfectly divide the 6 hours of sleep:
-          // Deep: 80m (1h 20m, 22%)
-          // REM: 85m (1h 25m, 24%)
-          // Core: 195m (3h 15m, 54%)
-          // Sum: 80 + 195 + 85 = 360m (6h 0m)
-          deep = (totalM * 0.222).round();
-          rem = (totalM * 0.236).round();
-          core = max(30, totalM - deep - rem);
-          awake = 18;
+          deep = 0;
+          rem = 0;
+          core = 0;
+          awake = 0;
         }
       } else {
         // Trailing historical days centered around baseline
@@ -188,36 +189,63 @@ class _SleepArchitectureDetailScreenState
     final fourteenDaysAgo = AppDateUtils.daysAgo(14, from: now);
 
     try {
-      final records = await db.healthRecordDao.getSleepStages(
+      final stages = await db.healthRecordDao.getSleepStages(
         start: fourteenDaysAgo,
-        end: now,
+        end: now.add(const Duration(hours: 4)),
+      );
+      final sessions = await db.healthRecordDao.getSleepRecords(
+        start: fourteenDaysAgo,
+        end: now.add(const Duration(hours: 4)),
       );
 
       final List<_DailySleepBarData> updated = [];
       for (final day in _daysData) {
-        if (day.isToday) {
+        if (day.isToday && day.totalAsleepMinutes > 0) {
           updated.add(day);
         } else {
           // Attribute sleep to the night ending on day.date
           final nightStart = day.date.subtract(const Duration(hours: 14));
-          final nightEnd = day.date.add(const Duration(hours: 12));
-          final dayStages = records
+          final nightEnd = day.date.add(const Duration(hours: 14));
+          final dayStages = stages
               .where((r) =>
-                  r.endTime.isAfter(nightStart) && r.endTime.isBefore(nightEnd))
+                  r.endTime.isAfter(nightStart) && r.startTime.isBefore(nightEnd))
+              .toList();
+          final daySessions = sessions
+              .where((r) =>
+                  r.endTime.isAfter(nightStart) && r.startTime.isBefore(nightEnd))
               .toList();
 
-          if (dayStages.isNotEmpty) {
-            final clean = SleepDataSanitizer.sanitizeOvernightStages(
+          if (dayStages.isNotEmpty || daySessions.isNotEmpty) {
+            final cleanDistributed =
+                SleepDataSanitizer.extractDistributedSessions(
               stageRecords: dayStages,
-              fallbackHours: day.totalHours,
+              sessionRecords: daySessions,
             );
+            int totalDeep = 0;
+            int totalCore = 0;
+            int totalRem = 0;
+            int totalAwake = 0;
+            if (cleanDistributed.sessions.isNotEmpty) {
+              for (final s in cleanDistributed.sessions) {
+                totalDeep += s.sleepData.deepMinutes;
+                totalCore += s.sleepData.coreMinutes;
+                totalRem += s.sleepData.remMinutes;
+                totalAwake += s.sleepData.awakeMinutes;
+              }
+            } else {
+              totalDeep = cleanDistributed.mainSleep.deepMinutes;
+              totalCore = cleanDistributed.mainSleep.coreMinutes;
+              totalRem = cleanDistributed.mainSleep.remMinutes;
+              totalAwake = cleanDistributed.mainSleep.awakeMinutes;
+            }
+
             updated.add(_DailySleepBarData(
               dayLabel: day.dayLabel,
               date: day.date,
-              deepMinutes: clean.deepMinutes,
-              coreMinutes: clean.coreMinutes,
-              remMinutes: clean.remMinutes,
-              awakeMinutes: clean.awakeMinutes,
+              deepMinutes: totalDeep,
+              coreMinutes: totalCore,
+              remMinutes: totalRem,
+              awakeMinutes: totalAwake,
               isToday: day.isToday,
             ));
           } else {
@@ -545,12 +573,14 @@ class _SingleDaySleepView extends StatelessWidget {
                         border: Border.all(color: Tok.accentBlue.withValues(alpha: 0.3)),
                       ),
                       child: Text(
-                        '${sleepH}h ${sleepM}m ASLEEP',
-                        style: const TextStyle(
+                        sleepHours > 0
+                            ? '${sleepH}h ${sleepM}m ASLEEP'
+                            : 'NO SESSION LOGGED',
+                        style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.6,
-                          color: Tok.accentBlue,
+                          color: sleepHours > 0 ? Tok.accentBlue : RecovaColors.textSecondary,
                         ),
                       ),
                     ),
@@ -564,7 +594,7 @@ class _SingleDaySleepView extends StatelessWidget {
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
-                      '$recoveryBySleepInt',
+                      sleepHours > 0 ? '$recoveryBySleepInt' : '--',
                       style: const TextStyle(
                         fontSize: 48,
                         fontWeight: FontWeight.w300,
@@ -677,12 +707,14 @@ class _SingleDaySleepView extends StatelessWidget {
                         border: Border.all(color: Tok.accentViolet.withValues(alpha: 0.3)),
                       ),
                       child: Text(
-                        '${sleepH}h ${sleepM}m SLEEP',
-                        style: const TextStyle(
+                        sleepHours > 0
+                            ? '${sleepH}h ${sleepM}m SLEEP'
+                            : 'NO SESSION LOGGED',
+                        style: TextStyle(
                           fontSize: 8.5,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.6,
-                          color: Tok.accentViolet,
+                          color: sleepHours > 0 ? Tok.accentViolet : RecovaColors.textSecondary,
                         ),
                       ),
                     ),
