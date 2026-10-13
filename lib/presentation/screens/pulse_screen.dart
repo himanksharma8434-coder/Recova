@@ -9,6 +9,7 @@ import '../components/liquid_glass.dart';
 import '../components/motion.dart';
 import '../components/radial_score_gauge.dart';
 import '../components/sleep_performance_card.dart';
+import '../components/strain_recovery_balance_card.dart';
 import '../components/vital_metric_tile.dart';
 import '../cubits/health_sync/health_sync_cubit.dart';
 import '../cubits/health_sync/health_sync_state.dart';
@@ -204,6 +205,9 @@ class PulseScreen extends StatelessWidget {
           // ── Recovery Gauge ──
           RadialScoreGauge(
             score: summary?.recoveryScore,
+            baselineScore: summary?.baselineRecoveryScore,
+            strainImpact: summary?.strainImpact,
+            restReplenishment: summary?.restReplenishment,
             size: 210,
             onTap: () => _openRecoveryCalculation(context),
           ),
@@ -261,6 +265,13 @@ class PulseScreen extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: Tok.space16),
+
+          // ── Strain & Recovery Autonomic Balance Card ──
+          StrainRecoveryBalanceCard(
+            summary: summary,
+            onTapRecovery: () => _openRecoveryCalculation(context),
           ),
           const SizedBox(height: Tok.space16),
 
