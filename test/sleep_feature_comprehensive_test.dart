@@ -4,9 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whoop/core/constants/health_types.dart';
 import 'package:whoop/core/utils/sleep_data_sanitizer.dart';
 import 'package:whoop/data/database/app_database.dart';
-import 'package:whoop/data/datasources/health_platform_datasource.dart';
-import 'package:whoop/domain/entities/health_record.dart';
-import 'package:whoop/domain/repositories/health_source_repository.dart';
 
 void main() {
   group('Sleep Feature Comprehensive Verification', () {
