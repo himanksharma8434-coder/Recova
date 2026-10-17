@@ -1,5 +1,3 @@
-import 'dart:math';
-
 /// A data point in a workout stream for VO2 Max estimation.
 class WorkoutDataPoint {
   final DateTime timestamp;
