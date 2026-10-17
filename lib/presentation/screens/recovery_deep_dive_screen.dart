@@ -93,10 +93,6 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
   double _calcHrMax = 183.0;
   double _calcHrRest = 60.2;
 
-  // Best possible VO2 max components (single best values from the week)
-  double? _bestRhr;
-  double? _bestMaxHr;
-  double? _bestVo2Max;
   Vo2MaxResult? _latestVo2MaxResult;
 
   @override
@@ -127,9 +123,6 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         _max = cached.maxVal;
         _calcHrMax = cached.hrMax ?? 183.0;
         _calcHrRest = cached.hrRest ?? widget.summary?.baselineRestingHr ?? widget.summary?.restingHr ?? 60.2;
-        _bestRhr = cached.bestRhr;
-        _bestMaxHr = cached.bestMaxHr;
-        _bestVo2Max = cached.bestVo2Max;
         _latestVo2MaxResult = cached.latestVo2MaxResult;
         _loading = false;
       });
@@ -269,9 +262,6 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
           _max = maxVal;
           _calcHrMax = hrMax ?? 183.0;
           _calcHrRest = hrRest ?? widget.summary?.baselineRestingHr ?? widget.summary?.restingHr ?? 60.2;
-          _bestRhr = bestRhr;
-          _bestMaxHr = bestMaxHr;
-          _bestVo2Max = bestVo2Max;
           _latestVo2MaxResult = latestVo2MaxResult;
           _loading = false;
         });
@@ -989,7 +979,6 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
   /// Inline mathematical calculation card visible directly on screen.
   Widget _buildCalculationCard() {
     if (_selectedMetric == CardioMetric.vo2Max) {
-      final hrReserve = _calcHrMax - _calcHrRest;
       final hrMaxSubtitle = _selectedPeriod == Vo2Period.allTime
           ? 'All-Time Peak'
           : (_selectedPeriod == Vo2Period.thirtyDays ? '30D Peak' : '7D Peak');
