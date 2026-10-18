@@ -964,9 +964,9 @@ class HealthRepositoryImpl implements HealthSourceRepository {
               hrvRecords.length;
       // Determine HRV metric type from record type name
       final firstType = hrvRecords.first.recordType;
-      if (firstType?.contains('RMSSD') == true) {
+      if (firstType.contains('RMSSD')) {
         hrvMetricType = 'RMSSD';
-      } else if (firstType?.contains('SDNN') == true) {
+      } else if (firstType.contains('SDNN')) {
         hrvMetricType = 'SDNN';
       }
     }
@@ -1060,7 +1060,7 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     }
     if (finalWeight == null &&
         latestMeasurement?.weightKg != null &&
-        latestMeasurement!.weightKg! > 0) {
+        latestMeasurement!.weightKg > 0) {
       finalWeight = latestMeasurement.weightKg;
     }
 
