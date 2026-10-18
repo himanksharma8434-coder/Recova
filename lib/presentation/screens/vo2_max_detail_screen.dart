@@ -341,22 +341,32 @@ class Vo2MaxDetailScreen extends StatelessWidget {
                       style: TokType.caption.copyWith(color: Tok.textSecondary),
                     ),
                     const SizedBox(height: 8),
-                    if (vo2Result?.userMaxHr != null && vo2Result?.userRestingHr != null) ...[
-                      Text(
-                        '15.3 × (${vo2Result!.userMaxHr!.toInt()} / ${vo2Result!.userRestingHr!.toInt()}) = ${(15.3 * (vo2Result!.userMaxHr! / vo2Result!.userRestingHr!)).toStringAsFixed(1)}',
-                        style: TokType.mono.copyWith(color: Tok.neonAccent, fontSize: 13, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Calculated using 15.3 × (Peak HR / Avg RHR)',
-                        style: TokType.caption.copyWith(color: Tok.textSecondary),
-                      ),
-                    ] else ...[
-                      Text(
-                        '15.3 × (HRmax / HRrest) = VO₂_Max',
-                        style: TokType.mono.copyWith(color: Tok.neonAccent, fontSize: 13, fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                    Builder(
+                      builder: (context) {
+                        final maxHr = vo2Result?.userMaxHr;
+                        final restingHr = vo2Result?.userRestingHr;
+                        if (maxHr != null && restingHr != null && restingHr > 0) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '15.3 × (${maxHr.toInt()} / ${restingHr.toInt()}) = ${(15.3 * (maxHr / restingHr)).toStringAsFixed(1)}',
+                                style: TokType.mono.copyWith(color: Tok.neonAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Calculated using 15.3 × (Peak HR / Avg RHR)',
+                                style: TokType.caption.copyWith(color: Tok.textSecondary),
+                              ),
+                            ],
+                          );
+                        }
+                        return Text(
+                          '15.3 × (HRmax / HRrest) = VO₂_Max',
+                          style: TokType.mono.copyWith(color: Tok.neonAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
