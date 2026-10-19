@@ -125,12 +125,16 @@ class LiquidGlassPill extends StatelessWidget {
             icon!,
             const SizedBox(width: Tok.space8),
           ],
-          Text(
-            label,
-            style: TokType.badge.copyWith(
-              color: Tok.textPrimary,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
+          Flexible(
+            child: Text(
+              label,
+              style: TokType.badge.copyWith(
+                color: Tok.textPrimary,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (trailing != null) ...[
