@@ -58,9 +58,9 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
     final effectiveScore = widget.score ?? 0;
     final tier = RecoveryTier.fromScore(widget.score);
 
-    String statusText = tier.statusSubtitle;
+    String statusText = tier.label;
     Color statusAccentColor = tier.color;
-    bool showDot = false;
+    bool showDot = true;
 
     if (widget.strainImpact != null &&
         widget.strainImpact! > 3.0 &&

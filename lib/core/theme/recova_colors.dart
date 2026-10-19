@@ -88,7 +88,7 @@ class RecovaColors {
 
 /// Recovery score tier classification — bridged to new token colors.
 enum RecoveryTier {
-  optimal('OPTIMAL RECOVERY', 'PRIMED FOR STRAIN', Tok.recoveryOptimal,
+  optimal('OPTIMAL RECOVERY', 'OPTIMAL READINESS', Tok.recoveryOptimal,
       Tok.recoveryOptimalSurface, Tok.recoveryOptimalGlow),
   moderate('MODERATE RECOVERY', 'MAINTAIN LOAD', Tok.recoveryModerate,
       Tok.recoveryModerateSurface, Tok.recoveryModerateGlow),
