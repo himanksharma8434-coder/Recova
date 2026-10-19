@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../data/database/app_database.dart';
@@ -11,6 +12,9 @@ const String healthSyncTaskName = 'com.recova.healthSync';
 /// Runs in a separate isolate — no access to the main app's UI or state.
 @pragma('vm:entry-point')
 void callbackDispatcher() {
+  // Ensure framework services and binary messengers are initialized in the background isolate
+  WidgetsFlutterBinding.ensureInitialized();
+
   Workmanager().executeTask((taskName, inputData) async {
     try {
       if (taskName == healthSyncTaskName ||
@@ -40,10 +44,10 @@ void callbackDispatcher() {
           return true;
         }
 
-        // Avoid redundant background sync if a sync occurred recently (e.g. user had app open)
+        // Avoid redundant background sync if a sync occurred recently (< 10 minutes)
         final lastGlobalSync = await db.syncDao.getLastSyncedAt('GLOBAL_SYNC');
         if (lastGlobalSync != null &&
-            DateTime.now().difference(lastGlobalSync) < const Duration(minutes: 5)) {
+            DateTime.now().difference(lastGlobalSync) < const Duration(minutes: 10)) {
           return true;
         }
 
@@ -67,7 +71,7 @@ void callbackDispatcher() {
 }
 
 /// Register the periodic background sync task.
-/// Call this once after permissions are granted.
+/// Runs every 30 minutes in the background.
 Future<void> registerPeriodicSync() async {
   try {
     await Workmanager().registerPeriodicTask(
@@ -88,5 +92,33 @@ Future<void> registerPeriodicSync() async {
 
 /// Cancel the periodic background sync task.
 Future<void> cancelPeriodicSync() async {
-  await Workmanager().cancelByUniqueName(healthSyncTaskName);
+  try {
+    await Workmanager().cancelByUniqueName(healthSyncTaskName);
+  } catch (_) {}
 }
+
+/// Helper to get the most recent global sync timestamp.
+Future<DateTime?> getLastSyncTime() async {
+  try {
+    final db = AppDatabase.instance;
+    return await db.syncDao.getLastSyncedAt('GLOBAL_SYNC');
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Formats a sync DateTime into human-friendly relative duration (e.g. "Just now", "4m ago").
+String formatRelativeSyncTime(DateTime? time) {
+  if (time == null) return 'Awaiting initial sync';
+  final diff = DateTime.now().difference(time);
+  if (diff.inSeconds < 45) {
+    return 'Just now';
+  } else if (diff.inMinutes < 60) {
+    return '${diff.inMinutes}m ago';
+  } else if (diff.inHours < 24) {
+    return '${diff.inHours}h ago';
+  } else {
+    return '${diff.inDays}d ago';
+  }
+}
+
