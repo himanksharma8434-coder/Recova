@@ -3,9 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../domain/repositories/health_source_repository.dart';
+import '../../services/background_sync_service.dart';
 import '../components/liquid_glass.dart';
 import '../components/motion.dart';
 import '../components/radial_score_gauge.dart';
+import '../components/strain_recovery_balance_card.dart';
 import '../components/vital_metric_tile.dart';
 import '../cubits/health_sync/health_sync_cubit.dart';
 import '../cubits/health_sync/health_sync_state.dart';
@@ -15,15 +17,20 @@ import 'blood_o2_detail_screen.dart';
 import 'hrv_detail_screen.dart';
 import 'profile_settings_screen.dart';
 
-/// Minimalist Home (Pulse) screen focused purely on Recovery and Key Vitals.
+/// Minimalist Home (Pulse) screen focused purely on Recovery, Key Vitals,
+/// and Daily Autonomic Balance with 30-minute background auto-sync telemetry.
 class PulseScreen extends StatelessWidget {
   final DerivedMetricSummary? summary;
   final VoidCallback onSyncTap;
+  final DateTime? lastSyncedAt;
+  final ValueChanged<int>? onNavigateTab;
 
   const PulseScreen({
     super.key,
     required this.summary,
     required this.onSyncTap,
+    this.lastSyncedAt,
+    this.onNavigateTab,
   });
 
   void _openHrvDetail(BuildContext context) {
@@ -107,7 +114,7 @@ class PulseScreen extends StatelessWidget {
         left: Tok.space16,
         right: Tok.space16,
         top: Tok.space12,
-        bottom: 100,
+        bottom: 110,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -123,18 +130,40 @@ class PulseScreen extends StatelessWidget {
                   children: [
                     Text(
                       'Today, ${_currentDateFormatted()}',
-                      style: TokType.heading,
+                      style: TokType.heading.copyWith(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 6),
-                    LiquidGlassPill(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Tok.space12,
-                        vertical: Tok.space4,
-                      ),
-                      indicatorColor: summary != null ? Tok.neonAccent : Tok.textSecondary,
-                      label: summary != null ? 'WEARABLE SYNCED' : 'AWAITING SYNC',
+                    BlocBuilder<HealthSyncCubit, HealthSyncState>(
+                      builder: (context, syncState) {
+                        final isSyncing = syncState is HealthSyncing;
+                        final syncRelative = formatRelativeSyncTime(lastSyncedAt);
+                        final label = isSyncing
+                            ? 'SYNCING...'
+                            : (summary != null
+                                ? 'AUTO 30M • $syncRelative'
+                                : 'AUTO 30M • SYNC');
+                        final indicatorColor = isSyncing
+                            ? Tok.accentBlue
+                            : (summary != null ? Tok.neonAccent : Tok.accentAmber);
+
+                        return GestureDetector(
+                          onTap: isSyncing ? null : onSyncTap,
+                          child: LiquidGlassPill(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Tok.space12,
+                              vertical: Tok.space4,
+                            ),
+                            indicatorColor: indicatorColor,
+                            label: label,
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -179,16 +208,16 @@ class PulseScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: Tok.space24),
+          const SizedBox(height: Tok.space20),
 
           // ── Recovery Gauge ──
           RadialScoreGauge(
             score: summary?.recoveryScore,
             baselineScore: summary?.baselineRecoveryScore,
-            size: 230,
+            size: 220,
             onTap: () => _openRecoveryCalculation(context),
           ),
-          const SizedBox(height: Tok.space24),
+          const SizedBox(height: Tok.space20),
 
           // ── Key Biometrics Header ──
           Padding(
@@ -270,16 +299,29 @@ class PulseScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: Tok.space24),
+          const SizedBox(height: Tok.space16),
 
-          // ── Subtle Guidance Footer ──
+          // ── Daily Strain & Recovery Balance Card ──
+          StrainRecoveryBalanceCard(
+            summary: summary,
+            onTapStrain: () => onNavigateTab?.call(2),
+            onTapRecovery: () => onNavigateTab?.call(1),
+          ),
+          const SizedBox(height: Tok.space20),
+
+          // ── Subtle Guidance & Auto-Sync Footer ──
           Center(
-            child: Text(
-              'Tap any biometric to view trends and details',
-              style: TokType.caption.copyWith(
-                color: Tok.textMuted,
-                fontSize: 11,
-                letterSpacing: 0.3,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Tok.space16),
+              child: Text(
+                'Auto-fetch active every 30m • Tap biometrics for details',
+                style: TokType.caption.copyWith(
+                  color: Tok.textMuted,
+                  fontSize: 11,
+                  letterSpacing: 0.3,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
               ),
             ),
           ),
@@ -297,3 +339,4 @@ class PulseScreen extends StatelessWidget {
     return '${months[now.month - 1]} ${now.day}';
   }
 }
+

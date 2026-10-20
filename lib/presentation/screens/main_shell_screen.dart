@@ -30,9 +30,12 @@ class MainShellScreen extends StatefulWidget {
   State<MainShellScreen> createState() => _MainShellScreenState();
 }
 
-class _MainShellScreenState extends State<MainShellScreen> {
+class _MainShellScreenState extends State<MainShellScreen>
+    with WidgetsBindingObserver {
   int _currentTab = 0;
   Timer? _bannerTimer;
+  Timer? _autoSyncTimer;
+  DateTime? _lastSyncedAt;
   bool _showBanner = false;
   String _bannerMessage = '';
   IconData _bannerIcon = Icons.check_circle_rounded;
@@ -41,19 +44,57 @@ class _MainShellScreenState extends State<MainShellScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     context.read<DashboardCubit>().load();
-    // Guarantee background periodic sync is registered with the OS
+    // Guarantee background periodic sync (every 30 mins) is registered with OS WorkManager
     registerPeriodicSync();
+    // Initial fetch of recorded sync timestamp
+    _loadLastSyncTime();
     // Auto-sync on startup: pull latest wearable data immediately
     _autoSync();
+    // Periodic foreground auto-sync every 30 minutes
+    _autoSyncTimer = Timer.periodic(const Duration(minutes: 30), (_) {
+      _autoSync();
+    });
     // Evaluate monthly body age check-in prompt
     _checkMonthlyCheckin();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _bannerTimer?.cancel();
+    _autoSyncTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkAndSyncIfDue();
+    }
+  }
+
+  Future<void> _loadLastSyncTime() async {
+    final last = await getLastSyncTime();
+    if (mounted) {
+      setState(() {
+        _lastSyncedAt = last;
+      });
+    }
+  }
+
+  Future<void> _checkAndSyncIfDue() async {
+    final lastSync = await getLastSyncTime();
+    if (lastSync == null ||
+        DateTime.now().difference(lastSync) >= const Duration(minutes: 30)) {
+      // 30+ minutes have passed while app was suspended — perform fresh auto-fetch
+      _autoSync();
+    } else if (mounted) {
+      setState(() {
+        _lastSyncedAt = lastSync;
+      });
+    }
   }
 
   void _checkMonthlyCheckin() {
@@ -89,6 +130,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       await context.read<HealthSyncCubit>().syncNow();
       if (mounted) {
         context.read<DashboardCubit>().refresh();
+        _loadLastSyncTime();
       }
     });
   }
@@ -97,6 +139,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     await context.read<HealthSyncCubit>().syncNow();
     if (mounted) {
       context.read<DashboardCubit>().refresh();
+      _loadLastSyncTime();
     }
   }
 
@@ -138,10 +181,13 @@ class _MainShellScreenState extends State<MainShellScreen> {
       body: BlocListener<HealthSyncCubit, HealthSyncState>(
         listener: (context, syncState) {
           if (syncState is HealthSyncSuccess) {
+            setState(() {
+              _lastSyncedAt = DateTime.now();
+            });
             final count = syncState.recordCount;
             final message = count > 0
-                ? 'Synced $count health records from wearable'
-                : 'Wearable in sync • 0 new records';
+                ? 'Synced $count health records • Auto 30m'
+                : 'Wearable in sync • Auto-fetch active';
             _triggerTopNotification(
               message: message,
               icon: Icons.check_circle_rounded,
@@ -214,6 +260,12 @@ class _MainShellScreenState extends State<MainShellScreen> {
                       PulseScreen(
                         summary: summary,
                         onSyncTap: _onSyncTap,
+                        lastSyncedAt: _lastSyncedAt,
+                        onNavigateTab: (index) {
+                          setState(() {
+                            _currentTab = index;
+                          });
+                        },
                       ),
                       RecoveryDeepDiveScreen(
                         summary: summary,
