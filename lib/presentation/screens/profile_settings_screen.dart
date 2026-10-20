@@ -9,6 +9,7 @@ import '../../features/body_age/data/repositories/body_measurement_repository_im
 import '../../features/body_age/presentation/components/body_fat_guide_sheet.dart';
 import '../../features/body_age/presentation/cubits/body_age_checkin/body_age_checkin_cubit.dart';
 import '../../services/user_profile_service.dart';
+import '../../services/background_sync_service.dart';
 import '../components/ambient_glow_backdrop.dart';
 import '../components/glass_card.dart';
 import '../components/liquid_glass.dart';
@@ -29,6 +30,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   final _bodyFatController = TextEditingController();
   String? _selectedGender;
   bool _monthlyReminderEnabled = true;
+  DateTime? _lastSyncTime;
   bool _isLoading = true;
 
   @override
@@ -66,6 +68,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         _monthlyReminderEnabled = reminderOn;
         _isLoading = false;
       });
+      final lastSync = await getLastSyncTime();
+      if (mounted) {
+        setState(() {
+          _lastSyncTime = lastSync;
+        });
+      }
     }
   }
 
@@ -631,6 +639,116 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     value: _monthlyReminderEnabled,
                     activeThumbColor: Tok.neonAccent,
                     onChanged: (val) => setState(() => _monthlyReminderEnabled = val),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: Tok.space20),
+
+            // ── Background Biometric Auto-Fetch Card ──
+            GlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Tok.neonAccent.withValues(alpha: 0.15),
+                            ),
+                            child: const Icon(
+                              Icons.sync_rounded,
+                              size: 16,
+                              color: Tok.neonAccent,
+                            ),
+                          ),
+                          const SizedBox(width: Tok.space10),
+                          Text(
+                            'BACKGROUND AUTO-FETCH',
+                            style: TokType.sectionLabel,
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Tok.space8,
+                          vertical: Tok.space4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Tok.neonAccent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(Tok.radiusSm),
+                          border: Border.all(
+                            color: Tok.neonAccent.withValues(alpha: 0.35),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Tok.neonAccent,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'EVERY 30 MIN',
+                              style: TokType.caption.copyWith(
+                                color: Tok.neonAccent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: Tok.space10),
+                  Text(
+                    'Automatically queries Google Health Connect and wearable telemetry every 30 minutes in the background and foreground without draining your battery.',
+                    style: TokType.bodySmall.copyWith(
+                      color: Tok.textSecondary,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: Tok.space12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Tok.space12,
+                      vertical: Tok.space8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Tok.glassFillRecessed,
+                      borderRadius: BorderRadius.circular(Tok.radiusSm),
+                      border: Border.all(color: Tok.glassBorder, width: 0.5),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Last sync status',
+                          style: TokType.caption.copyWith(color: Tok.textSecondary),
+                        ),
+                        Text(
+                          formatRelativeSyncTime(_lastSyncTime),
+                          style: TokType.caption.copyWith(
+                            color: Tok.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
