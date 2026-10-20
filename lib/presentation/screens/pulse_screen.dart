@@ -3,24 +3,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../domain/repositories/health_source_repository.dart';
-import '../components/daily_activity_pod.dart';
-import '../components/glass_card.dart';
 import '../components/liquid_glass.dart';
 import '../components/motion.dart';
 import '../components/radial_score_gauge.dart';
-import '../components/sleep_performance_card.dart';
-import '../components/strain_recovery_balance_card.dart';
 import '../components/vital_metric_tile.dart';
 import '../cubits/health_sync/health_sync_cubit.dart';
 import '../cubits/health_sync/health_sync_state.dart';
 import 'recovery_calculation_screen.dart';
 import 'resting_hr_detail_screen.dart';
 import 'blood_o2_detail_screen.dart';
-import 'sleep_architecture_detail_screen.dart';
 import 'hrv_detail_screen.dart';
-import 'body_age_screen.dart';
 import 'profile_settings_screen.dart';
 
+/// Minimalist Home (Pulse) screen focused purely on Recovery and Key Vitals.
 class PulseScreen extends StatelessWidget {
   final DerivedMetricSummary? summary;
   final VoidCallback onSyncTap;
@@ -59,22 +54,6 @@ class PulseScreen extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BloodO2DetailScreen(summary: summary),
-      ),
-    );
-  }
-
-  void _openSleepArchitectureDetail(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SleepArchitectureDetailScreen(summary: summary),
-      ),
-    );
-  }
-
-  void _openBodyAge(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BodyAgeScreen(summary: summary),
       ),
     );
   }
@@ -200,18 +179,43 @@ class PulseScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: Tok.space20),
+          const SizedBox(height: Tok.space24),
 
           // ── Recovery Gauge ──
           RadialScoreGauge(
             score: summary?.recoveryScore,
             baselineScore: summary?.baselineRecoveryScore,
-            strainImpact: summary?.strainImpact,
-            restReplenishment: summary?.restReplenishment,
-            size: 210,
+            size: 230,
             onTap: () => _openRecoveryCalculation(context),
           ),
-          const SizedBox(height: Tok.space20),
+          const SizedBox(height: Tok.space24),
+
+          // ── Key Biometrics Header ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Tok.space4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'KEY BIOMETRICS',
+                  style: TokType.sectionLabel.copyWith(
+                    letterSpacing: 1.4,
+                    fontSize: 10,
+                    color: Tok.textTertiary,
+                  ),
+                ),
+                Text(
+                  'BASAL BASELINE',
+                  style: TokType.caption.copyWith(
+                    fontSize: 9.5,
+                    letterSpacing: 0.6,
+                    color: Tok.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Tok.space10),
 
           // ── Quick Vital Metrics ──
           Row(
@@ -266,36 +270,18 @@ class PulseScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: Tok.space16),
+          const SizedBox(height: Tok.space24),
 
-          // ── Strain & Recovery Autonomic Balance Card ──
-          StrainRecoveryBalanceCard(
-            summary: summary,
-            onTapRecovery: () => _openRecoveryCalculation(context),
-          ),
-          const SizedBox(height: Tok.space16),
-
-          // ── Sleep Architecture ──
-          SleepPerformanceCard(
-            sleepHours: summary?.sleepHours,
-            baselineSleepHours: summary?.baselineSleepHours,
-            sleepStages: summary?.sleepStages,
-            sleepSessions: summary?.sleepSessions ?? const [],
-            onTap: () => _openSleepArchitectureDetail(context),
-          ),
-          const SizedBox(height: Tok.space16),
-
-          // ── Daily Activity ──
-          DailyActivityPod(
-            todaySteps: summary?.todaySteps,
-            activeCalories: summary?.activeCalories,
-            totalCalories: summary?.totalCalories,
-          ),
-          const SizedBox(height: Tok.space16),
-
-          // ── Body Age Entry ──
-          _BodyAgeEntryCard(
-            onTap: () => _openBodyAge(context),
+          // ── Subtle Guidance Footer ──
+          Center(
+            child: Text(
+              'Tap any biometric to view trends and details',
+              style: TokType.caption.copyWith(
+                color: Tok.textMuted,
+                fontSize: 11,
+                letterSpacing: 0.3,
+              ),
+            ),
           ),
         ],
       ),
@@ -309,67 +295,5 @@ class PulseScreen extends StatelessWidget {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${months[now.month - 1]} ${now.day}';
-  }
-}
-
-/// Entry card for the Body Age Estimation feature.
-class _BodyAgeEntryCard extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _BodyAgeEntryCard({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Tok.glassFillElevated,
-              border: Border.all(
-                color: Tok.glassBorderBright,
-                width: 0.5,
-              ),
-            ),
-            child: const Icon(
-              Icons.timer_outlined,
-              size: 20,
-              color: Tok.textPrimary,
-            ),
-          ),
-          const SizedBox(width: Tok.space12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'BODY AGE',
-                  style: TokType.cardTitle.copyWith(
-                    letterSpacing: 1.0,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Estimate your functional fitness age',
-                  style: TokType.bodySmall.copyWith(
-                    color: Tok.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            Icons.chevron_right,
-            size: 18,
-            color: Tok.textTertiary,
-          ),
-        ],
-      ),
-    );
   }
 }

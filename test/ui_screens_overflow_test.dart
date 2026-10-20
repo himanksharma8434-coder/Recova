@@ -87,8 +87,12 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('HOW IT\'S CALCULATED'), findsNothing);
     expect(find.text('RECOVERY'), findsOneWidget);
-    expect(find.text('SLEEP ARCHITECTURE'), findsOneWidget);
-    expect(find.text('DAILY ACTIVITY & ENERGY'), findsOneWidget);
+    expect(find.text('KEY BIOMETRICS'), findsOneWidget);
+    expect(find.text('HRV (RMSSD)'), findsOneWidget);
+    expect(find.text('RESTING HR'), findsOneWidget);
+    expect(find.text('BLOOD O2'), findsOneWidget);
+    expect(find.text('SLEEP ARCHITECTURE'), findsNothing);
+    expect(find.text('DAILY ACTIVITY & ENERGY'), findsNothing);
   });
 
   testWidgets('PulseScreen renders on compact 360x640 screen without overflow',
@@ -368,35 +372,19 @@ void main() {
     expect(find.text('TODAY'), findsOneWidget);
   });
 
-  testWidgets('Tapping SLEEP ARCHITECTURE navigates to SleepArchitectureDetailScreen',
+  testWidgets('SleepArchitectureDetailScreen renders circadian restoration telemetry',
       (tester) async {
-    final mockRepo = MockHealthRepo();
-    final cubit = HealthSyncCubit(repository: mockRepo);
-
     await tester.pumpWidget(
       MaterialApp(
-        home: BlocProvider<HealthSyncCubit>.value(
-          value: cubit,
-          child: Scaffold(
-            body: PulseScreen(
-              summary: testSummary,
-              onSyncTap: () {},
-            ),
-          ),
+        home: SleepArchitectureDetailScreen(
+          summary: testSummary,
         ),
       ),
     );
 
-    await tester.pump();
-
-    // Verify Sleep Architecture Card is present
-    expect(find.text('SLEEP ARCHITECTURE'), findsOneWidget);
-
-    // Tap the sleep architecture card
-    await tester.tap(find.text('SLEEP ARCHITECTURE'));
     await tester.pumpAndSettle();
 
-    // Verify SleepArchitectureDetailScreen was pushed
+    // Verify SleepArchitectureDetailScreen is displayed
     expect(find.byType(SleepArchitectureDetailScreen), findsOneWidget);
     expect(find.text('CIRCADIAN RESTORATION TELEMETRY'), findsOneWidget);
   });
