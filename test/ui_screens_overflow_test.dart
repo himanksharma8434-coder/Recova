@@ -20,6 +20,8 @@ import 'package:whoop/presentation/cubits/dashboard/dashboard_cubit.dart';
 import 'package:whoop/presentation/cubits/health_permission/health_permission_cubit.dart';
 import 'package:whoop/domain/repositories/health_source_repository.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 class MockHealthRepo implements HealthSourceRepository {
   @override
   DerivedMetricSummary? get cachedSummary => null;
@@ -32,6 +34,7 @@ void main() {
   late AppDatabase db;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     db = AppDatabase.forTesting(NativeDatabase.memory());
     AppDatabase.instance = db;
   });
@@ -701,7 +704,7 @@ void main() {
   });
 
   testWidgets(
-      'RecoveryDeepDiveScreen renders without overflow on compact 360x640 screen',
+      'BodyDataScreen renders without overflow on compact 360x640 screen',
       (tester) async {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1.0;
@@ -717,22 +720,21 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: RecoveryDeepDiveScreen(summary: summary),
+          body: BodyDataScreen(summary: summary),
         ),
       ),
     );
 
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('RECOVERY ANALYSIS'), findsOneWidget);
-    expect(find.text('VO₂ MAX'), findsWidgets);
-    expect(find.text('MAX HR'), findsOneWidget);
-    expect(find.text('RESTING HR'), findsOneWidget);
+    expect(find.text('BODY DATA'), findsOneWidget);
+    expect(find.text('BODY AGE'), findsOneWidget);
+    expect(find.text('VO₂ MAX (CARDIO CAPACITY)'), findsOneWidget);
     expect(find.text('CALCULATION BREAKDOWN'), findsOneWidget);
   });
 
   testWidgets(
-      'RecoveryDeepDiveScreen allows switching between VO2 MAX, MAX HR, and RESTING HR',
+      'BodyDataScreen displays VO2 Max calculation with 190 bpm default max HR and allows period switching',
       (tester) async {
     tester.view.physicalSize = const Size(1080, 1920);
     tester.view.devicePixelRatio = 2.625;
@@ -748,28 +750,17 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: RecoveryDeepDiveScreen(summary: summary),
+          body: BodyDataScreen(summary: summary),
         ),
       ),
     );
 
     await tester.pumpAndSettle();
 
-    // Initial state: VO2 MAX selected with visible calculation breakdown
+    // Initial state: VO2 MAX with visible calculation breakdown & default 190 bpm
     expect(find.text('CALCULATION BREAKDOWN'), findsOneWidget);
     expect(find.text('UTH–SØRENSEN'), findsOneWidget);
-
-    // Switch to MAX HR
-    await tester.tap(find.text('MAX HR'));
-    await tester.pumpAndSettle();
-    expect(find.text('MAXIMUM HEART RATE'), findsOneWidget);
-    expect(find.text('MAX HEART RATE TELEMETRY'), findsOneWidget);
-
-    // Switch to RESTING HR
-    await tester.tap(find.text('RESTING HR'));
-    await tester.pumpAndSettle();
-    expect(find.text('RESTING HEART RATE'), findsOneWidget);
-    expect(find.text('RESTING HEART RATE TELEMETRY'), findsOneWidget);
+    expect(find.text('190 bpm'), findsOneWidget);
 
     // Switch periods: 30D, ALL, 7D
     await tester.tap(find.text('30D'));
@@ -781,15 +772,12 @@ void main() {
     await tester.tap(find.text('7D'));
     await tester.pumpAndSettle();
 
-    // Switch back to VO2 MAX and open HOW IT WORKS
-    await tester.tap(find.text('VO₂ MAX').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('HOW IT WORKS'));
+    // Open info modal
+    await tester.tap(find.byIcon(Icons.info_outline_rounded));
     await tester.pumpAndSettle();
 
     // Verify modal sheet opened
-    expect(find.text('HOW VO₂ MAX IS CALCULATED'), findsOneWidget);
-    expect(find.text('VO₂max = 15 × (HRmax ÷ HRrest)'), findsOneWidget);
+    expect(find.text('HOW VO₂ MAX & BODY AGE ARE CALCULATED'), findsOneWidget);
   });
 }
 
