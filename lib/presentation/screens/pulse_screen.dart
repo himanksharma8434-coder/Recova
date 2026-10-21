@@ -7,7 +7,6 @@ import '../../services/background_sync_service.dart';
 import '../components/liquid_glass.dart';
 import '../components/motion.dart';
 import '../components/radial_score_gauge.dart';
-import '../components/strain_recovery_balance_card.dart';
 import '../components/vital_metric_tile.dart';
 import '../cubits/health_sync/health_sync_cubit.dart';
 import '../cubits/health_sync/health_sync_state.dart';
@@ -298,14 +297,6 @@ class PulseScreen extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: Tok.space16),
-
-          // ── Daily Strain & Recovery Balance Card ──
-          StrainRecoveryBalanceCard(
-            summary: summary,
-            onTapStrain: () => onNavigateTab?.call(2),
-            onTapRecovery: () => onNavigateTab?.call(1),
           ),
           const SizedBox(height: Tok.space20),
 

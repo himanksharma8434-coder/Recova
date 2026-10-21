@@ -302,8 +302,9 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final now = DateTime.now();
     final thirtyDaysAgo = now.subtract(const Duration(days: 30));
     
-    // We need Max HR and Rest HR for the calculation
-    final maxHr = await _db.healthRecordDao.getMaxExerciseHr(start: thirtyDaysAgo, end: now) ?? 183.0;
+    // We need Max HR and Rest HR for the calculation (default 190 if no data > 190 bpm)
+    final recordedMax = await _db.healthRecordDao.getMaxExerciseHr(start: thirtyDaysAgo, end: now);
+    final maxHr = (recordedMax != null && recordedMax > 190.0) ? recordedMax : 190.0;
     final rhrs = await _db.healthRecordDao.getDailyRestingHeartRates(30);
     final restHr = rhrs.isNotEmpty ? (rhrs.fold<double>(0.0, (s, p) => s + p.value) / rhrs.length) : 60.0;
 
@@ -364,9 +365,10 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     final wkRhrs = wkRhrRecords.map((r) => r.value).toList();
     double vo2Rhr = wkRhrs.isNotEmpty ? (wkRhrs.reduce((a, b) => a + b) / wkRhrs.length) : rhrBase;
 
+    final maxHrForVo2 = (effectiveMaxHr != null && effectiveMaxHr > 190.0) ? effectiveMaxHr : 190.0;
     double? vo2max = _computeVo2Max(
       restingHr7dBaseline: vo2Rhr,
-      maxHrFromExercise: effectiveMaxHr ?? 190.0,
+      maxHrFromExercise: maxHrForVo2,
       userAge: userAge,
     );
 

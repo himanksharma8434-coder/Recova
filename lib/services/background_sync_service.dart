@@ -4,6 +4,7 @@ import 'package:workmanager/workmanager.dart';
 import '../data/database/app_database.dart';
 import '../data/datasources/health_platform_datasource.dart';
 import '../data/repositories/health_repository_impl.dart';
+import 'home_widget_service.dart';
 
 /// Unique task name for the periodic health sync.
 const String healthSyncTaskName = 'com.recova.healthSync';
@@ -48,10 +49,18 @@ void callbackDispatcher() {
         final lastGlobalSync = await db.syncDao.getLastSyncedAt('GLOBAL_SYNC');
         if (lastGlobalSync != null &&
             DateTime.now().difference(lastGlobalSync) < const Duration(minutes: 10)) {
+          final summary = await repository.getLatestSummary();
+          if (summary != null) {
+            await HomeWidgetService.updateFromSummary(summary);
+          }
           return true;
         }
 
         await repository.syncHealthData(taskType: 'background');
+        final summary = await repository.getLatestSummary();
+        if (summary != null) {
+          await HomeWidgetService.updateFromSummary(summary);
+        }
       }
       return true;
     } catch (e, st) {
