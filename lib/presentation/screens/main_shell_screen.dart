@@ -17,6 +17,7 @@ import 'recovery_deep_dive_screen.dart';
 import 'strain_screen.dart';
 import 'sleep_screen.dart';
 import '../../services/background_sync_service.dart';
+import '../../services/home_widget_service.dart';
 import '../../features/body_age/data/repositories/body_age_repository_impl.dart';
 import '../../features/body_age/data/repositories/body_measurement_repository_impl.dart';
 import '../../features/body_age/presentation/components/monthly_checkin_dialog.dart';
@@ -178,30 +179,41 @@ class _MainShellScreenState extends State<MainShellScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: RecovaColors.canvasBase,
-      body: BlocListener<HealthSyncCubit, HealthSyncState>(
-        listener: (context, syncState) {
-          if (syncState is HealthSyncSuccess) {
-            setState(() {
-              _lastSyncedAt = DateTime.now();
-            });
-            final count = syncState.recordCount;
-            final message = count > 0
-                ? 'Synced $count health records • Auto 30m'
-                : 'Wearable in sync • Auto-fetch active';
-            _triggerTopNotification(
-              message: message,
-              icon: Icons.check_circle_rounded,
-              accentColor: Tok.neonAccent,
-            );
-          } else if (syncState is HealthSyncFailure) {
-            _triggerTopNotification(
-              message: 'Sync failed: ${syncState.message}',
-              icon: Icons.error_outline_rounded,
-              accentColor: Tok.recoverySuppressed,
-              duration: const Duration(seconds: 4),
-            );
-          }
-        },
+      body: MultiBlocListener(
+        listeners: [
+          BlocListener<HealthSyncCubit, HealthSyncState>(
+            listener: (context, syncState) {
+              if (syncState is HealthSyncSuccess) {
+                setState(() {
+                  _lastSyncedAt = DateTime.now();
+                });
+                final count = syncState.recordCount;
+                final message = count > 0
+                    ? 'Synced $count health records • Auto 30m'
+                    : 'Wearable in sync • Auto-fetch active';
+                _triggerTopNotification(
+                  message: message,
+                  icon: Icons.check_circle_rounded,
+                  accentColor: Tok.neonAccent,
+                );
+              } else if (syncState is HealthSyncFailure) {
+                _triggerTopNotification(
+                  message: 'Sync failed: ${syncState.message}',
+                  icon: Icons.error_outline_rounded,
+                  accentColor: Tok.recoverySuppressed,
+                  duration: const Duration(seconds: 4),
+                );
+              }
+            },
+          ),
+          BlocListener<DashboardCubit, DashboardState>(
+            listener: (context, dashState) {
+              if (dashState is DashboardLoaded) {
+                HomeWidgetService.updateFromSummary(dashState.summary);
+              }
+            },
+          ),
+        ],
         child: BlocBuilder<DashboardCubit, DashboardState>(
           buildWhen: (prev, current) {
             if (prev is DashboardLoaded && current is DashboardLoaded) {

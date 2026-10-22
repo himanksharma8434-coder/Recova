@@ -52,9 +52,9 @@ class BottomPillNavBar extends StatelessWidget {
                 ),
                 _buildNavItem(
                   index: 1,
-                  icon: Icons.favorite_border,
-                  activeIcon: Icons.favorite,
-                  label: 'Recovery',
+                  icon: Icons.accessibility_new_outlined,
+                  activeIcon: Icons.accessibility_new_rounded,
+                  label: 'Body Data',
                 ),
                 _buildNavItem(
                   index: 2,
