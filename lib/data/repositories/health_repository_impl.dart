@@ -794,8 +794,9 @@ class HealthRepositoryImpl implements HealthSourceRepository {
         userAge = (now.difference(dob).inDays / 365.25).floor();
       }
     }
-    // Always use 7-day average resting HR
+    // 7-day average resting HR for 7D VO2 Max
     final rhr7d = baseline?.restingHrBaseline7d ?? 60.0;
+    final rhr30d = baseline?.restingHrBaseline30d ?? rhr7d;
 
     double? vo2max7d = _computeVo2Max(
       restingHr7dBaseline: rhr7d,
@@ -804,13 +805,20 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     );
 
     double? vo2max30d = _computeVo2Max(
-      restingHr7dBaseline: rhr7d,
+      restingHr7dBaseline: rhr30d,
       maxHrFromExercise: maxHr30d,
       userAge: userAge,
     );
 
+    final allTimeRhrs = await _db.healthRecordDao.getDailyRestingHeartRates(null);
+    double rhrAllTime = rhr30d;
+    if (allTimeRhrs.isNotEmpty) {
+      final sortedRhr = allTimeRhrs.map((p) => p.value).toList()..sort();
+      rhrAllTime = sortedRhr[sortedRhr.length ~/ 2];
+    }
+
     double? vo2maxAllTime = _computeVo2Max(
-      restingHr7dBaseline: rhr7d,
+      restingHr7dBaseline: rhrAllTime,
       maxHrFromExercise: maxHrAllTime,
       userAge: userAge,
     );

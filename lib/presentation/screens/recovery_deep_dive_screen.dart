@@ -177,14 +177,33 @@ class _BodyDataScreenState extends State<BodyDataScreen> {
       // Default to 190.0 if not > 190 bpm
       hrMax = _resolveMaxHr(hrMax);
 
-      // ── HRrest: 7-day average RHR ──
+      // ── HRrest: period-specific baseline RHR (7d avg for 7D) ──
       final todayStart = DateTime(now.year, now.month, now.day);
       final baseline = await db.baselineDao.getBaseline(todayStart);
 
-      hrRest = baseline?.restingHrBaseline7d ??
-          widget.summary?.baselineRestingHr ??
-          widget.summary?.restingHr ??
-          60.0;
+      if (_selectedPeriod == Vo2Period.sevenDays) {
+        hrRest = baseline?.restingHrBaseline7d ??
+            widget.summary?.baselineRestingHr ??
+            widget.summary?.restingHr ??
+            60.0;
+      } else if (_selectedPeriod == Vo2Period.thirtyDays) {
+        hrRest = baseline?.restingHrBaseline30d ??
+            baseline?.restingHrBaseline7d ??
+            widget.summary?.baselineRestingHr ??
+            widget.summary?.restingHr ??
+            60.0;
+      } else {
+        final allRhrs = await db.healthRecordDao.getDailyRestingHeartRates(null);
+        if (allRhrs.isNotEmpty) {
+          final rhrSum = allRhrs.fold<double>(0.0, (s, p) => s + p.value);
+          hrRest = rhrSum / allRhrs.length;
+        } else {
+          hrRest = baseline?.restingHrBaseline30d ??
+              widget.summary?.baselineRestingHr ??
+              widget.summary?.restingHr ??
+              60.0;
+        }
+      }
 
       // Best-case VO2 Max
       final bestPeriodDays = periodDays ?? 7;
