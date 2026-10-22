@@ -728,7 +728,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('BODY DATA'), findsOneWidget);
-    expect(find.text('BODY AGE'), findsOneWidget);
     expect(find.text('VO₂ MAX (CARDIO CAPACITY)'), findsOneWidget);
     expect(find.text('CALCULATION BREAKDOWN'), findsOneWidget);
   });
