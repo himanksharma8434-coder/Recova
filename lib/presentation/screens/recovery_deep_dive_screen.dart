@@ -75,10 +75,12 @@ class _BodyDataScreenState extends State<BodyDataScreen> {
   double? _latest;
 
   // Calculation components for VO2 formula display
-  // Default max heart rate: 190.0 bpm if there is no recorded data > 190 bpm
   static const double defaultMaxHeartRate = 190.0;
   double _calcHrMax = defaultMaxHeartRate;
   double _calcHrRest = 60.0;
+  double? _min;
+  double? _max;
+  bool _loading = false;
 
   Vo2MaxResult? _latestVo2MaxResult;
 
@@ -170,48 +172,27 @@ class _BodyDataScreenState extends State<BodyDataScreen> {
       final now = DateTime.now();
       final periodDays = _selectedPeriod.days > 0 ? _selectedPeriod.days : null;
 
-      // ── HRmax: avg of top 2 daily max HRs from the period ──
-      hrMax = await db.healthRecordDao.getAvgTop2DailyMaxHr(days: periodDays);
+      // ── HRmax: 1 highest HR from whole week (or period), default 190 bpm ──
+      hrMax = await db.healthRecordDao.getHighestMaxHr(days: periodDays);
       if (hrMax == null && _selectedPeriod != Vo2Period.allTime) {
-        hrMax = await db.healthRecordDao.getAvgTop2DailyMaxHr();
+        hrMax = await db.healthRecordDao.getHighestMaxHr(days: 7);
       }
       hrMax ??= await db.healthRecordDao.getMaxExerciseHr(
         start: DateTime(2000),
         end: now,
       );
 
-      // Default to 190.0 if there is no data more than 190 bpm
+      // Default to 190.0 if not > 190 bpm
       hrMax = _resolveMaxHr(hrMax);
 
-      // ── HRrest: avg RHR from the period ──
+      // ── HRrest: 7-day average RHR ──
       final todayStart = DateTime(now.year, now.month, now.day);
       final baseline = await db.baselineDao.getBaseline(todayStart);
 
-      if (_selectedPeriod == Vo2Period.sevenDays) {
-        hrRest = baseline?.restingHrBaseline7d ??
-            widget.summary?.baselineRestingHr;
-      } else if (_selectedPeriod == Vo2Period.thirtyDays) {
-        hrRest = baseline?.restingHrBaseline30d ??
-            baseline?.restingHrBaseline7d ??
-            widget.summary?.baselineRestingHr;
-      } else {
-        final allRhrs =
-            await db.healthRecordDao.getDailyRestingHeartRates(null);
-        if (allRhrs.isNotEmpty) {
-          final rhrSum = allRhrs.fold<double>(0.0, (s, p) => s + p.value);
-          hrRest = rhrSum / allRhrs.length;
-        } else {
-          hrRest = baseline?.restingHrBaseline30d ??
-              widget.summary?.baselineRestingHr ??
-              widget.summary?.restingHr;
-        }
-      }
-
-      hrRest ??= await db.healthRecordDao.getTodayRestingHr(
-        start: todayStart,
-        end: now,
-      );
-      hrRest ??= widget.summary?.restingHr ?? 60.0;
+      hrRest = baseline?.restingHrBaseline7d ??
+          widget.summary?.baselineRestingHr ??
+          widget.summary?.restingHr ??
+          60.0;
 
       // Best-case VO2 Max
       final bestPeriodDays = periodDays ?? 7;
@@ -220,7 +201,7 @@ class _BodyDataScreenState extends State<BodyDataScreen> {
       bestMaxHr = _resolveMaxHr(bestMaxHr);
 
       if (bestRhr > 0 && bestMaxHr > bestRhr) {
-        final raw = 15.0 * (bestMaxHr / bestRhr);
+        final raw = 15.3 * (bestMaxHr / bestRhr);
         if (raw >= 15.0 && raw <= 85.0) {
           bestVo2Max = raw;
         }
