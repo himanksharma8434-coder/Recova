@@ -1019,7 +1019,7 @@ class _Vo2ExplainerSheet extends StatelessWidget {
                   icon: Icons.speed,
                   title: 'Uth–Sørensen Ratio',
                   description:
-                      'VO₂max = 15.0 × (HRmax / HRrest). Maximum heart rate defaults to 190 bpm unless higher peaks (>190 bpm) are detected.',
+                      'VO₂max = 15.3 × (HRmax / HRrest). Maximum heart rate defaults to 190 bpm unless higher peaks (>190 bpm) are detected.',
                 ),
                 const SizedBox(height: 12),
                 _explainerRow(
