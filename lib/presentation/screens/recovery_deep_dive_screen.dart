@@ -10,21 +10,16 @@ import '../../data/database/app_database.dart';
 import '../../domain/entities/daily_metric_point.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../../domain/services/vo2_max_estimator.dart';
-import '../components/glass_card.dart';
-import 'recovery_calculation_screen.dart';
+import '../../features/body_age/data/repositories/body_age_repository_impl.dart';
+import '../../features/body_age/domain/entities/body_age_factor.dart';
+import '../../features/body_age/domain/entities/body_age_result.dart';
+import '../../features/body_age/domain/repositories/body_age_repository.dart';
+import '../../features/body_age/presentation/components/monthly_checkin_dialog.dart';
+import '../../features/body_age/presentation/screens/body_age_fitness_screen.dart';
+import '../../services/user_profile_service.dart';
+import '../components/edit_body_fat_dialog.dart';
 
-/// Available cardiovascular & recovery metrics for trend analysis.
-enum CardioMetric {
-  vo2Max('VO₂ MAX', Icons.speed),
-  maxHr('MAX HR', Icons.bolt),
-  restingHr('RESTING HR', Icons.favorite);
-
-  final String label;
-  final IconData icon;
-  const CardioMetric(this.label, this.icon);
-}
-
-/// Time-period options for trend charting and averaging.
+/// Time-period options for VO2 Max trend charting and averaging.
 enum Vo2Period {
   sevenDays('7D', 7),
   thirtyDays('30D', 30),
@@ -35,17 +30,24 @@ enum Vo2Period {
   const Vo2Period(this.label, this.days);
 }
 
-class RecoveryDeepDiveScreen extends StatefulWidget {
+/// Body Data Screen displaying Functional Body Age, physiological factors,
+/// and Cardiovascular Capacity (VO₂ Max) with 7D/30D/ALL trends and Uth–Sørensen calculations.
+class BodyDataScreen extends StatefulWidget {
   final DerivedMetricSummary? summary;
+  final BodyAgeRepository? bodyAgeRepository;
 
-  const RecoveryDeepDiveScreen({
+  const BodyDataScreen({
     super.key,
     required this.summary,
+    this.bodyAgeRepository,
   });
 
   @override
-  State<RecoveryDeepDiveScreen> createState() => _RecoveryDeepDiveScreenState();
+  State<BodyDataScreen> createState() => _BodyDataScreenState();
 }
+
+/// Backwards compatibility typedef for existing screen references and tests
+typedef RecoveryDeepDiveScreen = BodyDataScreen;
 
 class _MetricDataCache {
   final List<DailyMetricPoint> points;
@@ -55,8 +57,6 @@ class _MetricDataCache {
   final double? maxVal;
   final double? hrMax;
   final double? hrRest;
-  final double? bestRhr;
-  final double? bestMaxHr;
   final double? bestVo2Max;
   final Vo2MaxResult? latestVo2MaxResult;
 
@@ -68,46 +68,82 @@ class _MetricDataCache {
     this.maxVal,
     this.hrMax,
     this.hrRest,
-    this.bestRhr,
-    this.bestMaxHr,
     this.bestVo2Max,
     this.latestVo2MaxResult,
   });
 }
 
-class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
-  CardioMetric _selectedMetric = CardioMetric.vo2Max;
+class _BodyDataScreenState extends State<BodyDataScreen> {
   Vo2Period _selectedPeriod = Vo2Period.sevenDays;
 
   final Map<String, _MetricDataCache> _cache = {};
-  String get _cacheKey => '${_selectedMetric.name}_${_selectedPeriod.name}';
+  String get _cacheKey => 'vo2Max_${_selectedPeriod.name}';
 
   List<DailyMetricPoint> _points = [];
-  bool _loading = false;
   double? _average;
   double? _latest;
-  double? _min;
-  double? _max;
 
   // Calculation components for VO2 formula display
-  double _calcHrMax = 183.0;
-  double _calcHrRest = 60.2;
+  // Default max heart rate: 190.0 bpm if there is no recorded data > 190 bpm
+  static const double defaultMaxHeartRate = 190.0;
+  double _calcHrMax = defaultMaxHeartRate;
+  double _calcHrRest = 60.0;
 
   Vo2MaxResult? _latestVo2MaxResult;
+
+  // Body Age state
+  late final BodyAgeRepository _bodyAgeRepo;
+  FitnessBodyAgeResult? _bodyAgeResult;
+  UserProfile? _userProfile;
+  bool _loadingBodyAge = false;
 
   @override
   void initState() {
     super.initState();
+    _bodyAgeRepo = widget.bodyAgeRepository ?? BodyAgeRepositoryImpl();
     _loadMetricData();
+    _loadBodyAgeData();
   }
 
   @override
-  void didUpdateWidget(RecoveryDeepDiveScreen oldWidget) {
+  void didUpdateWidget(BodyDataScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.summary?.estimatedVo2Max != widget.summary?.estimatedVo2Max ||
         oldWidget.summary?.restingHr != widget.summary?.restingHr) {
       _cache.clear();
       _loadMetricData();
+      _loadBodyAgeData();
+    }
+  }
+
+  /// Resolves max heart rate: takes 190 by default if there is no data more than 190 bpm.
+  static double _resolveMaxHr(double? recordedMax) {
+    if (recordedMax != null && recordedMax > defaultMaxHeartRate) {
+      return recordedMax;
+    }
+    return defaultMaxHeartRate;
+  }
+
+  Future<void> _loadBodyAgeData() async {
+    setState(() => _loadingBodyAge = true);
+    try {
+      final result = await _bodyAgeRepo.calculateCurrentBodyAge().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => null,
+          );
+      final profile = await UserProfileService.getProfile().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => const UserProfile(),
+          );
+      if (mounted) {
+        setState(() {
+          _bodyAgeResult = result;
+          _userProfile = profile;
+          _loadingBodyAge = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingBodyAge = false);
     }
   }
 
@@ -121,8 +157,11 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         _latest = cached.latest;
         _min = cached.minVal;
         _max = cached.maxVal;
-        _calcHrMax = cached.hrMax ?? 183.0;
-        _calcHrRest = cached.hrRest ?? widget.summary?.baselineRestingHr ?? widget.summary?.restingHr ?? 60.2;
+        _calcHrMax = _resolveMaxHr(cached.hrMax);
+        _calcHrRest = cached.hrRest ??
+            widget.summary?.baselineRestingHr ??
+            widget.summary?.restingHr ??
+            60.0;
         _latestVo2MaxResult = cached.latestVo2MaxResult;
         _loading = false;
       });
@@ -134,18 +173,7 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
       final db = AppDatabase.instance;
       final days = _selectedPeriod.days > 0 ? _selectedPeriod.days : null;
 
-      List<DailyMetricPoint> points = [];
-      switch (_selectedMetric) {
-        case CardioMetric.vo2Max:
-          points = await db.derivedMetricDao.getDailyVo2MaxHistory(days);
-          break;
-        case CardioMetric.maxHr:
-          points = await db.healthRecordDao.getDailyMaxHeartRates(days);
-          break;
-        case CardioMetric.restingHr:
-          points = await db.healthRecordDao.getDailyRestingHeartRates(days);
-          break;
-      }
+      final points = await db.derivedMetricDao.getDailyVo2MaxHistory(days);
 
       double? avg;
       double? latest;
@@ -159,83 +187,79 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         minVal = points.map((p) => p.value).reduce((a, b) => a < b ? a : b);
         maxVal = points.map((p) => p.value).reduce((a, b) => a > b ? a : b);
       } else {
-        // Fallback for tests/initial states without pre-populated DB tables
-        if (_selectedMetric == CardioMetric.vo2Max) {
-          latest = widget.summary?.estimatedVo2Max;
-          avg = latest;
-        } else if (_selectedMetric == CardioMetric.maxHr) {
-          latest = 183.0;
-          avg = 183.0;
-        } else {
-          latest = widget.summary?.restingHr ?? widget.summary?.baselineRestingHr;
-          avg = latest;
-        }
+        latest = widget.summary?.estimatedVo2Max;
+        avg = latest;
       }
 
       // Live formula components for VO2 max
       double? hrMax;
       double? hrRest;
-      double? bestRhr;
-      double? bestMaxHr;
       double? bestVo2Max;
       Vo2MaxResult? latestVo2MaxResult;
 
-      if (_selectedMetric == CardioMetric.vo2Max) {
-        if (mounted) {
-          latestVo2MaxResult = await context.read<HealthSourceRepository>().getLatestVo2MaxResult();
-        }
-        final now = DateTime.now();
-        final periodDays = _selectedPeriod.days > 0 ? _selectedPeriod.days : null;
+      if (mounted) {
+        try {
+          latestVo2MaxResult = await context
+              .read<HealthSourceRepository>()
+              .getLatestVo2MaxResult();
+        } catch (_) {}
+      }
+      final now = DateTime.now();
+      final periodDays = _selectedPeriod.days > 0 ? _selectedPeriod.days : null;
 
-        // ── HRmax: avg of top 2 daily max HRs from the period ──
-        hrMax = await db.healthRecordDao.getAvgTop2DailyMaxHr(days: periodDays);
-        if (hrMax == null && _selectedPeriod != Vo2Period.allTime) {
-          // Fallback: try all-time avg top 2
-          hrMax = await db.healthRecordDao.getAvgTop2DailyMaxHr();
-        }
-        hrMax ??= await db.healthRecordDao.getMaxExerciseHr(
-          start: DateTime(2000),
-          end: now,
-        );
+      // ── HRmax: avg of top 2 daily max HRs from the period ──
+      hrMax = await db.healthRecordDao.getAvgTop2DailyMaxHr(days: periodDays);
+      if (hrMax == null && _selectedPeriod != Vo2Period.allTime) {
+        hrMax = await db.healthRecordDao.getAvgTop2DailyMaxHr();
+      }
+      hrMax ??= await db.healthRecordDao.getMaxExerciseHr(
+        start: DateTime(2000),
+        end: now,
+      );
 
-        // ── HRrest: avg RHR from the period (all 7 days) ──
-        final todayStart = DateTime(now.year, now.month, now.day);
-        final baseline = await db.baselineDao.getBaseline(todayStart);
+      // Default to 190.0 if there is no data more than 190 bpm
+      hrMax = _resolveMaxHr(hrMax);
 
-        if (_selectedPeriod == Vo2Period.sevenDays) {
-          hrRest = baseline?.restingHrBaseline7d ?? widget.summary?.baselineRestingHr;
-        } else if (_selectedPeriod == Vo2Period.thirtyDays) {
-          hrRest = baseline?.restingHrBaseline30d ?? baseline?.restingHrBaseline7d ?? widget.summary?.baselineRestingHr;
+      // ── HRrest: avg RHR from the period ──
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final baseline = await db.baselineDao.getBaseline(todayStart);
+
+      if (_selectedPeriod == Vo2Period.sevenDays) {
+        hrRest = baseline?.restingHrBaseline7d ??
+            widget.summary?.baselineRestingHr;
+      } else if (_selectedPeriod == Vo2Period.thirtyDays) {
+        hrRest = baseline?.restingHrBaseline30d ??
+            baseline?.restingHrBaseline7d ??
+            widget.summary?.baselineRestingHr;
+      } else {
+        final allRhrs =
+            await db.healthRecordDao.getDailyRestingHeartRates(null);
+        if (allRhrs.isNotEmpty) {
+          final rhrSum = allRhrs.fold<double>(0.0, (s, p) => s + p.value);
+          hrRest = rhrSum / allRhrs.length;
         } else {
-          // All time: use all-time daily resting HR mean if available
-          final allRhrs = await db.healthRecordDao.getDailyRestingHeartRates(null);
-          if (allRhrs.isNotEmpty) {
-            final rhrSum = allRhrs.fold<double>(0.0, (s, p) => s + p.value);
-            hrRest = rhrSum / allRhrs.length;
-          } else {
-            hrRest = baseline?.restingHrBaseline30d ?? widget.summary?.baselineRestingHr ?? widget.summary?.restingHr;
-          }
+          hrRest = baseline?.restingHrBaseline30d ??
+              widget.summary?.baselineRestingHr ??
+              widget.summary?.restingHr;
         }
+      }
 
-        hrRest ??= await db.healthRecordDao.getTodayRestingHr(
-          start: todayStart,
-          end: now,
-        );
+      hrRest ??= await db.healthRecordDao.getTodayRestingHr(
+        start: todayStart,
+        end: now,
+      );
+      hrRest ??= widget.summary?.restingHr ?? 60.0;
 
-        // ── Best possible VO2 max: single best RHR and single highest HR from the week ──
-        final bestPeriodDays = periodDays ?? 7; // default to 7 for best-case
-        bestRhr = await db.healthRecordDao.getBestRestingHr(bestPeriodDays);
-        bestMaxHr = await db.healthRecordDao.getBestMaxHr(bestPeriodDays);
+      // Best-case VO2 Max
+      final bestPeriodDays = periodDays ?? 7;
+      final bestRhr = await db.healthRecordDao.getBestRestingHr(bestPeriodDays) ?? hrRest;
+      var bestMaxHr = await db.healthRecordDao.getBestMaxHr(bestPeriodDays) ?? hrMax;
+      bestMaxHr = _resolveMaxHr(bestMaxHr);
 
-        // Fallback to average components if single-best records not available
-        bestRhr ??= hrRest;
-        bestMaxHr ??= hrMax;
-
-        if (bestRhr != null && bestRhr > 0 && bestMaxHr != null && bestMaxHr > bestRhr) {
-          final raw = 15.0 * (bestMaxHr / bestRhr);
-          if (raw >= 15.0 && raw <= 85.0) {
-            bestVo2Max = raw;
-          }
+      if (bestRhr > 0 && bestMaxHr > bestRhr) {
+        final raw = 15.0 * (bestMaxHr / bestRhr);
+        if (raw >= 15.0 && raw <= 85.0) {
+          bestVo2Max = raw;
         }
       }
 
@@ -247,8 +271,6 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
         maxVal: maxVal,
         hrMax: hrMax,
         hrRest: hrRest,
-        bestRhr: bestRhr,
-        bestMaxHr: bestMaxHr,
         bestVo2Max: bestVo2Max,
         latestVo2MaxResult: latestVo2MaxResult,
       );
@@ -260,8 +282,8 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
           _latest = latest;
           _min = minVal;
           _max = maxVal;
-          _calcHrMax = hrMax ?? 183.0;
-          _calcHrRest = hrRest ?? widget.summary?.baselineRestingHr ?? widget.summary?.restingHr ?? 60.2;
+          _calcHrMax = hrMax ?? defaultMaxHeartRate;
+          _calcHrRest = hrRest ?? 60.0;
           _latestVo2MaxResult = latestVo2MaxResult;
           _loading = false;
         });
@@ -269,11 +291,6 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _onMetricChanged(CardioMetric metric) {
-    setState(() => _selectedMetric = metric);
-    _loadMetricData();
   }
 
   void _onPeriodChanged(Vo2Period period) {
@@ -290,58 +307,40 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
     );
   }
 
-  Color get _metricAccentColor {
-    switch (_selectedMetric) {
-      case CardioMetric.vo2Max:
-        return Tok.neonAccent;
-      case CardioMetric.maxHr:
-        return Tok.accentAmber;
-      case CardioMetric.restingHr:
-        return Tok.accentBlue;
-    }
+  void _openCheckinModal() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => MonthlyCheckinDialog(
+        prefilledWeight: _userProfile?.weightKg,
+        prefilledBodyFat: _userProfile?.bodyFatPct,
+        initialIsKg: true,
+      ),
+    );
+    _loadBodyAgeData();
   }
 
-  Color get _metricContainerColor {
-    switch (_selectedMetric) {
-      case CardioMetric.vo2Max:
-        return Tok.neonAccentSurface;
-      case CardioMetric.maxHr:
-        return Tok.accentAmberSurface;
-      case CardioMetric.restingHr:
-        return Tok.accentBlueSurface;
-    }
+  void _openEditBodyFat() async {
+    final profile = await UserProfileService.getProfile();
+    if (!mounted) return;
+    await EditBodyFatDialog.show(
+      context,
+      initialBodyFat: profile.bodyFatPct,
+      gender: profile.gender,
+      onSaved: _loadBodyAgeData,
+    );
+    _loadBodyAgeData();
   }
 
-  Color get _metricBorderColor {
-    switch (_selectedMetric) {
-      case CardioMetric.vo2Max:
-        return Tok.neonAccentGlow;
-      case CardioMetric.maxHr:
-        return const Color(0x59FF6B00);
-      case CardioMetric.restingHr:
-        return const Color(0x5900D2FF);
-    }
-  }
-
-  String get _metricUnit {
-    switch (_selectedMetric) {
-      case CardioMetric.vo2Max:
-        return 'mL/kg/min';
-      case CardioMetric.maxHr:
-      case CardioMetric.restingHr:
-        return 'bpm';
-    }
-  }
-
-  String get _metricTitle {
-    switch (_selectedMetric) {
-      case CardioMetric.vo2Max:
-        return 'VO₂ MAX';
-      case CardioMetric.maxHr:
-        return 'MAXIMUM HEART RATE';
-      case CardioMetric.restingHr:
-        return 'RESTING HEART RATE';
-    }
+  void _openFullBodyAgeScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BodyAgeFitnessScreen(
+          bodyAgeRepository: _bodyAgeRepo,
+        ),
+      ),
+    ).then((_) => _loadBodyAgeData());
   }
 
   String _vo2Tier(double? vo2) {
@@ -361,33 +360,39 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
     return '${months[date.month - 1]} ${date.day}';
   }
 
+  IconData _iconForFactor(BodyAgeFactor factor) {
+    switch (factor) {
+      case BodyAgeFactor.vo2Max:
+        return Icons.speed;
+      case BodyAgeFactor.restingHeartRate:
+        return Icons.favorite;
+      case BodyAgeFactor.vigorousActivity:
+        return Icons.directions_run;
+      case BodyAgeFactor.bodyComposition:
+        return Icons.monitor_weight_outlined;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final score = widget.summary?.recoveryScore;
-    final tier = RecoveryTier.fromScore(score);
-
-    // Current displayed headline value (use period-specific estimated VO2 max when applicable, else average or latest)
+    // Current displayed headline VO2 Max value
     double? headlineValue;
-    if (_selectedMetric == CardioMetric.vo2Max) {
-      if (_selectedPeriod == Vo2Period.sevenDays) {
-        headlineValue = widget.summary?.estimatedVo2Max7d ??
-            (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
-            _average ??
-            _latest;
-      } else if (_selectedPeriod == Vo2Period.thirtyDays) {
-        headlineValue = widget.summary?.estimatedVo2Max30d ??
-            (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
-            _average ??
-            _latest;
-      } else {
-        headlineValue = widget.summary?.estimatedVo2MaxAllTime ??
-            (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
-            _average ??
-            widget.summary?.estimatedVo2Max ??
-            _latest;
-      }
+    if (_selectedPeriod == Vo2Period.sevenDays) {
+      headlineValue = widget.summary?.estimatedVo2Max7d ??
+          (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
+          _average ??
+          _latest;
+    } else if (_selectedPeriod == Vo2Period.thirtyDays) {
+      headlineValue = widget.summary?.estimatedVo2Max30d ??
+          (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
+          _average ??
+          _latest;
     } else {
-      headlineValue = _latest ?? _average;
+      headlineValue = widget.summary?.estimatedVo2MaxAllTime ??
+          (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
+          _average ??
+          widget.summary?.estimatedVo2Max ??
+          _latest;
     }
 
     return SingleChildScrollView(
@@ -396,38 +401,52 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header Title & Recovery Tier ──
+          // ── Top Header Bar ──
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Flexible(
-                child: Text(
-                  'RECOVERY ANALYSIS',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.0,
-                    color: RecovaColors.textPrimary,
-                  ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'BODY DATA',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                        color: RecovaColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'BODY AGE & CARDIO CAPACITY (VO₂ MAX)',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                        color: RecovaColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: tier.containerColor,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: tier.borderColor),
-                ),
-                child: Text(
-                  tier.label,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: tier.color,
+              GestureDetector(
+                onTap: _showVo2Explainer,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: RecovaColors.surfaceElevation2,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: RecovaColors.borderSubtle),
+                  ),
+                  child: const Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: Tok.neonAccent,
                   ),
                 ),
               ),
@@ -435,363 +454,608 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
           ),
           const SizedBox(height: 16),
 
-          // ── Dynamic Recovery & Strain Hero Card ──
-          _buildRecoveryHeroCard(tier, score),
+          // ── 1. BODY AGE SECTION ──
+          _buildBodyAgeCard(),
           const SizedBox(height: 20),
 
-          // ── Cardio Capacity Header ──
-          _buildCardioSectionHeader(),
-          const SizedBox(height: 12),
+          // ── 2. VO2 MAX SECTION ──
+          _buildVo2MaxSection(headlineValue),
+        ],
+      ),
+    );
+  }
 
-          // ── Metric Selector Pills (VO2 MAX / MAX HR / RESTING HR) ──
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BODY AGE CARD & FACTOR BREAKDOWN
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildBodyAgeCard() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: const [
+                Icon(
+                  Icons.accessibility_new_rounded,
+                  size: 14,
+                  color: Tok.neonAccent,
+                ),
+                SizedBox(width: 6),
+                Text(
+                  'BODY AGE',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                    color: Tok.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            GestureDetector(
+              onTap: _openFullBodyAgeScreen,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Text(
+                    'DETAILS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: Tok.neonAccent,
+                    ),
+                  ),
+                  SizedBox(width: 2),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 14,
+                    color: Tok.neonAccent,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        if (_loadingBodyAge)
           Container(
-            padding: const EdgeInsets.all(4),
+            height: 100,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: RecovaColors.surfaceElevation2,
-              borderRadius: BorderRadius.circular(12),
+              color: RecovaColors.surfaceElevation1,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: RecovaColors.borderSubtle),
             ),
             child: Row(
-              children: CardioMetric.values.map((metric) {
-                final isSelected = metric == _selectedMetric;
-                return Expanded(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Tok.neonAccent.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'CALCULATING BODY AGE...',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.8,
+                    color: Tok.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (_bodyAgeResult != null)
+          _buildBodyAgeResultCard(_bodyAgeResult!)
+        else
+          _buildBodyAgeEmptyCard(),
+      ],
+    );
+  }
+
+  Widget _buildBodyAgeResultCard(FitnessBodyAgeResult result) {
+    final diff = result.difference;
+    final isYounger = diff < 0;
+    final isSame = diff == 0;
+
+    final badgeBg = isYounger
+        ? Colors.green.withValues(alpha: 0.15)
+        : isSame
+            ? Tok.glassFillRecessed
+            : Colors.orange.withValues(alpha: 0.15);
+    final badgeBorder = isYounger
+        ? Colors.green
+        : isSame
+            ? Tok.glassBorder
+            : Colors.orange;
+    final badgeTextColor = isYounger
+        ? Colors.greenAccent
+        : isSame
+            ? Tok.textSecondary
+            : Colors.orangeAccent;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: RecovaColors.surfaceElevation1,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isYounger
+              ? Tok.neonAccent.withValues(alpha: 0.3)
+              : RecovaColors.borderSubtle,
+        ),
+        boxShadow: [
+          if (isYounger)
+            BoxShadow(
+              color: Tok.neonAccent.withValues(alpha: 0.08),
+              blurRadius: 18,
+              spreadRadius: 1,
+            ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Hero Readout
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'ESTIMATED FUNCTIONAL AGE',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: RecovaColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        result.bodyAge.toStringAsFixed(1),
+                        style: const TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w300,
+                          letterSpacing: -1.0,
+                          color: RecovaColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'YEARS',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.0,
+                          color: Tok.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              if (result.achievableBodyAge != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: RecovaColors.surfaceElevation2,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: RecovaColors.borderSubtle),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'ACHIEVABLE',
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                          color: Tok.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${result.achievableBodyAge!.toStringAsFixed(1)} yrs',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Tok.neonAccent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Difference Pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: badgeBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: badgeBorder),
+            ),
+            child: Text(
+              isSame
+                  ? 'Matches your chronological age (${result.chronologicalAge} yrs)'
+                  : isYounger
+                      ? '▼ ${diff.abs().toStringAsFixed(1)} years younger than actual age (${result.chronologicalAge})'
+                      : '▲ ${diff.abs().toStringAsFixed(1)} years older than actual age (${result.chronologicalAge})',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: badgeTextColor,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 4 Physiological Factor Chips
+          Row(
+            children: BodyAgeFactor.values.map((factor) {
+              final age = result.factorAges[factor];
+              final factorLabel = factor.displayName.split(' ').first;
+              return Expanded(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: RecovaColors.surfaceElevation2,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: RecovaColors.borderSubtle),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        _iconForFactor(factor),
+                        size: 13,
+                        color: age != null ? Tok.neonAccent : Tok.textMuted,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        factorLabel.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 7.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.4,
+                          color: RecovaColors.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        age != null ? '${age.toStringAsFixed(1)}y' : '--',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: age != null
+                              ? RecovaColors.textPrimary
+                              : RecovaColors.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+
+          // Action row: Edit Body Fat / Monthly Check-In
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              GestureDetector(
+                onTap: _openEditBodyFat,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.tune_rounded, size: 12, color: Tok.neonAccent),
+                    SizedBox(width: 4),
+                    Text(
+                      'EDIT BODY FAT',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                        color: Tok.neonAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: _openCheckinModal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.edit_calendar_outlined,
+                        size: 12, color: Tok.neonAccent),
+                    SizedBox(width: 4),
+                    Text(
+                      'MONTHLY CHECK-IN',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                        color: Tok.neonAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBodyAgeEmptyCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: RecovaColors.surfaceElevation1,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: RecovaColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.insights, size: 20, color: Tok.neonAccent),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'CALCULATE YOUR BODY AGE',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: RecovaColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Body Age estimates your biological fitness from VO2 Max, Resting HR, activity, and body composition.',
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.4,
+              color: RecovaColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: _openCheckinModal,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Tok.neonAccent,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'SET PROFILE & MEASUREMENTS',
+              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VO2 MAX CARD & TREND
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildVo2MaxSection(double? headlineValue) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Header
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.speed, size: 14, color: Tok.neonAccent),
+                SizedBox(width: 6),
+                Text(
+                  'VO₂ MAX (CARDIO CAPACITY)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                    color: Tok.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            // Period Selector Pills (7D / 30D / ALL)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: Vo2Period.values.map((p) {
+                final isSelected = p == _selectedPeriod;
+                return Padding(
+                  padding: const EdgeInsets.only(left: 4),
                   child: GestureDetector(
-                    onTap: () => _onMetricChanged(metric),
+                    onTap: () => _onPeriodChanged(p),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? RecovaColors.monochromeWhite
-                            : Colors.transparent,
+                            ? Tok.neonAccentSurface
+                            : RecovaColors.surfaceElevation2,
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected
+                              ? Tok.neonAccentGlow
+                              : RecovaColors.borderSubtle,
+                        ),
                       ),
-                      alignment: Alignment.center,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            metric.icon,
-                            size: 12,
-                            color: isSelected
-                                ? RecovaColors.canvasBase
-                                : RecovaColors.textSecondary,
-                          ),
-                          const SizedBox(width: 3),
-                          Flexible(
-                            child: Text(
-                              metric.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.3,
-                                color: isSelected
-                                    ? RecovaColors.canvasBase
-                                    : RecovaColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        p.label,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: isSelected
+                              ? Tok.neonAccent
+                              : RecovaColors.textSecondary,
+                        ),
                       ),
                     ),
                   ),
                 );
               }).toList(),
             ),
-          ),
-          const SizedBox(height: 14),
+          ],
+        ),
+        const SizedBox(height: 12),
 
-          // ── Period Selector Pills (7D / 30D / ALL) ──
-          Row(
-            children: Vo2Period.values.map((p) {
-              final isSelected = p == _selectedPeriod;
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: GestureDetector(
-                  onTap: () => _onPeriodChanged(p),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? _metricContainerColor
-                          : RecovaColors.surfaceElevation2,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isSelected
-                            ? _metricBorderColor
-                            : RecovaColors.borderSubtle,
-                      ),
-                    ),
-                    child: Text(
-                      p.label,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                        color: isSelected
-                            ? _metricAccentColor
-                            : RecovaColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
+        // Main VO2 Max Card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: RecovaColors.surfaceElevation1,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: RecovaColors.borderSubtle),
           ),
-          const SizedBox(height: 16),
-
-          // ── Main Cardio Analysis & Trend Card ──
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: RecovaColors.surfaceElevation1,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: RecovaColors.borderSubtle),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title + Action Chip
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Headline Value + Fitness Tier
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: RichText(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      text: TextSpan(
                         children: [
-                          Icon(_selectedMetric.icon,
-                              size: 16, color: _metricAccentColor),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              _metricTitle,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.0,
-                                color: RecovaColors.textPrimary,
-                              ),
+                          TextSpan(
+                            text: headlineValue != null
+                                ? headlineValue.toStringAsFixed(1)
+                                : '--',
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w300,
+                              letterSpacing: -1.0,
+                              color: RecovaColors.textPrimary,
+                            ),
+                          ),
+                          const TextSpan(
+                            text: ' mL/kg/min',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: RecovaColors.textTertiary,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    if (_selectedMetric == CardioMetric.vo2Max)
-                      GestureDetector(
-                        onTap: _showVo2Explainer,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: RecovaColors.surfaceElevation3,
-                            borderRadius: BorderRadius.circular(10),
-                            border:
-                                Border.all(color: RecovaColors.borderSubtle),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(Icons.info_outline,
-                                  size: 11,
-                                  color: RecovaColors.textTertiary),
-                              SizedBox(width: 4),
-                              Text(
-                                'HOW IT WORKS',
-                                style: TextStyle(
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.8,
-                                  color: RecovaColors.textTertiary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: _metricContainerColor,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: _metricBorderColor),
-                        ),
-                        child: Text(
-                          _selectedMetric == CardioMetric.maxHr
-                              ? 'WORKOUT PEAK'
-                              : 'WEARABLE BASELINE',
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
-                            color: _metricAccentColor,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                // Hero Value + Secondary Badges
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (_loading)
-                      const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: RecovaColors.monochromeWhite,
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: RichText(
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          text: TextSpan(
-                            children: [
-                              TextSpan(
-                                text: headlineValue != null
-                                    ? (_selectedMetric == CardioMetric.vo2Max
-                                        ? headlineValue.toStringAsFixed(1)
-                                        : headlineValue.toStringAsFixed(0))
-                                    : '--',
-                                style: const TextStyle(
-                                  fontSize: 30,
-                                  fontWeight: FontWeight.w300,
-                                  letterSpacing: -1.0,
-                                  color: RecovaColors.textPrimary,
-                                ),
-                              ),
-                              TextSpan(
-                                text: ' $_metricUnit',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: RecovaColors.textTertiary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    const SizedBox(width: 8),
-                    if (_selectedMetric == CardioMetric.vo2Max && headlineValue != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _metricContainerColor,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _metricBorderColor),
-                        ),
-                        child: Text(
-                          _vo2Tier(headlineValue),
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
-                            color: _metricAccentColor,
-                          ),
-                        ),
-                      )
-                    else if (_average != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: RecovaColors.surfaceElevation3,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: RecovaColors.borderSubtle),
-                        ),
-                        child: Text(
-                          '${_average!.toStringAsFixed(0)} $_metricUnit avg',
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.6,
-                            color: RecovaColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-
-                // Period description
-                Text(
-                  _selectedPeriod == Vo2Period.allTime
-                      ? 'All-time metric telemetry (${_points.length} daily entries)'
-                      : '${_selectedPeriod.label} rolling trend (${_points.length} daily entries)',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: RecovaColors.textSecondary,
                   ),
+                  if (headlineValue != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Tok.neonAccentSurface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Tok.neonAccentGlow),
+                      ),
+                      child: Text(
+                        _vo2Tier(headlineValue),
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          color: Tok.neonAccent,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+
+              Text(
+                _selectedPeriod == Vo2Period.allTime
+                    ? 'All-time cardiovascular telemetry (${_points.length} entries)'
+                    : '${_selectedPeriod.label} rolling trend (${_points.length} daily entries)',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: RecovaColors.textSecondary,
                 ),
-                const SizedBox(height: 18),
+              ),
+              const SizedBox(height: 16),
 
-                // ── Dynamic Trend Chart ──
-                _buildChart(),
-                const SizedBox(height: 16),
+              // Trend Chart
+              _buildChart(),
+              const SizedBox(height: 16),
 
-                // ── Visible Calculation Breakdown Card ──
-                _buildCalculationCard(),
-                const SizedBox(height: 16),
+              // Uth–Sørensen Calculation Breakdown
+              _buildCalculationCard(),
+              const SizedBox(height: 16),
 
-                // ── Summary Stats Strip (Latest / Period Avg / Period Peak or Low) ──
-                _buildStatsStrip(),
-                const SizedBox(height: 16),
-
-              ],
-            ),
+              // Stats Strip
+              _buildStatsStrip(),
+            ],
           ),
-          const SizedBox(height: 20),
-
-          // ── Strain & Autonomic Load Tuning ──
-          _buildAutonomicTrainingZoneCard(),
-          const SizedBox(height: 16),
-
-          // ── Rest Replenishment Engine Tracker ──
-          _buildRestReplenishmentEngineCard(),
-          const SizedBox(height: 16),
-
-          // ── 5 Biometric Recovery Pillars ──
-          _buildBiometricPillarsSection(),
-          const SizedBox(height: 16),
-
-          // ── 7-Day Strain vs Recovery Interplay ──
-          _buildHistoricalInterplayCard(),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  /// Dynamic interactive LineChart for the active metric.
+  /// Interactive LineChart for VO2 Max
   Widget _buildChart() {
     if (_points.isEmpty) {
       return Container(
-        height: 140,
+        height: 130,
         alignment: Alignment.center,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: const [
-            Icon(Icons.show_chart, size: 28, color: RecovaColors.textSecondary),
-            SizedBox(height: 8),
+            Icon(Icons.show_chart, size: 26, color: RecovaColors.textSecondary),
+            SizedBox(height: 6),
             Text(
-              'No data recorded for this period.\nWear your tracker and sync to build your trend.',
+              'No VO₂ Max entries recorded for this window.\nWear your tracker and log workouts to build your trend.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 10.5,
+                fontSize: 10,
                 color: RecovaColors.textSecondary,
                 height: 1.4,
               ),
@@ -818,271 +1082,261 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
     final yInterval = ((maxY - minY) / 3).clamp(1.0, 50.0);
 
     return SizedBox(
-      height: 155,
+      height: 145,
       child: RepaintBoundary(
         child: LineChart(
-        LineChartData(
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: yInterval,
-            getDrawingHorizontalLine: (value) => FlLine(
-              color: Colors.white.withValues(alpha: 0.05),
-              strokeWidth: 1,
+          LineChartData(
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              horizontalInterval: yInterval,
+              getDrawingHorizontalLine: (value) => FlLine(
+                color: Colors.white.withValues(alpha: 0.05),
+                strokeWidth: 1,
+              ),
             ),
-          ),
-          titlesData: FlTitlesData(
-            show: true,
-            rightTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval: yInterval,
-                reservedSize: 32,
-                getTitlesWidget: (value, meta) => Text(
-                  value.toInt().toString(),
-                  style: const TextStyle(
-                    fontSize: 8.5,
-                    color: RecovaColors.textSecondary,
+            titlesData: FlTitlesData(
+              show: true,
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  interval: yInterval,
+                  reservedSize: 28,
+                  getTitlesWidget: (value, meta) => Text(
+                    value.toInt().toString(),
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      color: RecovaColors.textSecondary,
+                    ),
                   ),
                 ),
               ),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval: 1,
-                getTitlesWidget: (value, meta) {
-                  final index = value.toInt();
-                  if (index < 0 || index >= _points.length) {
-                    return const SizedBox.shrink();
-                  }
-
-                  // Determine which indices get a date label to avoid overcrowding
-                  bool showLabel = false;
-                  final total = _points.length;
-                  if (total <= 7) {
-                    showLabel = index == 0 ||
-                        index == total ~/ 2 ||
-                        index == total - 1;
-                  } else {
-                    final step = (total / 3).floor();
-                    showLabel = index == 0 ||
-                        index == step ||
-                        index == step * 2 ||
-                        index == total - 1;
-                  }
-
-                  if (!showLabel) return const SizedBox.shrink();
-
-                  final isLast = index == total - 1;
-                  final label = _formatDateLabel(_points[index].date, isLast);
-
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 8.5,
-                        color: RecovaColors.textSecondary,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          borderData: FlBorderData(show: false),
-          minX: minX,
-          maxX: maxX,
-          minY: minY,
-          maxY: maxY,
-          lineTouchData: LineTouchData(
-            touchTooltipData: LineTouchTooltipData(
-              getTooltipColor: (_) => RecovaColors.surfaceElevation3,
-              getTooltipItems: (touchedSpots) {
-                return touchedSpots.map((spot) {
-                  final idx = spot.spotIndex;
-                  final date = (idx >= 0 && idx < _points.length)
-                      ? _points[idx].date
-                      : DateTime.now();
-                  final dateStr = _formatDateLabel(date, idx == _points.length - 1);
-                  final valStr = _selectedMetric == CardioMetric.vo2Max
-                      ? spot.y.toStringAsFixed(1)
-                      : spot.y.toInt().toString();
-
-                  return LineTooltipItem(
-                    '$valStr $_metricUnit\n',
-                    TextStyle(
-                      color: _metricAccentColor,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11.5,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: dateStr,
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  interval: 1,
+                  getTitlesWidget: (value, meta) {
+                    final index = value.toInt();
+                    if (index < 0 || index >= _points.length) {
+                      return const SizedBox.shrink();
+                    }
+                    final total = _points.length;
+                    bool showLabel = false;
+                    if (total <= 7) {
+                      showLabel = index == 0 ||
+                          index == total ~/ 2 ||
+                          index == total - 1;
+                    } else {
+                      final step = (total / 3).floor();
+                      showLabel = index == 0 ||
+                          index == step ||
+                          index == step * 2 ||
+                          index == total - 1;
+                    }
+                    if (!showLabel) return const SizedBox.shrink();
+                    final isLast = index == total - 1;
+                    final label = _formatDateLabel(_points[index].date, isLast);
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        label,
                         style: const TextStyle(
-                          color: RecovaColors.textTertiary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 9,
+                          fontSize: 8.5,
+                          color: RecovaColors.textSecondary,
                         ),
                       ),
-                    ],
-                  );
-                }).toList();
-              },
-            ),
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: spots.length > 2,
-              curveSmoothness: 0.28,
-              color: _metricAccentColor,
-              barWidth: 2.2,
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, barData, index) {
-                  final isLatest = index == barData.spots.length - 1;
-                  return FlDotCirclePainter(
-                    radius: isLatest ? 3.5 : 1.8,
-                    color: isLatest
-                        ? _metricAccentColor
-                        : RecovaColors.monochromeSilver,
-                    strokeColor: Colors.white,
-                    strokeWidth: isLatest ? 1.5 : 0,
-                  );
-                },
-              ),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    _metricAccentColor.withValues(alpha: 0.18),
-                    _metricAccentColor.withValues(alpha: 0.0),
-                  ],
+                    );
+                  },
                 ),
               ),
             ),
-          ],
+            borderData: FlBorderData(show: false),
+            minX: minX,
+            maxX: maxX,
+            minY: minY,
+            maxY: maxY,
+            lineTouchData: LineTouchData(
+              touchTooltipData: LineTouchTooltipData(
+                getTooltipColor: (_) => RecovaColors.surfaceElevation3,
+                getTooltipItems: (touchedSpots) {
+                  return touchedSpots.map((spot) {
+                    final idx = spot.spotIndex;
+                    final date = (idx >= 0 && idx < _points.length)
+                        ? _points[idx].date
+                        : DateTime.now();
+                    final dateStr =
+                        _formatDateLabel(date, idx == _points.length - 1);
+                    return LineTooltipItem(
+                      '${spot.y.toStringAsFixed(1)} mL/kg/min\n',
+                      const TextStyle(
+                        color: Tok.neonAccent,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11.5,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: dateStr,
+                          style: const TextStyle(
+                            color: RecovaColors.textTertiary,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList();
+                },
+              ),
+            ),
+            lineBarsData: [
+              LineChartBarData(
+                spots: spots,
+                isCurved: spots.length > 2,
+                curveSmoothness: 0.28,
+                color: Tok.neonAccent,
+                barWidth: 2.2,
+                dotData: FlDotData(
+                  show: true,
+                  getDotPainter: (spot, percent, barData, index) {
+                    final isLatest = index == barData.spots.length - 1;
+                    return FlDotCirclePainter(
+                      radius: isLatest ? 3.5 : 1.8,
+                      color: isLatest
+                          ? Tok.neonAccent
+                          : RecovaColors.monochromeSilver,
+                      strokeColor: Colors.white,
+                      strokeWidth: isLatest ? 1.5 : 0,
+                    );
+                  },
+                ),
+                belowBarData: BarAreaData(
+                  show: true,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Tok.neonAccent.withValues(alpha: 0.18),
+                      Tok.neonAccent.withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
 
-  /// Inline mathematical calculation card visible directly on screen.
+  /// Calculation Breakdown Card for VO2 Max
   Widget _buildCalculationCard() {
-    if (_selectedMetric == CardioMetric.vo2Max) {
-      final hrMaxSubtitle = _selectedPeriod == Vo2Period.allTime
-          ? 'All-Time Peak'
-          : (_selectedPeriod == Vo2Period.thirtyDays ? '30D Peak' : '7D Peak');
-      final hrRestSubtitle = _selectedPeriod == Vo2Period.allTime
-          ? 'All-Time Avg RHR'
-          : (_selectedPeriod == Vo2Period.thirtyDays ? '30D Avg RHR' : '7D Avg RHR');
+    final hrMaxSubtitle = _calcHrMax > defaultMaxHeartRate
+        ? 'Recorded Peak'
+        : 'Default (≤190 bpm)';
+    final hrRestSubtitle = _selectedPeriod == Vo2Period.allTime
+        ? 'All-Time Avg RHR'
+        : (_selectedPeriod == Vo2Period.thirtyDays
+            ? '30D Avg RHR'
+            : '7D Avg RHR');
 
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: RecovaColors.surfaceElevation2,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: RecovaColors.recoveryEmerald.withValues(alpha: 0.4),
-            width: 1.2,
-          ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: RecovaColors.surfaceElevation2,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: RecovaColors.recoveryEmerald.withValues(alpha: 0.35),
+          width: 1.0,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
-                    children: const [
-                      Icon(Icons.functions,
-                          size: 14, color: RecovaColors.recoveryEmerald),
-                      SizedBox(width: 5),
-                      Flexible(
-                        child: Text(
-                          'CALCULATION BREAKDOWN',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
-                            color: RecovaColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: RecovaColors.recoveryEmerald.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: RecovaColors.recoveryEmerald.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: const Text(
-                    'UTH\u2013S\u00d8RENSEN',
-                    style: TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.6,
-                      color: RecovaColors.recoveryEmerald,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // Algorithm description
-            const Text(
-              'Calculates your VO₂ max directly from the ratio of your maximum heart rate to your resting heart rate.',
-              style: TextStyle(
-                fontSize: 10,
-                height: 1.4,
-                color: RecovaColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Formula box
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: RecovaColors.surfaceElevation3,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: RecovaColors.borderSubtle),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'VO₂max = 15.3 × (HRmax / HRrest)',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      color: RecovaColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.functions,
+                      size: 14, color: RecovaColors.recoveryEmerald),
+                  SizedBox(width: 5),
                   Text(
-                    '15.3 × (${_calcHrMax.toStringAsFixed(0)} / ${_calcHrRest.toStringAsFixed(1)}) = ${(15.3 * (_calcHrMax / _calcHrRest)).toStringAsFixed(1)} mL/kg/min',
+                    'CALCULATION BREAKDOWN',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: RecovaColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: RecovaColors.recoveryEmerald.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: RecovaColors.recoveryEmerald.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: const Text(
+                  'UTH\u2013S\u00d8RENSEN',
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: RecovaColors.recoveryEmerald,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          const Text(
+            'Calculates VO₂ max from the ratio of your maximum heart rate (default 190 bpm) to your resting heart rate.',
+            style: TextStyle(
+              fontSize: 10,
+              height: 1.4,
+              color: RecovaColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Formula box
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: RecovaColors.surfaceElevation3,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: RecovaColors.borderSubtle),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'VO₂max = 15.0 × (HRmax / HRrest)',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: RecovaColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '15.0 × (${_calcHrMax.toStringAsFixed(0)} / ${_calcHrRest.toStringAsFixed(1)}) = ${(15.0 * (_calcHrMax / _calcHrRest)).toStringAsFixed(1)} mL/kg/min',
                     style: const TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 12,
@@ -1090,103 +1344,25 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
                       color: RecovaColors.monochromeWhite,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
+          ),
+          const SizedBox(height: 10),
 
-            // Variables chips
-            Row(
-              children: [
-                _calcChip('HRmax', '${_calcHrMax.toStringAsFixed(0)} bpm', hrMaxSubtitle),
-                const SizedBox(width: 6),
-                _calcChip('HRrest', '${_calcHrRest.toStringAsFixed(1)} bpm', hrRestSubtitle),
-              ],
-            ),
-          ],
-        ),
-      );
-    } else if (_selectedMetric == CardioMetric.maxHr) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: RecovaColors.surfaceElevation2,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: RecovaColors.borderSubtle),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: const [
-                Icon(Icons.directions_run, size: 13, color: Color(0xFFD1D1D6)),
-                SizedBox(width: 5),
-                Text(
-                  'MAX HEART RATE TELEMETRY',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: RecovaColors.textTertiary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _calcChip('Latest', '${_latest?.toStringAsFixed(0) ?? '--'} bpm', 'Day Peak'),
-                const SizedBox(width: 6),
-                _calcChip('Peak Window', '${_max?.toStringAsFixed(0) ?? '--'} bpm', 'Period High'),
-                const SizedBox(width: 6),
-                _calcChip('Filter', '98th %tile', 'Sustained Optical'),
-              ],
-            ),
-          ],
-        ),
-      );
-    } else {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: RecovaColors.surfaceElevation2,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: RecovaColors.borderSubtle),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: const [
-                Icon(Icons.nightlight_round, size: 13, color: Color(0xFF8E8E93)),
-                SizedBox(width: 5),
-                Text(
-                  'RESTING HEART RATE TELEMETRY',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: RecovaColors.textTertiary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _calcChip('Latest RHR', '${_latest?.toStringAsFixed(0) ?? '--'} bpm', 'Wearable Log'),
-                const SizedBox(width: 6),
-                _calcChip('Period Low', '${_min?.toStringAsFixed(0) ?? '--'} bpm', 'Lowest RHR'),
-                const SizedBox(width: 6),
-                _calcChip('Period Avg', '${_average?.toStringAsFixed(1) ?? '--'} bpm', 'Window Mean'),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
+          // Variables chips
+          Row(
+            children: [
+              _calcChip('HRmax', '${_calcHrMax.toStringAsFixed(0)} bpm', hrMaxSubtitle),
+              const SizedBox(width: 6),
+              _calcChip('HRrest', '${_calcHrRest.toStringAsFixed(1)} bpm', hrRestSubtitle),
+              const SizedBox(width: 6),
+              _calcChip('Ratio', (_calcHrMax / _calcHrRest).toStringAsFixed(2), 'Max/Rest Dynamic'),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _calcChip(String title, String val, String subtitle) {
@@ -1233,34 +1409,11 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
     );
   }
 
-  /// 3-column summary statistics footer strip.
+  /// 3-column summary statistics footer strip for VO2 Max
   Widget _buildStatsStrip() {
-    final col1Title = 'LATEST';
-    final col1Val = _latest != null
-        ? (_selectedMetric == CardioMetric.vo2Max
-            ? _latest!.toStringAsFixed(1)
-            : '${_latest!.toInt()} $_metricUnit')
-        : '--';
-
-    final col2Title = 'PERIOD AVG';
-    final col2Val = _average != null
-        ? (_selectedMetric == CardioMetric.vo2Max
-            ? _average!.toStringAsFixed(1)
-            : '${_average!.toInt()} $_metricUnit')
-        : '--';
-
-    String col3Title;
-    String col3Val;
-    if (_selectedMetric == CardioMetric.vo2Max) {
-      col3Title = 'FITNESS TIER';
-      col3Val = _vo2Tier(_latest ?? _average);
-    } else if (_selectedMetric == CardioMetric.maxHr) {
-      col3Title = 'PERIOD PEAK';
-      col3Val = _max != null ? '${_max!.toInt()} bpm' : '--';
-    } else {
-      col3Title = 'PERIOD LOW';
-      col3Val = _min != null ? '${_min!.toInt()} bpm' : '--';
-    }
+    final col1Val = _latest != null ? _latest!.toStringAsFixed(1) : '--';
+    final col2Val = _average != null ? _average!.toStringAsFixed(1) : '--';
+    final col3Val = _vo2Tier(_latest ?? _average);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1271,19 +1424,11 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _statItem(col1Title, col1Val),
-          Container(
-            width: 1,
-            height: 24,
-            color: RecovaColors.borderSubtle,
-          ),
-          _statItem(col2Title, col2Val),
-          Container(
-            width: 1,
-            height: 24,
-            color: RecovaColors.borderSubtle,
-          ),
-          _statItem(col3Title, col3Val),
+          _statItem('LATEST', col1Val),
+          Container(width: 1, height: 24, color: RecovaColors.borderSubtle),
+          _statItem('PERIOD AVG', col2Val),
+          Container(width: 1, height: 24, color: RecovaColors.borderSubtle),
+          _statItem('FITNESS TIER', col3Val),
         ],
       ),
     );
@@ -1313,1227 +1458,8 @@ class _RecoveryDeepDiveScreenState extends State<RecoveryDeepDiveScreen> {
       ],
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ENHANCED RECOVERY & STRAIN HERO DYNAMICS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildRecoveryHeroCard(RecoveryTier tier, double? score) {
-    final baseline = widget.summary?.baselineRecoveryScore ?? score ?? 51.0;
-    final strainImpact = widget.summary?.strainImpact ?? 0.0;
-    final restReplenishment = widget.summary?.restReplenishment ?? 0.0;
-    final isRecharging = restReplenishment > 0 && strainImpact <= restReplenishment;
-    final hasFatigue = strainImpact > 0 && strainImpact > restReplenishment;
-
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      borderRadius: 16,
-      accentGlow: tier.color.withValues(alpha: 0.18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top row: Score + Tier & Realtime Dynamics Tag
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Score Display
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    score != null ? score.round().toString() : '--',
-                    style: TextStyle(
-                      fontSize: 38,
-                      fontWeight: FontWeight.w300,
-                      letterSpacing: -1.0,
-                      color: tier.color,
-                    ),
-                  ),
-                  Text(
-                    '%',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: tier.color.withValues(alpha: 0.8),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 8),
-              // Status and Tier Chips
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: tier.containerColor,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: tier.borderColor),
-                      ),
-                      child: Text(
-                        tier.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.7,
-                          color: tier.color,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isRecharging
-                              ? Icons.bolt
-                              : (hasFatigue ? Icons.local_fire_department : Icons.shield_outlined),
-                          size: 11,
-                          color: isRecharging
-                              ? Tok.accentBlue
-                              : (hasFatigue ? Tok.accentAmber : Tok.textSecondary),
-                        ),
-                        const SizedBox(width: 3),
-                        Flexible(
-                          child: Text(
-                            isRecharging
-                                ? 'REST REPLENISHING (+${restReplenishment.toStringAsFixed(1)}%)'
-                                : (hasFatigue
-                                    ? 'STRAIN FATIGUE (-${strainImpact.toStringAsFixed(1)}%)'
-                                    : 'WAKING BASELINE'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.3,
-                              color: isRecharging
-                                  ? Tok.accentBlue
-                                  : (hasFatigue ? Tok.accentAmber : Tok.textSecondary),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // ── Dynamic Intraday Recovery Equation Strip ──
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: RecovaColors.surfaceElevation2,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: RecovaColors.borderSubtle),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildEquationCell(
-                    label: 'WAKING',
-                    val: '${baseline.round()}%',
-                    color: RecovaColors.textPrimary,
-                  ),
-                ),
-                _buildEquationOp('–'),
-                Expanded(
-                  child: _buildEquationCell(
-                    label: 'STRAIN',
-                    val: '-${strainImpact.toStringAsFixed(1)}%',
-                    color: strainImpact > 0 ? Tok.accentAmber : RecovaColors.textSecondary,
-                  ),
-                ),
-                _buildEquationOp('+'),
-                Expanded(
-                  child: _buildEquationCell(
-                    label: 'REST GAIN',
-                    val: '+${restReplenishment.toStringAsFixed(1)}%',
-                    color: restReplenishment > 0 ? Tok.accentBlue : RecovaColors.textSecondary,
-                  ),
-                ),
-                _buildEquationOp('='),
-                Expanded(
-                  child: _buildEquationCell(
-                    label: 'CURRENT',
-                    val: '${score != null ? score.round() : '--'}%',
-                    color: tier.color,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Explanatory micro-text
-          const Text(
-            'Recovery responds intraday: daytime cardiovascular strain depletes capacity, while restful periods allow parasympathetic recharge (+1.25%/hr).',
-            style: TextStyle(
-              fontSize: 9.5,
-              height: 1.35,
-              color: RecovaColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Full Algorithm Button Link
-          GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => RecoveryCalculationScreen(summary: widget.summary),
-                ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Tok.neonAccentSurface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Tok.neonAccentGlow),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Icon(Icons.auto_graph, size: 13, color: Tok.neonAccent),
-                        SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            'EXPLORE 5-PILLAR ALGORITHM',
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.6,
-                              color: Tok.neonAccent,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: 6),
-                  Icon(Icons.arrow_forward_ios, size: 10, color: Tok.neonAccent),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEquationCell({
-    required String label,
-    required String val,
-    required Color color,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 7.5,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.4,
-            color: RecovaColors.textTertiary,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          val,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEquationOp(String op) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Text(
-        op,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: RecovaColors.textTertiary,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCardioSectionHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        Text(
-          'CARDIO CAPACITY & TELEMETRY',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.9,
-            color: RecovaColors.textPrimary,
-          ),
-        ),
-        SizedBox(height: 3),
-        Text(
-          'Aerobic power (VO₂ Max) and cardiovascular threshold boundaries.',
-          style: TextStyle(
-            fontSize: 9.5,
-            color: RecovaColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAutonomicTrainingZoneCard() {
-    final strain = widget.summary?.dayStrain ?? 0.0;
-    final target = widget.summary?.targetStrain ?? 10.0;
-    final minTarget = (target - 1.5).clamp(0.0, 21.0);
-    final maxTarget = (target + 1.5).clamp(0.0, 21.0);
-
-    final String zoneName;
-    final String zoneDescription;
-    final Color zoneColor;
-    final IconData zoneIcon;
-
-    if (strain < minTarget) {
-      zoneName = 'RESTORATIVE ZONE';
-      zoneDescription = 'Low cardiovascular load allows parasympathetic replenishment.';
-      zoneColor = Tok.neonAccent;
-      zoneIcon = Icons.spa_outlined;
-    } else if (strain <= maxTarget) {
-      zoneName = 'OPTIMAL ADAPTIVE ZONE';
-      zoneDescription = 'Cardiac stimulus matched to autonomic recovery capacity.';
-      zoneColor = Tok.accentBlue;
-      zoneIcon = Icons.check_circle_outline;
-    } else {
-      zoneName = 'OVERREACHING ZONE';
-      zoneDescription = 'Heavy sympathetic fatigue accumulating. Expect delayed recovery.';
-      zoneColor = Tok.accentAmber;
-      zoneIcon = Icons.warning_amber_rounded;
-    }
-
-    final strainNormalized = (strain / 21.0).clamp(0.0, 1.0);
-    final minTargetNorm = (minTarget / 21.0).clamp(0.0, 1.0);
-    final maxTargetNorm = (maxTarget / 21.0).clamp(0.0, 1.0);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: RecovaColors.surfaceElevation1,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RecovaColors.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: const [
-                    Icon(Icons.tune, size: 14, color: Tok.accentAmber),
-                    SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'STRAIN & AUTONOMIC LOAD TUNING',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.9,
-                          color: RecovaColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: zoneColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: zoneColor.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(zoneIcon, size: 10, color: zoneColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      zoneName,
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                        color: zoneColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Strain metrics comparison
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'DAY STRAIN',
-                    style: TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.6,
-                      color: RecovaColors.textTertiary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    strain.toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w300,
-                      color: RecovaColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    'TARGET CEILING',
-                    style: TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.6,
-                      color: RecovaColors.textTertiary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${minTarget.toStringAsFixed(1)} - ${maxTarget.toStringAsFixed(1)}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Tok.accentBlue,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Visual Spectrum Bar (0 to 21)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              final leftTarget = minTargetNorm * width;
-              final targetWidth = ((maxTargetNorm - minTargetNorm) * width).clamp(4.0, width);
-              final strainPosition = (strainNormalized * width).clamp(0.0, width - 6);
-
-              return Column(
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        height: 8,
-                        width: width,
-                        decoration: BoxDecoration(
-                          color: RecovaColors.surfaceElevation3,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      Positioned(
-                        left: leftTarget,
-                        width: targetWidth,
-                        top: 0,
-                        bottom: 0,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Tok.accentBlue.withValues(alpha: 0.35),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Tok.accentBlue.withValues(alpha: 0.6)),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        width: strainPosition,
-                        top: 1,
-                        bottom: 1,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Tok.neonAccent.withValues(alpha: 0.6),
-                                zoneColor,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: (strainPosition - 3).clamp(0.0, width - 6),
-                        top: -2,
-                        child: Container(
-                          width: 6,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: RecovaColors.monochromeWhite,
-                            borderRadius: BorderRadius.circular(3),
-                            boxShadow: [
-                              BoxShadow(
-                                color: zoneColor.withValues(alpha: 0.8),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Flexible(
-                        child: Text(
-                          '0.0 (REST)',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 8, color: RecovaColors.textTertiary),
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          'TARGET ZONE',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 8, color: Tok.accentBlue),
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          '21.0 (MAX)',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 8, color: RecovaColors.textTertiary),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          Text(
-            zoneDescription,
-            style: const TextStyle(
-              fontSize: 9.5,
-              height: 1.35,
-              color: RecovaColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRestReplenishmentEngineCard() {
-    final restHours = widget.summary?.restHours ?? 0.0;
-    final restGain = widget.summary?.restReplenishment ?? 0.0;
-    final progress = (restGain / 18.0).clamp(0.0, 1.0);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: RecovaColors.surfaceElevation1,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RecovaColors.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: const [
-                    Icon(Icons.battery_charging_full, size: 15, color: Tok.accentBlue),
-                    SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'REST REPLENISHMENT ENGINE',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.9,
-                          color: RecovaColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Tok.accentBlueSurface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Tok.accentBlue.withValues(alpha: 0.3)),
-                ),
-                child: const Text(
-                  '+1.25%/HR',
-                  style: TextStyle(
-                    fontSize: 8.5,
-                    fontWeight: FontWeight.w700,
-                    color: Tok.accentBlue,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // 3 mini-stat tiles
-          Row(
-            children: [
-              Expanded(
-                child: _buildMiniStatTile(
-                  title: 'REST LOGGED',
-                  val: '${restHours.toStringAsFixed(1)}h',
-                  sub: 'Low exertion',
-                  valColor: RecovaColors.textPrimary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildMiniStatTile(
-                  title: 'HOURLY RECHARGE',
-                  val: '+1.25%',
-                  sub: 'Vagal rebound',
-                  valColor: Tok.accentBlue,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildMiniStatTile(
-                  title: 'DAY GAIN',
-                  val: '+${restGain.toStringAsFixed(1)}%',
-                  sub: 'Earned today',
-                  valColor: Tok.neonAccent,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Rest recharging progress bar towards intraday cap
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Flexible(
-                    child: Text(
-                      'PARASYMPATHETIC CHARGE',
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                        color: RecovaColors.textTertiary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '+${restGain.toStringAsFixed(1)}% / +18% max',
-                    style: const TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w600,
-                      color: Tok.accentBlue,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 6,
-                  backgroundColor: RecovaColors.surfaceElevation3,
-                  valueColor: const AlwaysStoppedAnimation<Color>(Tok.accentBlue),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Low heart rates and minimal exertion activate the parasympathetic branch, allowing cellular restoration to replenish waking recovery by 1.25% each resting hour.',
-            style: TextStyle(
-              fontSize: 9.5,
-              height: 1.35,
-              color: RecovaColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniStatTile({
-    required String title,
-    required String val,
-    required String sub,
-    required Color valColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: RecovaColors.surfaceElevation2,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: RecovaColors.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 7.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-              color: RecovaColors.textTertiary,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            val,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: valColor,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            sub,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 7.5,
-              color: RecovaColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBiometricPillarsSection() {
-    final hrv = widget.summary?.hrvMs;
-    final baseHrv = widget.summary?.baselineHrv;
-    final hrvComp = widget.summary?.recoveryComponentHrv ?? 50.0;
-
-    final rhr = widget.summary?.restingHr;
-    final baseRhr = widget.summary?.baselineRestingHr;
-    final rhrComp = widget.summary?.recoveryComponentRhr ?? 50.0;
-
-    final sleepHours = widget.summary?.sleepHours;
-    final baseSleep = widget.summary?.baselineSleepHours ?? 7.5;
-    final sleepComp = widget.summary?.recoveryComponentSleep ?? 50.0;
-
-    final spo2 = widget.summary?.spo2;
-    final baseSpo2 = widget.summary?.baselineSpo2 ?? 98.0;
-    final spo2Comp = widget.summary?.recoveryComponentSpo2 ?? 50.0;
-
-    final resp = widget.summary?.respiratoryRate;
-    final baseResp = widget.summary?.baselineRespiratoryRate ?? 15.0;
-    final respComp = widget.summary?.recoveryComponentRespiratory ?? 100.0;
-
-    final isSleepDeficit = sleepHours != null && sleepHours < 6.0;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: RecovaColors.surfaceElevation1,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RecovaColors.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Expanded(
-                child: Row(
-                  children: [
-                    Icon(Icons.shield_outlined, size: 14, color: Tok.neonAccent),
-                    SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        '5 AUTONOMIC RECOVERY PILLARS',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.9,
-                          color: RecovaColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: 8),
-              Text(
-                'WEIGHTED',
-                style: TextStyle(
-                  fontSize: 8.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.6,
-                  color: RecovaColors.textTertiary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Composite biological algorithm determining your waking recovery baseline.',
-            style: TextStyle(
-              fontSize: 9.5,
-              color: RecovaColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          _buildPillarRow(
-            icon: Icons.monitor_heart,
-            name: 'HEART RATE VARIABILITY (HRV)',
-            weight: '40% WEIGHT',
-            currentVal: hrv != null ? '${hrv.round()} ms' : '--',
-            baselineVal: baseHrv != null ? 'Base ${baseHrv.round()} ms' : 'Calibrating',
-            score: hrvComp,
-            accentColor: Tok.neonAccent,
-          ),
-          const SizedBox(height: 10),
-
-          _buildPillarRow(
-            icon: Icons.favorite,
-            name: 'RESTING HEART RATE (RHR)',
-            weight: '30% WEIGHT',
-            currentVal: rhr != null ? '${rhr.round()} bpm' : '--',
-            baselineVal: baseRhr != null ? 'Base ${baseRhr.round()} bpm' : 'Calibrating',
-            score: rhrComp,
-            accentColor: Tok.accentBlue,
-          ),
-          const SizedBox(height: 10),
-
-          _buildPillarRow(
-            icon: Icons.bedtime,
-            name: 'SLEEP PERFORMANCE & DURATION',
-            weight: '20% WEIGHT',
-            currentVal: sleepHours != null ? '${sleepHours.toStringAsFixed(1)}h' : '--',
-            baselineVal: 'Need ${baseSleep.toStringAsFixed(1)}h',
-            score: sleepComp,
-            accentColor: isSleepDeficit ? Tok.accentAmber : Tok.accentViolet,
-            warningTag: isSleepDeficit ? 'DEFICIT GOVERNOR CLAMPED BASELINE CEILING' : null,
-          ),
-          const SizedBox(height: 10),
-
-          _buildPillarRow(
-            icon: Icons.water_drop,
-            name: 'BLOOD OXYGEN (SpO₂)',
-            weight: '5% WEIGHT',
-            currentVal: spo2 != null ? '${spo2.toStringAsFixed(1)}%' : '--',
-            baselineVal: 'Base ${baseSpo2.toStringAsFixed(1)}%',
-            score: spo2Comp,
-            accentColor: Tok.accentBlue,
-          ),
-          const SizedBox(height: 10),
-
-          _buildPillarRow(
-            icon: Icons.air,
-            name: 'RESPIRATORY RATE',
-            weight: '5% WEIGHT',
-            currentVal: resp != null ? '${resp.toStringAsFixed(1)} rpm' : '--',
-            baselineVal: 'Base ${baseResp.toStringAsFixed(1)} rpm',
-            score: respComp,
-            accentColor: Tok.neonAccent,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPillarRow({
-    required IconData icon,
-    required String name,
-    required String weight,
-    required String currentVal,
-    required String baselineVal,
-    required double score,
-    required Color accentColor,
-    String? warningTag,
-  }) {
-    final normScore = (score / 100.0).clamp(0.0, 1.0);
-
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: RecovaColors.surfaceElevation2,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: RecovaColors.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Icon(icon, size: 13, color: accentColor),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
-                          color: RecovaColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: RecovaColors.surfaceElevation3,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  weight,
-                  style: const TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                    color: RecovaColors.textTertiary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Text(
-                      currentVal,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: RecovaColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        '($baselineVal)',
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: RecovaColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '${score.round()}% Score',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: accentColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: normScore,
-              minHeight: 4,
-              backgroundColor: RecovaColors.surfaceElevation3,
-              valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-            ),
-          ),
-
-          if (warningTag != null) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(Icons.info_outline, size: 10, color: Tok.accentAmber),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    warningTag,
-                    style: const TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                      color: Tok.accentAmber,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHistoricalInterplayCard() {
-    final strainHistory = widget.summary?.strainHistory7d ?? [];
-    final recoveryHistory = widget.summary?.recoveryHistory14d ?? [];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: RecovaColors.surfaceElevation1,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RecovaColors.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Expanded(
-                child: Row(
-                  children: [
-                    Icon(Icons.compare_arrows, size: 14, color: Tok.accentBlue),
-                    SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        '7-DAY STRAIN VS RECOVERY INTERPLAY',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.9,
-                          color: RecovaColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: 8),
-              Text(
-                'WEEKLY DYNAMICS',
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  color: RecovaColors.textTertiary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Shows how cumulative cardiac exertion directly predicts autonomic readiness.',
-            style: TextStyle(
-              fontSize: 9.5,
-              color: RecovaColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // 7-day bars
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(7, (index) {
-              final dayOffset = 6 - index;
-              final now = DateTime.now();
-              final dayDate = now.subtract(Duration(days: dayOffset));
-              const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-              final dayLabel = weekdays[dayDate.weekday - 1];
-
-              // Look up point if available, else derive sensible score
-              double strainVal = 10.0;
-              if (index < strainHistory.length) {
-                strainVal = strainHistory[index].score;
-              } else if (index == 6 && widget.summary?.dayStrain != null) {
-                strainVal = widget.summary!.dayStrain!;
-              }
-
-              double recVal = 55.0;
-              if (index < recoveryHistory.length) {
-                recVal = recoveryHistory[index].score;
-              } else if (index == 6 && widget.summary?.recoveryScore != null) {
-                recVal = widget.summary!.recoveryScore!;
-              }
-
-              final recTier = RecoveryTier.fromScore(recVal);
-
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Column(
-                    children: [
-                      // Recovery pill
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 1),
-                        decoration: BoxDecoration(
-                          color: recTier.color.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: recTier.color.withValues(alpha: 0.4)),
-                        ),
-                        alignment: Alignment.center,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${recVal.round()}%',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: recTier.color,
-                              ),
-                            ),
-                            const Text(
-                              'REC',
-                              style: TextStyle(
-                                fontSize: 6.5,
-                                color: RecovaColors.textTertiary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-
-                      // Strain pill
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 1),
-                        decoration: BoxDecoration(
-                          color: Tok.accentAmber.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Tok.accentAmber.withValues(alpha: 0.35)),
-                        ),
-                        alignment: Alignment.center,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              strainVal.toStringAsFixed(1),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w700,
-                                color: Tok.accentAmber,
-                              ),
-                            ),
-                            const Text(
-                              'STR',
-                              style: TextStyle(
-                                fontSize: 6.5,
-                                color: RecovaColors.textTertiary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-
-                      Text(
-                        index == 6 ? 'TODAY' : dayLabel,
-                        style: TextStyle(
-                          fontSize: index == 6 ? 7 : 8,
-                          fontWeight: index == 6 ? FontWeight.w800 : FontWeight.w600,
-                          color: index == 6 ? RecovaColors.monochromeWhite : RecovaColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
-      ),
-    );
-  }
 }
+
 class _Vo2ExplainerSheet extends StatelessWidget {
   final Vo2MaxResult? vo2Result;
   const _Vo2ExplainerSheet({this.vo2Result});
@@ -2541,13 +1467,15 @@ class _Vo2ExplainerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(Tok.radiusLg)),
+      borderRadius:
+          const BorderRadius.vertical(top: Radius.circular(Tok.radiusLg)),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           decoration: BoxDecoration(
             color: Tok.glassFillDark,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(Tok.radiusLg)),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(Tok.radiusLg)),
             border: Border.all(color: Tok.glassBorder, width: 1.0),
           ),
           padding: EdgeInsets.only(
@@ -2562,168 +1490,87 @@ class _Vo2ExplainerSheet extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              // Handle bar
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Tok.glassBorderBright,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Title
-              Row(
-                children: const [
-                  Icon(Icons.science_outlined,
-                      size: 18, color: Tok.recoveryOptimal),
-                  SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      'HOW VO₂ MAX IS CALCULATED',
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: Tok.textPrimary,
-                      ),
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Tok.glassBorderBright,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Powered by the Uth-Sørensen Baseline Equation',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                  color: Tok.textTertiary,
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Tok.glassFillRecessed,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Tok.glassBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 20),
+                Row(
                   children: const [
-                    Text(
-                      'FORMULA',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.8,
-                        color: Tok.textTertiary,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'VO₂max = 15 × (HRmax ÷ HRrest)',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                        color: Tok.recoveryOptimal,
+                    Icon(Icons.science_outlined,
+                        size: 18, color: Tok.recoveryOptimal),
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'HOW VO₂ MAX & BODY AGE ARE CALCULATED',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          color: Tok.textPrimary,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              if (vo2Result?.userMaxHr != null && vo2Result?.userRestingHr != null)
+                const SizedBox(height: 8),
+                const Text(
+                  'Powered by the Uth-Sørensen Baseline Equation & Multi-Factor Fitness Age Modeling',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Tok.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _explainerRow(
+                  icon: Icons.speed,
+                  title: 'Uth–Sørensen Ratio',
+                  description:
+                      'VO₂max = 15.0 × (HRmax / HRrest). Maximum heart rate defaults to 190 bpm unless higher peaks (>190 bpm) are detected.',
+                ),
+                const SizedBox(height: 12),
+                _explainerRow(
+                  icon: Icons.accessibility_new_rounded,
+                  title: 'Biological Body Age',
+                  description:
+                      'Compares your cardiovascular capacity (VO2 Max), autonomic resting heart rate, and body composition against population percentiles.',
+                ),
+                const SizedBox(height: 16),
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Tok.glassFillRecessed,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Tok.glassBorder),
                   ),
-                  child: Column(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'BASELINE COMPARISON',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.8,
-                          color: Tok.textTertiary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '15.3 × (${vo2Result!.userMaxHr!.toInt()} / ${vo2Result!.userRestingHr!.toInt()}) = ${(15.3 * (vo2Result!.userMaxHr! / vo2Result!.userRestingHr!)).toStringAsFixed(1)}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'monospace',
-                          color: Tok.recoveryOptimal,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Calculated using 15.3 × (7-day Peak HR / 7-day Avg RHR)',
-                        style: TextStyle(
-                          fontSize: 11,
-                          height: 1.5,
-                          color: Tok.textSecondary,
+                    children: const [
+                      Icon(Icons.info_outline,
+                          size: 14, color: Tok.textTertiary),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Estimates are derived from your wearable biometric telemetry and configured profile. They are not clinical diagnostic tests.',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            height: 1.45,
+                            color: Tok.textTertiary,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              const SizedBox(height: 16),
-
-              _explainerRow(
-                icon: Icons.favorite_border,
-                title: 'Simple and Direct',
-                description:
-                    'This is a widely validated baseline model for calculating VO₂ max using simply the ratio of maximum heart rate to resting heart rate.',
-              ),
-              const SizedBox(height: 16),
-
-              // Disclaimer
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Tok.glassFillRecessed,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Tok.glassBorder),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Icon(Icons.info_outline,
-                        size: 14, color: Tok.textTertiary),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'This is an estimate derived from your peak and resting heart rate data. It is not a clinical VO₂ max test.',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          height: 1.45,
-                          color: Tok.textTertiary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         ),
       ),

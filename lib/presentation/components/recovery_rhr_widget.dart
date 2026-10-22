@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/theme/design_tokens.dart';
-import '../../core/theme/recova_colors.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../../services/background_sync_service.dart';
 import '../../services/home_widget_service.dart';
@@ -157,6 +156,8 @@ class _RecoveryRhrWidgetState extends State<RecoveryRhrWidget>
         try {
           await context.read<HealthSyncCubit>().syncNow();
         } catch (_) {}
+
+        if (!mounted) return;
 
         // Refresh dashboard cubit if present
         try {
