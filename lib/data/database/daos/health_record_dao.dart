@@ -880,19 +880,15 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
     }).toList();
   }
 
-  /// Returns the average of the top 3 highest daily max heart rates
-  /// within the last [days] days, or between [start] and [end].
-  /// Used for the VO2 max formula: VO2max = 15.3 × (avg top 2 HRmax / avg RHR).
-  /// Returns null if no heart rate data exists.
-  Future<double?> getAvgTop2DailyMaxHr({int? days, DateTime? relativeTo, DateTime? start, DateTime? end}) async {
+  /// Returns the 1 single highest heart rate recorded within the period.
+  /// Used for the VO2 max formula: VO2max = 15.3 × (HRmax / HRrest).
+  /// If no recorded heart rate > 190 bpm exists, callers default HRmax to 190 bpm.
+  Future<double?> getHighestMaxHr({int? days, DateTime? relativeTo, DateTime? start, DateTime? end}) async {
     String query = '''
-      SELECT max_val FROM (
-        SELECT 
-          date(datetime(start_time, 'unixepoch', 'localtime')) as day_str,
-          MAX(value) as max_val
-        FROM raw_health_records
-        WHERE record_type = 'HEART_RATE'
-          AND value >= 60.0 AND value <= 220.0
+      SELECT MAX(value) as max_val
+      FROM raw_health_records
+      WHERE record_type = 'HEART_RATE'
+        AND value >= 60.0 AND value <= 220.0
     ''';
     final variables = <Variable>[];
     if (start != null) {
@@ -919,13 +915,6 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
       query += ' AND start_time <= ? ';
       variables.add(Variable<int>(endSec));
     }
-    query += '''
-        GROUP BY day_str
-        ORDER BY max_val DESC
-        LIMIT 2
-
-      )
-    ''';
 
     final rows = await customSelect(
       query,
@@ -934,9 +923,12 @@ class HealthRecordDao extends DatabaseAccessor<AppDatabase>
     ).get();
 
     if (rows.isEmpty) return null;
-    final sum = rows.fold<double>(0.0, (s, r) => s + r.read<double>('max_val'));
-    return sum / rows.length;
+    return rows.first.readNullable<double>('max_val');
   }
+
+  /// Backwards-compatible alias: returns the single highest heart rate from the period.
+  Future<double?> getAvgTop2DailyMaxHr({int? days, DateTime? relativeTo, DateTime? start, DateTime? end}) =>
+      getHighestMaxHr(days: days, relativeTo: relativeTo, start: start, end: end);
 
   /// Returns the single highest daily max heart rate from the week (or period).
   /// Used for the "best possible" VO2 max calculation at the bottom of the screen.
