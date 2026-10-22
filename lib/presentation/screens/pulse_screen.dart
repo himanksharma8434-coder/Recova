@@ -186,8 +186,10 @@ class _PulseScreenState extends State<PulseScreen> {
     // Dynamic RHR delta vs baseline
     String rhrDeltaText = 'Awaiting sync';
     Color rhrDeltaColor = Tok.textSecondary;
-    if (summary?.restingHr != null && summary?.baselineRestingHr != null) {
-      final diff = (summary!.restingHr! - summary!.baselineRestingHr).round();
+    final restingHr = summary?.restingHr;
+    final baseRhr = summary?.baselineRestingHr;
+    if (restingHr != null && baseRhr != null) {
+      final diff = (restingHr - baseRhr).round();
       if (diff < 0) {
         rhrDeltaText = '$diff bpm basal';
         rhrDeltaColor = Tok.textSecondary;

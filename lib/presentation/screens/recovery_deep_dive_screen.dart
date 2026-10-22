@@ -74,13 +74,9 @@ class _BodyDataScreenState extends State<BodyDataScreen> {
   double? _average;
   double? _latest;
 
-  // Calculation components for VO2 formula display
   static const double defaultMaxHeartRate = 190.0;
   double _calcHrMax = defaultMaxHeartRate;
   double _calcHrRest = 60.0;
-  double? _min;
-  double? _max;
-  bool _loading = false;
 
   Vo2MaxResult? _latestVo2MaxResult;
 
@@ -120,20 +116,16 @@ class _BodyDataScreenState extends State<BodyDataScreen> {
         _points = cached.points;
         _average = cached.avg;
         _latest = cached.latest;
-        _min = cached.minVal;
-        _max = cached.maxVal;
         _calcHrMax = _resolveMaxHr(cached.hrMax);
         _calcHrRest = cached.hrRest ??
             widget.summary?.baselineRestingHr ??
             widget.summary?.restingHr ??
             60.0;
         _latestVo2MaxResult = cached.latestVo2MaxResult;
-        _loading = false;
       });
       return;
     }
 
-    setState(() => _loading = true);
     try {
       final db = AppDatabase.instance;
       final days = _selectedPeriod.days > 0 ? _selectedPeriod.days : null;
@@ -224,16 +216,13 @@ class _BodyDataScreenState extends State<BodyDataScreen> {
           _points = points;
           _average = avg;
           _latest = latest;
-          _min = minVal;
-          _max = maxVal;
           _calcHrMax = hrMax ?? defaultMaxHeartRate;
           _calcHrRest = hrRest ?? 60.0;
           _latestVo2MaxResult = latestVo2MaxResult;
-          _loading = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      // Ignored
     }
   }
 
