@@ -276,24 +276,16 @@ class _BodyDataScreenState extends State<BodyDataScreen> {
   @override
   Widget build(BuildContext context) {
     // Current displayed headline VO2 Max value
-    double? headlineValue;
-    if (_selectedPeriod == Vo2Period.sevenDays) {
-      headlineValue = widget.summary?.estimatedVo2Max7d ??
-          (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
-          _average ??
-          _latest;
-    } else if (_selectedPeriod == Vo2Period.thirtyDays) {
-      headlineValue = widget.summary?.estimatedVo2Max30d ??
-          (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
-          _average ??
-          _latest;
-    } else {
-      headlineValue = widget.summary?.estimatedVo2MaxAllTime ??
-          (_calcHrRest > 0 ? (15.0 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0) : null) ??
-          _average ??
-          widget.summary?.estimatedVo2Max ??
-          _latest;
-    }
+    // Matches the calculation breakdown card exactly: 15.3 × (HRmax / HRrest)
+    final computedVo2 = _calcHrRest > 0
+        ? (15.3 * (_calcHrMax / _calcHrRest)).clamp(15.0, 85.0)
+        : null;
+
+    double? headlineValue = computedVo2 ??
+        widget.summary?.estimatedVo2Max7d ??
+        widget.summary?.estimatedVo2Max ??
+        _average ??
+        _latest;
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -817,7 +809,7 @@ class _BodyDataScreenState extends State<BodyDataScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'VO₂max = 15.0 × (HRmax / HRrest)',
+                  'VO₂max = 15.3 × (HRmax / HRrest)',
                   style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 10,
@@ -830,7 +822,7 @@ class _BodyDataScreenState extends State<BodyDataScreen> {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '15.0 × (${_calcHrMax.toStringAsFixed(0)} / ${_calcHrRest.toStringAsFixed(1)}) = ${(15.0 * (_calcHrMax / _calcHrRest)).toStringAsFixed(1)} mL/kg/min',
+                    '15.3 × (${_calcHrMax.toStringAsFixed(0)} / ${_calcHrRest.toStringAsFixed(1)}) = ${(15.3 * (_calcHrMax / _calcHrRest)).toStringAsFixed(1)} mL/kg/min',
                     style: const TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 12,
