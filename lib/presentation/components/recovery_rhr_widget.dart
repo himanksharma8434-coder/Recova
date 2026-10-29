@@ -12,60 +12,234 @@ import '../cubits/dashboard/dashboard_state.dart';
 import '../cubits/health_sync/health_sync_cubit.dart';
 import 'liquid_glass.dart';
 
-/// A premium, glassmorphic widget that displays live Athletic Recovery and
-/// Resting Heart Rate (RHR) telemetry, automatically refreshed every 30 minutes.
-///
-/// Features:
-/// - Real-time Recovery score with dynamic color-coded circular arc gauge and status tier.
-/// - Resting Heart Rate (bpm) with animated cardiac pulse and basal baseline delta.
-/// - 30-minute automatic background & foreground refresh cycle with live countdown ticker.
-/// - Synced with the OS Home Screen Widget via [HomeWidgetService].
-/// - Interactive tap callbacks to navigate to Recovery calculation and RHR detail screens.
-class RecoveryRhrWidget extends StatefulWidget {
-  final DerivedMetricSummary? summary;
-  final VoidCallback? onRefresh;
-  final VoidCallback? onRecoveryTap;
-  final VoidCallback? onRhrTap;
-  final bool autoRefreshEnabled;
-  final Duration autoRefreshInterval;
-  final EdgeInsetsGeometry margin;
+/// Helper to get the canonical color for a recovery score.
+Color getRecoveryColor(double? score) {
+  if (score == null) return Tok.textTertiary;
+  if (score >= 67) return Tok.recoveryOptimal;
+  if (score >= 34) return Tok.recoveryModerate;
+  return Tok.recoverySuppressed;
+}
 
-  const RecoveryRhrWidget({
+/// Helper to get the recovery tier label.
+String getRecoveryTierLabel(double? score) {
+  if (score == null) return 'CALIBRATING';
+  if (score >= 67) return 'OPTIMAL';
+  if (score >= 34) return 'MODERATE';
+  return 'SUPPRESSED';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 1. RECOVERY 1x1 WIDGET (Liquid Glass with iPhone-style typography)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// A 1x1 square widget dedicated to Athletic Recovery, featuring:
+/// - Liquid Glass container with Apple HIG frosted glass & ambient glow.
+/// - iPhone-inspired large tabular typography.
+/// - Dynamic circular arc gauge colored by recovery tier (Optimal / Moderate / Suppressed).
+/// - Baseline context comparison and interactive tap navigation.
+class Recovery1x1Widget extends StatelessWidget {
+  final double? recoveryScore;
+  final double? baselineRecovery;
+  final VoidCallback? onTap;
+
+  const Recovery1x1Widget({
     super.key,
-    this.summary,
-    this.onRefresh,
-    this.onRecoveryTap,
-    this.onRhrTap,
-    this.autoRefreshEnabled = true,
-    this.autoRefreshInterval = const Duration(minutes: 30),
-    this.margin = const EdgeInsets.symmetric(
-      horizontal: Tok.space16,
-      vertical: Tok.space8,
-    ),
+    this.recoveryScore,
+    this.baselineRecovery,
+    this.onTap,
   });
 
   @override
-  State<RecoveryRhrWidget> createState() => _RecoveryRhrWidgetState();
+  Widget build(BuildContext context) {
+    final recoveryColor = getRecoveryColor(recoveryScore);
+    final recoveryTier = getRecoveryTierLabel(recoveryScore);
+
+    return AspectRatio(
+      aspectRatio: 1.0,
+      child: LiquidGlass(
+        padding: const EdgeInsets.all(Tok.space12),
+        borderRadius: BorderRadius.circular(22),
+        material: IosGlassMaterial.thick,
+        accentGlow: recoveryColor.withValues(alpha: 0.16),
+        customBottomReflection: recoveryColor.withValues(alpha: 0.08),
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Top Header: Icon + RECOVERY Label + Status Pill ──
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.bolt_rounded, size: 13, color: recoveryColor),
+                        const SizedBox(width: 3),
+                        const Text(
+                          'RECOVERY',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.1,
+                            color: Tok.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: recoveryColor.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(
+                        color: recoveryColor.withValues(alpha: 0.35),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      recoveryTier,
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                        color: recoveryColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // ── Center: iPhone-Style Big Number with Mini Circular Arc ──
+            Expanded(
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: SizedBox(
+                    width: 76,
+                    height: 76,
+                    child: CustomPaint(
+                      painter: _MiniRecoveryArcPainter(
+                        score: recoveryScore ?? 0,
+                        color: recoveryColor,
+                        trackColor: Tok.glassFillElevated,
+                      ),
+                      child: Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              recoveryScore != null
+                                  ? '${recoveryScore!.round()}'
+                                  : '--',
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -1.2,
+                                color: Tok.textPrimary,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                            if (recoveryScore != null)
+                              Text(
+                                '%',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: recoveryColor,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Bottom: Baseline Comparison ──
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      baselineRecovery != null
+                          ? 'Base ${baselineRecovery!.round()}%'
+                          : 'Daily balance',
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w500,
+                        color: Tok.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 13,
+                  color: Tok.textTertiary,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _RecoveryRhrWidgetState extends State<RecoveryRhrWidget>
-    with TickerProviderStateMixin {
-  Timer? _autoRefreshTimer;
-  Timer? _tickerTimer;
-  DateTime _lastRefreshed = DateTime.now();
-  bool _isRefreshing = false;
+// ═══════════════════════════════════════════════════════════════════════════════
+// 2. VO₂ MAX & RESTING HR 1x1 WIDGET (Liquid Glass)
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/// A 1x1 square widget displaying:
+/// - Top: VO₂ Max (Cardio capacity in mL/kg/min).
+/// - Frosted glass hairline divider.
+/// - Bottom: Resting Heart Rate (bpm) with animated pulse & basal baseline delta.
+class Vo2Rhr1x1Widget extends StatefulWidget {
+  final double? vo2Max;
+  final double? restingHr;
+  final double? baselineRhr;
+  final VoidCallback? onTap;
+  final VoidCallback? onVo2Tap;
+
+  const Vo2Rhr1x1Widget({
+    super.key,
+    this.vo2Max,
+    this.restingHr,
+    this.baselineRhr,
+    this.onTap,
+    this.onVo2Tap,
+  });
+
+  @override
+  State<Vo2Rhr1x1Widget> createState() => _Vo2Rhr1x1WidgetState();
+}
+
+class _Vo2Rhr1x1WidgetState extends State<Vo2Rhr1x1Widget>
+    with SingleTickerProviderStateMixin {
   late AnimationController _heartPulseController;
   late Animation<double> _heartScaleAnimation;
-
-  late AnimationController _spinController;
 
   @override
   void initState() {
     super.initState();
-    _lastRefreshed = widget.summary?.lastSyncedAt ?? DateTime.now();
-
-    // Subtle rhythmic heartbeat animation for resting heart rate
     _heartPulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
@@ -88,6 +262,301 @@ class _RecoveryRhrWidgetState extends State<RecoveryRhrWidget>
         weight: 30,
       ),
     ]).animate(_heartPulseController);
+  }
+
+  @override
+  void dispose() {
+    _heartPulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Dynamic RHR delta vs baseline
+    String rhrDeltaText = 'Basal';
+    Color rhrDeltaColor = Tok.textSecondary;
+    if (widget.restingHr != null && widget.baselineRhr != null) {
+      final diff = (widget.restingHr! - widget.baselineRhr!).round();
+      if (diff < 0) {
+        rhrDeltaText = '$diff bpm basal';
+        rhrDeltaColor = Tok.recoveryOptimal;
+      } else if (diff > 0) {
+        rhrDeltaText = '+$diff bpm basal';
+        rhrDeltaColor = Tok.recoverySuppressed;
+      } else {
+        rhrDeltaText = 'On baseline';
+        rhrDeltaColor = Tok.textSecondary;
+      }
+    }
+
+    return AspectRatio(
+      aspectRatio: 1.0,
+      child: LiquidGlass(
+        padding: const EdgeInsets.all(Tok.space12),
+        borderRadius: BorderRadius.circular(22),
+        material: IosGlassMaterial.thick,
+        accentGlow: Tok.accentBlue.withValues(alpha: 0.12),
+        customBottomReflection: Tok.neonAccent.withValues(alpha: 0.06),
+        onTap: widget.onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── TOP: VO₂ MAX ──
+            InkWell(
+              onTap: widget.onVo2Tap ?? widget.onTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.speed, size: 12, color: Tok.accentBlue),
+                              SizedBox(width: 3),
+                              Text(
+                                'VO₂ MAX',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.1,
+                                  color: Tok.textTertiary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: Tok.accentBlue.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'CARDIO',
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w800,
+                              color: Tok.accentBlue,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          widget.vo2Max != null
+                              ? widget.vo2Max!.toStringAsFixed(1)
+                              : '--',
+                          style: const TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.6,
+                            color: Tok.textPrimary,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        const Text(
+                          'mL/kg/min',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w600,
+                            color: Tok.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Frosted Glass Divider ──
+            Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(vertical: 2),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Tok.glassBorder.withValues(alpha: 0.05),
+                    Tok.glassBorder.withValues(alpha: 0.35),
+                    Tok.glassBorder.withValues(alpha: 0.05),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── BOTTOM: RESTING HR ──
+            InkWell(
+              onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      ScaleTransition(
+                        scale: _heartScaleAnimation,
+                        child: const Icon(
+                          Icons.favorite_rounded,
+                          size: 11,
+                          color: Tok.recoverySuppressed,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      const Text(
+                        'RESTING HR',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                          color: Tok.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              widget.restingHr != null
+                                  ? '${widget.restingHr!.round()}'
+                                  : '--',
+                              style: const TextStyle(
+                                fontSize: 21,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.6,
+                                color: Tok.textPrimary,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            const Text(
+                              'bpm',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: Tok.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            rhrDeltaText,
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w600,
+                              color: rhrDeltaColor,
+                            ),
+                            maxLines: 1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 3. COMBINED RECOVERY & RHR WIDGET (Split 1x1 Side-by-Side Presentation)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// A premium, glassmorphic telemetry widget rendering two split 1x1 widgets:
+/// 1. [Recovery1x1Widget] (1x1 square for recovery with iPhone-like numbers).
+/// 2. [Vo2Rhr1x1Widget] (1x1 square telling VO₂ Max on top and Resting HR in bottom).
+///
+/// Features:
+/// - 30-minute automatic background & foreground refresh cycle with live countdown ticker.
+/// - Synced with OS Home Screen Widgets via [HomeWidgetService].
+/// - Interactive tap callbacks to navigate to Recovery calculation and RHR detail screens.
+class RecoveryRhrWidget extends StatefulWidget {
+  final DerivedMetricSummary? summary;
+  final VoidCallback? onRefresh;
+  final VoidCallback? onRecoveryTap;
+  final VoidCallback? onRhrTap;
+  final VoidCallback? onVo2Tap;
+  final bool autoRefreshEnabled;
+  final Duration autoRefreshInterval;
+  final EdgeInsetsGeometry margin;
+
+  const RecoveryRhrWidget({
+    super.key,
+    this.summary,
+    this.onRefresh,
+    this.onRecoveryTap,
+    this.onRhrTap,
+    this.onVo2Tap,
+    this.autoRefreshEnabled = true,
+    this.autoRefreshInterval = const Duration(minutes: 30),
+    this.margin = const EdgeInsets.symmetric(
+      horizontal: Tok.space16,
+      vertical: Tok.space8,
+    ),
+  });
+
+  @override
+  State<RecoveryRhrWidget> createState() => _RecoveryRhrWidgetState();
+}
+
+class _RecoveryRhrWidgetState extends State<RecoveryRhrWidget>
+    with TickerProviderStateMixin {
+  Timer? _autoRefreshTimer;
+  Timer? _tickerTimer;
+  DateTime _lastRefreshed = DateTime.now();
+  bool _isRefreshing = false;
+
+  late AnimationController _spinController;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastRefreshed = widget.summary?.lastSyncedAt ?? DateTime.now();
 
     // Refresh spin animation
     _spinController = AnimationController(
@@ -100,33 +569,18 @@ class _RecoveryRhrWidgetState extends State<RecoveryRhrWidget>
       _startAutoRefreshTimer();
     }
 
-    // 30-second live ticker to update relative timestamp & progress
-    _tickerTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  void _startAutoRefreshTimer() {
-    _autoRefreshTimer?.cancel();
-    _autoRefreshTimer = Timer.periodic(widget.autoRefreshInterval, (_) {
-      _performAutoRefresh();
-    });
+    // Push initial summary data to HomeWidget
+    if (widget.summary != null) {
+      HomeWidgetService.updateFromSummary(widget.summary!);
+    }
   }
 
   @override
   void didUpdateWidget(covariant RecoveryRhrWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.summary?.lastSyncedAt != null &&
-        widget.summary!.lastSyncedAt != oldWidget.summary?.lastSyncedAt) {
-      _lastRefreshed = widget.summary!.lastSyncedAt!;
-    }
-    if (widget.autoRefreshEnabled != oldWidget.autoRefreshEnabled ||
-        widget.autoRefreshInterval != oldWidget.autoRefreshInterval) {
-      if (widget.autoRefreshEnabled) {
-        _startAutoRefreshTimer();
-      } else {
-        _autoRefreshTimer?.cancel();
-      }
+    if (widget.summary != oldWidget.summary && widget.summary != null) {
+      _lastRefreshed = widget.summary?.lastSyncedAt ?? DateTime.now();
+      HomeWidgetService.updateFromSummary(widget.summary!);
     }
   }
 
@@ -134,79 +588,46 @@ class _RecoveryRhrWidgetState extends State<RecoveryRhrWidget>
   void dispose() {
     _autoRefreshTimer?.cancel();
     _tickerTimer?.cancel();
-    _heartPulseController.dispose();
     _spinController.dispose();
     super.dispose();
   }
 
-  /// Triggers an immediate 30-minute sync refresh
-  Future<void> _performAutoRefresh() async {
-    if (_isRefreshing || !mounted) return;
+  void _startAutoRefreshTimer() {
+    _autoRefreshTimer?.cancel();
+    _tickerTimer?.cancel();
 
-    setState(() {
-      _isRefreshing = true;
+    _autoRefreshTimer = Timer.periodic(widget.autoRefreshInterval, (_) {
+      _performAutoRefresh();
     });
+
+    _tickerTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  Future<void> _performAutoRefresh() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
     _spinController.repeat();
 
     try {
       if (widget.onRefresh != null) {
         widget.onRefresh!();
       } else {
-        // Trigger health sync cubit if present
         try {
           await context.read<HealthSyncCubit>().syncNow();
         } catch (_) {}
-
-        if (!mounted) return;
-
-        // Refresh dashboard cubit if present
-        try {
-          await context.read<DashboardCubit>().refresh();
-        } catch (_) {}
       }
-
-      // Update native OS home widget with latest available metrics
-      final currentSummary = _resolveSummary();
-      if (currentSummary != null) {
-        await HomeWidgetService.updateFromSummary(currentSummary);
-      }
+      _lastRefreshed = DateTime.now();
     } catch (_) {
-      // Gracefully handle transient refresh errors
+      // Handled silently
     } finally {
       if (mounted) {
-        setState(() {
-          _isRefreshing = false;
-          _lastRefreshed = DateTime.now();
-        });
         _spinController.stop();
         _spinController.reset();
+        setState(() => _isRefreshing = false);
       }
     }
-  }
-
-  DerivedMetricSummary? _resolveSummary() {
-    if (widget.summary != null) return widget.summary;
-    try {
-      final dashState = context.read<DashboardCubit>().state;
-      if (dashState is DashboardLoaded) {
-        return dashState.summary;
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  Color _getRecoveryColor(double? score) {
-    if (score == null) return Tok.recoveryCalibrating;
-    if (score >= 67) return Tok.recoveryOptimal;
-    if (score >= 34) return Tok.recoveryModerate;
-    return Tok.recoverySuppressed;
-  }
-
-  String _getRecoveryTierLabel(double? score) {
-    if (score == null) return 'CALIBRATING';
-    if (score >= 67) return 'OPTIMAL';
-    if (score >= 34) return 'MODERATE';
-    return 'SUPPRESSED';
   }
 
   @override
@@ -226,8 +647,7 @@ class _RecoveryRhrWidgetState extends State<RecoveryRhrWidget>
     final baselineRecovery = currentSummary?.baselineRecoveryScore;
     final restingHr = currentSummary?.restingHr;
     final baselineRhr = currentSummary?.baselineRestingHr;
-    final recoveryColor = _getRecoveryColor(recoveryScore);
-    final recoveryTier = _getRecoveryTierLabel(recoveryScore);
+    final vo2Max = currentSummary?.estimatedVo2Max ?? currentSummary?.estimatedVo2Max7d;
 
     // Calculate elapsed time in the 30-minute window
     final now = DateTime.now();
@@ -242,415 +662,184 @@ class _RecoveryRhrWidgetState extends State<RecoveryRhrWidget>
       widget.autoRefreshInterval.inMinutes - elapsed.inMinutes,
     );
 
-    // Dynamic RHR delta vs baseline
-    String rhrDeltaText = 'Basal';
-    Color rhrDeltaColor = Tok.textSecondary;
-    if (restingHr != null && baselineRhr != null) {
-      final diff = (restingHr - baselineRhr).round();
-      if (diff < 0) {
-        rhrDeltaText = '$diff bpm basal';
-        rhrDeltaColor = Tok.recoveryOptimal;
-      } else if (diff > 0) {
-        rhrDeltaText = '+$diff bpm basal';
-        rhrDeltaColor = Tok.recoverySuppressed;
-      } else {
-        rhrDeltaText = 'On baseline';
-        rhrDeltaColor = Tok.textSecondary;
-      }
-    }
-
     return Padding(
       padding: widget.margin,
-      child: LiquidGlass(
-        padding: const EdgeInsets.all(Tok.space16),
-        borderRadius: BorderRadius.circular(22),
-        material: IosGlassMaterial.thick,
-        accentGlow: recoveryColor.withValues(alpha: 0.12),
-        customBottomReflection: recoveryColor.withValues(alpha: 0.08),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Top Header: Title, 30m Auto-Refresh Tag & Manual Refresh Button ──
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: _isRefreshing ? Tok.accentBlue : Tok.neonAccent,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: (_isRefreshing ? Tok.accentBlue : Tok.neonAccent)
-                                .withValues(alpha: 0.7),
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: Tok.space8),
-                    Text(
-                      'AUTONOMIC TELEMETRY',
-                      style: TokType.sectionLabel.copyWith(
-                        fontSize: 10,
-                        letterSpacing: 1.3,
-                        fontWeight: FontWeight.w700,
-                        color: Tok.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Auto 30m pill badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Tok.space8,
-                        vertical: Tok.space4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Tok.glassFillRecessed,
-                        borderRadius: BorderRadius.circular(Tok.radiusSm),
-                        border: Border.all(
-                          color: Tok.glassBorder.withValues(alpha: 0.15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Top Header: Title, 30m Auto-Refresh Tag & Manual Refresh Button ──
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: _isRefreshing ? Tok.accentBlue : Tok.neonAccent,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isRefreshing ? Tok.accentBlue : Tok.neonAccent)
+                              .withValues(alpha: 0.7),
+                          blurRadius: 8,
+                          spreadRadius: 1,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.autorenew_rounded,
-                            size: 11,
-                            color: Tok.textTertiary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _isRefreshing
-                                ? 'SYNCING...'
-                                : 'AUTO 30M',
-                            style: TokType.caption.copyWith(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                              color: _isRefreshing
-                                  ? Tok.accentBlue
-                                  : Tok.textTertiary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: Tok.space8),
-                    // Interactive Refresh Icon Button
-                    GestureDetector(
-                      onTap: _isRefreshing ? null : _performAutoRefresh,
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        padding: const EdgeInsets.all(Tok.space6),
-                        decoration: BoxDecoration(
-                          color: Tok.glassFillRecessed,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Tok.glassBorder.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: RotationTransition(
-                          turns: _spinController,
-                          child: Icon(
-                            Icons.refresh_rounded,
-                            size: 15,
-                            color: _isRefreshing
-                                ? Tok.neonAccent
-                                : Tok.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: Tok.space14),
-
-            // ── Core Metrics Section: Dual Pods (Recovery | Resting Heart Rate) ──
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // ── Recovery Pod (Left) ──
-                Expanded(
-                  child: InkWell(
-                    onTap: widget.onRecoveryTap,
-                    borderRadius: BorderRadius.circular(Tok.radiusMd),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Tok.space6,
-                        vertical: Tok.space4,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.bolt_rounded,
-                                size: 13,
-                                color: recoveryColor,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'RECOVERY',
-                                style: TokType.sectionLabel.copyWith(
-                                  fontSize: 10,
-                                  letterSpacing: 1.1,
-                                  color: Tok.textTertiary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: Tok.space8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              // Radial Mini Gauge
-                              SizedBox(
-                                width: 52,
-                                height: 52,
-                                child: CustomPaint(
-                                  painter: _MiniRecoveryArcPainter(
-                                    score: recoveryScore ?? 0,
-                                    color: recoveryColor,
-                                    trackColor: Tok.glassFillElevated,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      recoveryScore != null
-                                          ? '${recoveryScore.round()}'
-                                          : '--',
-                                      style: TokType.heading.copyWith(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w800,
-                                        color: recoveryColor,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: Tok.space10),
-                              // Score Details & Tier Badge
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 7,
-                                        vertical: 2.5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: recoveryColor.withValues(alpha: 0.16),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: recoveryColor.withValues(alpha: 0.35),
-                                          width: 0.8,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        recoveryTier,
-                                        style: TokType.caption.copyWith(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.8,
-                                          color: recoveryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      baselineRecovery != null
-                                          ? 'Base ${baselineRecovery.round()}%'
-                                          : 'Daily balance',
-                                      style: TokType.caption.copyWith(
-                                        fontSize: 9.5,
-                                        color: Tok.textSecondary,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ── Vertical Glass Divider ──
-                Container(
-                  width: 1,
-                  height: 58,
-                  margin: const EdgeInsets.symmetric(horizontal: Tok.space8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Tok.glassBorder.withValues(alpha: 0.05),
-                        Tok.glassBorder.withValues(alpha: 0.4),
-                        Tok.glassBorder.withValues(alpha: 0.05),
                       ],
                     ),
                   ),
-                ),
-
-                // ── Resting Heart Rate Pod (Right) ──
-                Expanded(
-                  child: InkWell(
-                    onTap: widget.onRhrTap,
-                    borderRadius: BorderRadius.circular(Tok.radiusMd),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Tok.space6,
-                        vertical: Tok.space4,
+                  const SizedBox(width: Tok.space8),
+                  Text(
+                    'AUTONOMIC TELEMETRY',
+                    style: TokType.sectionLabel.copyWith(
+                      fontSize: 10,
+                      letterSpacing: 1.3,
+                      fontWeight: FontWeight.w700,
+                      color: Tok.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Auto 30m pill badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Tok.space8,
+                      vertical: Tok.space4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Tok.glassFillRecessed,
+                      borderRadius: BorderRadius.circular(Tok.radiusSm),
+                      border: Border.all(
+                        color: Tok.glassBorder.withValues(alpha: 0.15),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              ScaleTransition(
-                                scale: _heartScaleAnimation,
-                                child: const Icon(
-                                  Icons.favorite_rounded,
-                                  size: 13,
-                                  color: Tok.recoverySuppressed,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'RESTING HR',
-                                style: TokType.sectionLabel.copyWith(
-                                  fontSize: 10,
-                                  letterSpacing: 1.1,
-                                  color: Tok.textTertiary,
-                                ),
-                              ),
-                            ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.autorenew_rounded,
+                          size: 11,
+                          color: Tok.textTertiary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _isRefreshing ? 'SYNCING...' : 'AUTO 30M',
+                          style: TokType.caption.copyWith(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                            color: _isRefreshing
+                                ? Tok.accentBlue
+                                : Tok.textTertiary,
                           ),
-                          const SizedBox(height: Tok.space8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text(
-                                restingHr != null
-                                    ? '${restingHr.round()}'
-                                    : '--',
-                                style: TokType.heading.copyWith(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w800,
-                                  color: Tok.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'bpm',
-                                style: TokType.caption.copyWith(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: Tok.textTertiary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Container(
-                                width: 5,
-                                height: 5,
-                                decoration: BoxDecoration(
-                                  color: rhrDeltaColor,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  rhrDeltaText,
-                                  style: TokType.caption.copyWith(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: rhrDeltaColor,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: Tok.space8),
+                  // Interactive Refresh Icon Button
+                  GestureDetector(
+                    onTap: _isRefreshing ? null : _performAutoRefresh,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      padding: const EdgeInsets.all(Tok.space6),
+                      decoration: BoxDecoration(
+                        color: Tok.glassFillRecessed,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Tok.glassBorder.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: RotationTransition(
+                        turns: _spinController,
+                        child: Icon(
+                          Icons.refresh_rounded,
+                          size: 15,
+                          color: _isRefreshing
+                              ? Tok.neonAccent
+                              : Tok.textSecondary,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: Tok.space12),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: Tok.space12),
 
-            // ── Bottom Progress & 30-Minute Cycle Telemetry ──
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Thin progress track showing 30m window elapsed
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: progressFraction,
-                    minHeight: 2.5,
-                    backgroundColor: Tok.glassFillElevated,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      _isRefreshing
-                          ? Tok.accentBlue
-                          : Tok.neonAccent.withValues(alpha: 0.8),
-                    ),
+          // ── Two 1x1 Split Widgets in a Row ──
+          Row(
+            children: [
+              Expanded(
+                child: Recovery1x1Widget(
+                  recoveryScore: recoveryScore,
+                  baselineRecovery: baselineRecovery,
+                  onTap: widget.onRecoveryTap,
+                ),
+              ),
+              const SizedBox(width: Tok.space12),
+              Expanded(
+                child: Vo2Rhr1x1Widget(
+                  vo2Max: vo2Max,
+                  restingHr: restingHr,
+                  baselineRhr: baselineRhr,
+                  onTap: widget.onRhrTap,
+                  onVo2Tap: widget.onVo2Tap,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Tok.space12),
+
+          // ── Bottom Progress & 30-Minute Cycle Telemetry ──
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: progressFraction,
+                  minHeight: 2.5,
+                  backgroundColor: Tok.glassFillElevated,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    _isRefreshing
+                        ? Tok.accentBlue
+                        : Tok.neonAccent.withValues(alpha: 0.8),
                   ),
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Synced ${formatRelativeSyncTime(effectiveLastSync)}',
-                      style: TokType.caption.copyWith(
-                        fontSize: 9.5,
-                        color: Tok.textMuted,
-                      ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Synced ${formatRelativeSyncTime(effectiveLastSync)}',
+                    style: TokType.caption.copyWith(
+                      fontSize: 9.5,
+                      color: Tok.textMuted,
                     ),
-                    Text(
-                      _isRefreshing
-                          ? 'Refreshing now...'
-                          : 'Next auto-refresh in ${remainingMinutes}m',
-                      style: TokType.caption.copyWith(
-                        fontSize: 9.5,
-                        color: Tok.textMuted,
-                      ),
+                  ),
+                  Text(
+                    _isRefreshing
+                        ? 'Refreshing now...'
+                        : 'Next auto-refresh in ${remainingMinutes}m',
+                    style: TokType.caption.copyWith(
+                      fontSize: 9.5,
+                      color: Tok.textMuted,
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -671,7 +860,7 @@ class _MiniRecoveryArcPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final strokeWidth = 4.0;
+    final strokeWidth = 5.0;
     final radius = (size.width - strokeWidth) / 2;
 
     // Background track circle
