@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_recovery_1x1_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_liquid_glass_bg"
+    android:padding="12dp"
+    android:gravity="center">
+
+    <!-- Top Label -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="RECOVERY"
+        android:textColor="#8E92A0"
+        android:textSize="9.5sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.08" />
+
+    <!-- Big Center Number (iPhone style typography) -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp">
+
+        <TextView
+            android:id="@+id/widget_recovery_1x1_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="--"
+            android:textColor="#00F090"
+            android:textSize="34sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="%"
+            android:textColor="#00F090"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginStart="2dp"
+            android:includeFontPadding="false" />
+    </LinearLayout>
+
+    <!-- Bottom Status Pill -->
+    <TextView
+        android:id="@+id/widget_recovery_1x1_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Awaiting sync"
+        android:textColor="#B0B5C4"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+</LinearLayout>
