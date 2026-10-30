@@ -134,10 +134,70 @@ void main() {
         ),
       );
 
-      // Should show placeholder dashes '--'
-      expect(find.text('--'), findsNWidgets(2));
+      // Should show placeholder dashes '--' for Recovery, VO2 Max, and Resting HR
+      expect(find.text('--'), findsNWidgets(3));
       expect(find.text('CALIBRATING'), findsOneWidget);
       expect(find.text('Basal'), findsOneWidget);
+    });
+
+    testWidgets('Recovery1x1Widget renders with 1:1 aspect ratio and iPhone styling',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 150,
+                child: Recovery1x1Widget(
+                  recoveryScore: 92,
+                  baselineRecovery: 85,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('RECOVERY'), findsOneWidget);
+      expect(find.text('92'), findsOneWidget);
+      expect(find.text('OPTIMAL'), findsOneWidget);
+      expect(find.text('Base 85%'), findsOneWidget);
+      final aspectRatioFinder = find.byWidgetPredicate(
+        (w) => w is AspectRatio && w.aspectRatio == 1.0,
+      );
+      expect(aspectRatioFinder, findsOneWidget);
+    });
+
+    testWidgets('Vo2Rhr1x1Widget renders VO2 Max on top and Resting HR on bottom in 1:1 aspect ratio',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 150,
+                child: Vo2Rhr1x1Widget(
+                  vo2Max: 46.5,
+                  restingHr: 52,
+                  baselineRhr: 55,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('VO₂ MAX'), findsOneWidget);
+      expect(find.text('46.5'), findsOneWidget);
+      expect(find.text('mL/kg/min'), findsOneWidget);
+      expect(find.text('RESTING HR'), findsOneWidget);
+      expect(find.text('52'), findsOneWidget);
+      expect(find.text('bpm'), findsOneWidget);
+      expect(find.text('-3 bpm basal'), findsOneWidget);
+      final aspectRatioFinder = find.byWidgetPredicate(
+        (w) => w is AspectRatio && w.aspectRatio == 1.0,
+      );
+      expect(aspectRatioFinder, findsOneWidget);
     });
 
     testWidgets('triggers onRefresh callback when refresh button is tapped',
