@@ -2,4 +2,6 @@
 <resources>
     <string name="app_name">Recova</string>
     <string name="widget_description">Live Recovery Score and Resting Heart Rate telemetry, auto-refreshed every 30 minutes.</string>
+    <string name="widget_recovery_1x1_description">Live 1x1 Recovery score with liquid glass background and iPhone typography.</string>
+    <string name="widget_vo2_rhr_1x1_description">Live 1x1 VO₂ Max and Resting HR telemetry with liquid glass background.</string>
 </resources>

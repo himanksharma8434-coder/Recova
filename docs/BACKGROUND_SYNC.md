@@ -1,3 +1,4 @@
+
 # Background Sync & Automatic Fetching Architecture
 
 Recova implements a two-tier synchronization model for athletic recovery metrics:
