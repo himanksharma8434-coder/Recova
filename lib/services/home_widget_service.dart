@@ -14,12 +14,21 @@ class HomeWidgetService {
   static const String qualifiedAndroidName =
       'com.recova.whoop.RecoveryRhrWidgetProvider';
 
-  /// Pushes the latest Recovery and Resting Heart Rate data into the OS widget data store
+  static const String recovery1x1AndroidWidgetName = 'Recovery1x1WidgetProvider';
+  static const String qualifiedRecovery1x1AndroidName =
+      'com.recova.whoop.Recovery1x1WidgetProvider';
+
+  static const String vo2Rhr1x1AndroidWidgetName = 'Vo2Rhr1x1WidgetProvider';
+  static const String qualifiedVo2Rhr1x1AndroidName =
+      'com.recova.whoop.Vo2Rhr1x1WidgetProvider';
+
+  /// Pushes the latest Recovery, Resting Heart Rate, and VO₂ Max data into the OS widget data store
   /// and requests the OS to update all active home screen widgets.
   static Future<void> updateWidget({
     required double? recoveryScore,
     required double? restingHr,
     double? baselineRestingHr,
+    double? vo2Max,
     DateTime? lastSyncedAt,
   }) async {
     try {
@@ -52,6 +61,7 @@ class HomeWidgetService {
         }
       }
 
+      final vo2Text = vo2Max != null ? vo2Max.toStringAsFixed(1) : '--';
       final syncRelative = formatRelativeSyncTime(lastSyncedAt ?? DateTime.now());
       final formattedTime = 'Synced $syncRelative • Auto 30m';
 
@@ -60,14 +70,29 @@ class HomeWidgetService {
       await HomeWidget.saveWidgetData<String>('recovery_status', status);
       await HomeWidget.saveWidgetData<String>('resting_hr', rhrText);
       await HomeWidget.saveWidgetData<String>('rhr_delta', rhrDelta);
+      await HomeWidget.saveWidgetData<String>('vo2_max', vo2Text);
       await HomeWidget.saveWidgetData<String>('last_updated', formattedTime);
 
-      // Trigger OS native widget refresh
+      // Trigger OS native widget refresh for all registered widget types
       await HomeWidget.updateWidget(
         name: androidWidgetName,
         androidName: androidWidgetName,
         iOSName: iOSWidgetName,
         qualifiedAndroidName: qualifiedAndroidName,
+      );
+
+      await HomeWidget.updateWidget(
+        name: recovery1x1AndroidWidgetName,
+        androidName: recovery1x1AndroidWidgetName,
+        iOSName: 'Recovery1x1Widget',
+        qualifiedAndroidName: qualifiedRecovery1x1AndroidName,
+      );
+
+      await HomeWidget.updateWidget(
+        name: vo2Rhr1x1AndroidWidgetName,
+        androidName: vo2Rhr1x1AndroidWidgetName,
+        iOSName: 'Vo2Rhr1x1Widget',
+        qualifiedAndroidName: qualifiedVo2Rhr1x1AndroidName,
       );
     } catch (e) {
       // Gracefully catch missing platform channels in test or unsupported environments
@@ -81,6 +106,7 @@ class HomeWidgetService {
       recoveryScore: summary.recoveryScore,
       restingHr: summary.restingHr,
       baselineRestingHr: summary.baselineRestingHr,
+      vo2Max: summary.estimatedVo2Max,
       lastSyncedAt: summary.lastSyncedAt,
     );
   }

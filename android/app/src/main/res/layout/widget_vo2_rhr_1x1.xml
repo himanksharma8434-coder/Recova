@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_vo2_rhr_1x1_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_liquid_glass_bg"
+    android:padding="10dp"
+    android:gravity="center_vertical">
+
+    <!-- Top Half: VO2 Max -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="VO₂ MAX"
+            android:textColor="#5AA9E6"
+            android:textSize="8.5sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.06" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="bottom"
+            android:layout_marginTop="1dp">
+
+            <TextView
+                android:id="@+id/widget_vo2_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:includeFontPadding="false" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" mL/kg/min"
+                android:textColor="#8E92A0"
+                android:textSize="8sp"
+                android:layout_marginBottom="2dp"
+                android:includeFontPadding="false" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Frosted Divider -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="2dp"
+        android:layout_marginBottom="2dp"
+        android:background="#282E3A" />
+
+    <!-- Bottom Half: Resting Heart Rate -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="RESTING HR"
+            android:textColor="#8E92A0"
+            android:textSize="8.5sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.06" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="bottom"
+            android:layout_marginTop="1dp">
+
+            <TextView
+                android:id="@+id/widget_rhr_1x1_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:includeFontPadding="false" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" bpm"
+                android:textColor="#8E92A0"
+                android:textSize="8sp"
+                android:layout_marginBottom="2dp"
+                android:includeFontPadding="false" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>
