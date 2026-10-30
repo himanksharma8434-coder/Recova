@@ -83,6 +83,30 @@
                 android:resource="@xml/recovery_rhr_widget_info" />
         </receiver>
 
+        <!-- 1x1 Recovery Widget Provider with liquid glass background and iPhone typography -->
+        <receiver
+            android:name=".Recovery1x1WidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/recovery_1x1_widget_info" />
+        </receiver>
+
+        <!-- 1x1 VO2 Max & Resting Heart Rate Widget Provider with liquid glass background -->
+        <receiver
+            android:name=".Vo2Rhr1x1WidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/vo2_rhr_1x1_widget_info" />
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
