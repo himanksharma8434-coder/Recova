@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Apple iOS material types matching Human Interface Guidelines (HIG).
 enum IosGlassMaterial {
@@ -252,7 +253,10 @@ class _IosGlassState extends State<IosGlass> {
     if (widget.onTap != null && widget.enableInteractiveScale) {
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapDown: (_) {
+          HapticFeedback.lightImpact();
+          setState(() => _isPressed = true);
+        },
         onTapUp: (_) => setState(() => _isPressed = false),
         onTapCancel: () => setState(() => _isPressed = false),
         onTap: widget.onTap,
@@ -266,7 +270,10 @@ class _IosGlassState extends State<IosGlass> {
     } else if (widget.onTap != null) {
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          widget.onTap?.call();
+        },
         child: glassContainer,
       );
     }
