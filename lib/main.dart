@@ -58,6 +58,10 @@ class RecovaApp extends StatelessWidget {
           title: 'Recova - Athletic Recovery Tracker',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.darkTheme,
+          scrollBehavior: const MaterialScrollBehavior().copyWith(
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            overscroll: false,
+          ),
           home: BlocBuilder<HealthPermissionCubit, HealthPermissionState>(
             builder: (context, state) {
               if (state is HealthPermissionGranted) {

@@ -9,6 +9,17 @@ class AppTheme {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: Tok.canvasBase,
       useMaterial3: true,
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+        },
+      ),
       colorScheme: const ColorScheme.dark(
         surface: Tok.canvasBase,
         onSurface: Tok.textPrimary,
