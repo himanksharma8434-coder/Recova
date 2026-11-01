@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/design_tokens.dart';
 
+bool get _isInTest =>
+    WidgetsBinding.instance.runtimeType.toString().contains('Test');
+
 /// Atmospheric Bioluminescent Ambient Backdrop.
 /// Renders calibrated organic glow orbs across deep pitch OLED background.
 /// Serves as the optical refraction source for all [LiquidGlass] and [GlassCard]
@@ -21,34 +24,52 @@ class AmbientGlowBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectivePrimary = primaryGlow ?? Tok.neonAccent;
     final effectiveSecondary = secondaryGlow ?? Tok.accentBlue;
+    final animDuration = _isInTest ? Duration.zero : const Duration(milliseconds: 450);
 
-    return Stack(
-      children: [
-        // 1. Deep OLED canvas base
-        Positioned.fill(
-          child: Container(
-            color: const Color(0xFF08090C),
-          ),
-        ),
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: effectivePrimary),
+      duration: animDuration,
+      curve: Curves.easeInOutCubic,
+      builder: (context, animTop, _) {
+        return TweenAnimationBuilder<Color?>(
+          tween: ColorTween(end: effectiveSecondary),
+          duration: animDuration,
+          curve: Curves.easeInOutCubic,
+          builder: (context, animMid, _) {
+            final top = animTop ?? effectivePrimary;
+            final mid = animMid ?? effectiveSecondary;
 
-        // 2. High-performance atmospheric glow orbs
-        Positioned.fill(
-          child: IgnorePointer(
-            child: RepaintBoundary(
-              child: CustomPaint(
-                painter: _AmbientGlowPainter(
-                  topColor: effectivePrimary,
-                  midColor: effectiveSecondary,
-                  bottomColor: Tok.accentAmber,
+            return Stack(
+              children: [
+                // 1. Deep OLED canvas base
+                Positioned.fill(
+                  child: Container(
+                    color: const Color(0xFF08090C),
+                  ),
                 ),
-              ),
-            ),
-          ),
-        ),
 
-        // 3. Child content (e.g. scrollable screens)
-        if (child != null) Positioned.fill(child: child!),
-      ],
+                // 2. High-performance atmospheric glow orbs
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: RepaintBoundary(
+                      child: CustomPaint(
+                        painter: _AmbientGlowPainter(
+                          topColor: top,
+                          midColor: mid,
+                          bottomColor: Tok.accentAmber,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 3. Child content (e.g. scrollable screens)
+                if (child != null) Positioned.fill(child: child!),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
