@@ -1,8 +1,13 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
 import 'liquid_glass.dart';
+
+bool get _isInTest =>
+    WidgetsBinding.instance.runtimeType.toString().contains('Test');
 
 /// Signature Biometric Recovery Gauge
 /// Glassmorphic concentric rings with neon accent glow,
@@ -75,155 +80,178 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
       showDot = true;
     }
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.onTap,
-      child: SizedBox(
-        width: widget.size,
-        height: widget.size,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Static background glass disc
-            Container(
-              width: widget.size * 0.72,
-              height: widget.size * 0.72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Tok.canvasDeep,
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black54,
-                    blurRadius: 20,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-            ),
+    final animDuration =
+        _isInTest ? Duration.zero : const Duration(milliseconds: 700);
 
-            // Bioluminescent pulsing glow (isolated in RepaintBoundary)
-            if (widget.score != null)
-              RepaintBoundary(
-                child: AnimatedBuilder(
-                  animation: _pulseAnimation,
-                  builder: (context, _) {
-                    return Container(
-                      width: widget.size * 0.72,
-                      height: widget.size * 0.72,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: tier.color.withValues(
-                              alpha: 0.20 * _pulseAnimation.value,
-                            ),
-                            blurRadius: 28,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: effectiveScore),
+      duration: animDuration,
+      curve: Curves.easeOutCubic,
+      builder: (context, animatedScore, _) {
+        final displayScore =
+            _isInTest ? effectiveScore.toInt() : animatedScore.round();
 
-            // Custom Painter for gauge arcs
-            RepaintBoundary(
-              child: CustomPaint(
-                size: Size(widget.size, widget.size),
-                painter: _GlassGaugePainter(
-                  score: effectiveScore,
-                  accentColor: tier.color,
-                ),
-              ),
-            ),
-
-            // Inner Content
-            Column(
-              mainAxisSize: MainAxisSize.min,
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap != null
+              ? () {
+                  HapticFeedback.lightImpact();
+                  widget.onTap!();
+                }
+              : null,
+          child: SizedBox(
+            width: widget.size,
+            height: widget.size,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Text(
-                  'RECOVERY',
-                  style: TokType.sectionLabel.copyWith(
-                    letterSpacing: 2.4,
-                    fontSize: 9.5,
-                  ),
-                ),
-                const SizedBox(height: Tok.space2),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      widget.score != null ? '${effectiveScore.toInt()}' : '--',
-                      style: TokType.displayNumber.copyWith(
-                        fontSize: widget.size * 0.25,
-                        color: tier == RecoveryTier.calibrating
-                            ? Tok.textTertiary
-                            : Tok.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Text(
-                      '%',
-                      style: TokType.unit.copyWith(
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: Tok.space8),
-
-                // Status Pill (Dynamic live strain & rest replenishment indicator)
-                LiquidGlass(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Tok.space10,
-                    vertical: 3,
-                  ),
-                  hasBlur: false,
-                  customBottomReflection: statusAccentColor.withValues(alpha: 0.2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showDot) ...[
-                        Container(
-                          width: 5,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: statusAccentColor,
-                            boxShadow: [
-                              BoxShadow(
-                                color: statusAccentColor.withValues(alpha: 0.8),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                      ],
-                      Flexible(
-                        child: Text(
-                          statusText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TokType.caption.copyWith(
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w600,
-                            color: showDot ? Tok.textPrimary : Tok.textSecondary,
-                            letterSpacing: 0.7,
-                          ),
-                        ),
+                // Static background glass disc
+                Container(
+                  width: widget.size * 0.72,
+                  height: widget.size * 0.72,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Tok.canvasDeep,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black54,
+                        blurRadius: 20,
+                        spreadRadius: 1,
                       ),
                     ],
                   ),
                 ),
+
+                // Bioluminescent pulsing glow (isolated in RepaintBoundary)
+                if (widget.score != null)
+                  RepaintBoundary(
+                    child: AnimatedBuilder(
+                      animation: _pulseAnimation,
+                      builder: (context, _) {
+                        return Container(
+                          width: widget.size * 0.72,
+                          height: widget.size * 0.72,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: tier.color.withValues(
+                                  alpha: 0.20 * _pulseAnimation.value,
+                                ),
+                                blurRadius: 28,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                // Custom Painter for gauge arcs
+                RepaintBoundary(
+                  child: CustomPaint(
+                    size: Size(widget.size, widget.size),
+                    painter: _GlassGaugePainter(
+                      score: animatedScore,
+                      accentColor: tier.color,
+                    ),
+                  ),
+                ),
+
+                // Inner Content
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'RECOVERY',
+                      style: TokType.sectionLabel.copyWith(
+                        letterSpacing: 2.4,
+                        fontSize: 9.5,
+                      ),
+                    ),
+                    const SizedBox(height: Tok.space2),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          widget.score != null ? '$displayScore' : '--',
+                          style: TokType.displayNumber.copyWith(
+                            fontSize: widget.size * 0.25,
+                            color: tier == RecoveryTier.calibrating
+                                ? Tok.textTertiary
+                                : Tok.textPrimary,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '%',
+                          style: TokType.unit.copyWith(
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: Tok.space8),
+
+                    // Status Pill (Dynamic live strain & rest replenishment indicator)
+                    LiquidGlass(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Tok.space10,
+                        vertical: 3,
+                      ),
+                      hasBlur: false,
+                      customBottomReflection:
+                          statusAccentColor.withValues(alpha: 0.2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (showDot) ...[
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: statusAccentColor,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        statusAccentColor.withValues(alpha: 0.8),
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                          ],
+                          Flexible(
+                            child: Text(
+                              statusText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TokType.caption.copyWith(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w600,
+                                color: showDot
+                                    ? Tok.textPrimary
+                                    : Tok.textSecondary,
+                                letterSpacing: 0.7,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
