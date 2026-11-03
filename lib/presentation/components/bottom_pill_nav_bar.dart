@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/design_tokens.dart';
 
 class BottomPillNavBar extends StatelessWidget {
@@ -29,6 +30,8 @@ class BottomPillNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = _tabAccentColor(selectedIndex);
+
     return SafeArea(
       child: Center(
         child: Container(
@@ -39,42 +42,43 @@ class BottomPillNavBar extends StatelessWidget {
             right: Tok.space20,
           ),
           child: _LiquidGlassPremium(
+            accentColor: activeColor,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: Tok.space8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  index: 0,
-                  icon: Icons.monitor_heart_outlined,
-                  activeIcon: Icons.monitor_heart,
-                  label: 'Pulse',
-                ),
-                _buildNavItem(
-                  index: 1,
-                  icon: Icons.accessibility_new_outlined,
-                  activeIcon: Icons.accessibility_new_rounded,
-                  label: 'Body Data',
-                ),
-                _buildNavItem(
-                  index: 2,
-                  icon: Icons.bolt_outlined,
-                  activeIcon: Icons.bolt,
-                  label: 'Strain',
-                ),
-                _buildNavItem(
-                  index: 3,
-                  icon: Icons.bedtime_outlined,
-                  activeIcon: Icons.bedtime,
-                  label: 'Sleep',
-                ),
-              ],
+                children: [
+                  _buildNavItem(
+                    index: 0,
+                    icon: Icons.monitor_heart_outlined,
+                    activeIcon: Icons.monitor_heart,
+                    label: 'Pulse',
+                  ),
+                  _buildNavItem(
+                    index: 1,
+                    icon: Icons.accessibility_new_outlined,
+                    activeIcon: Icons.accessibility_new_rounded,
+                    label: 'Body Data',
+                  ),
+                  _buildNavItem(
+                    index: 2,
+                    icon: Icons.bolt_outlined,
+                    activeIcon: Icons.bolt,
+                    label: 'Strain',
+                  ),
+                  _buildNavItem(
+                    index: 3,
+                    icon: Icons.bedtime_outlined,
+                    activeIcon: Icons.bedtime,
+                    label: 'Sleep',
+                  ),
+                ],
+              ),
             ),
           ),
-        ), // Close _LiquidGlassPremium
-        ), // Close Container
-      ), // Close Center
-    ); // Close SafeArea
+        ),
+      ),
+    );
   }
 
   Widget _buildNavItem({
@@ -88,9 +92,11 @@ class BottomPillNavBar extends StatelessWidget {
     final color = isSelected ? tabColor : Tok.textSecondary;
 
     return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onTabSelected(index),
+      child: _TouchNavItem(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTabSelected(index);
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: Tok.space6),
           child: Column(
@@ -146,9 +152,45 @@ class BottomPillNavBar extends StatelessWidget {
   }
 }
 
+class _TouchNavItem extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _TouchNavItem({required this.child, required this.onTap});
+
+  @override
+  State<_TouchNavItem> createState() => _TouchNavItemState();
+}
+
+class _TouchNavItemState extends State<_TouchNavItem> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 class _LiquidGlassPremium extends StatelessWidget {
   final Widget child;
-  const _LiquidGlassPremium({required this.child});
+  final Color accentColor;
+
+  const _LiquidGlassPremium({
+    required this.child,
+    required this.accentColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -209,8 +251,8 @@ class _LiquidGlassPremium extends StatelessWidget {
                   ),
                 ),
               ),
-              // Inner bottom pink reflection
-              const Positioned(
+              // Dynamic inner bottom accent reflection
+              Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
@@ -221,8 +263,8 @@ class _LiquidGlassPremium extends StatelessWidget {
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                       colors: [
-                        Color.fromRGBO(255, 0, 128, 0.1),
-                        Color.fromRGBO(255, 0, 128, 0.0),
+                        accentColor.withValues(alpha: 0.16),
+                        Colors.transparent,
                       ],
                     ),
                   ),
@@ -237,4 +279,3 @@ class _LiquidGlassPremium extends StatelessWidget {
     );
   }
 }
-
