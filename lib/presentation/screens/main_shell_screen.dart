@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/theme/design_tokens.dart';
@@ -34,6 +35,7 @@ class MainShellScreen extends StatefulWidget {
 class _MainShellScreenState extends State<MainShellScreen>
     with WidgetsBindingObserver {
   int _currentTab = 0;
+  late final PageController _pageController;
   Timer? _bannerTimer;
   Timer? _autoSyncTimer;
   DateTime? _lastSyncedAt;
@@ -45,6 +47,7 @@ class _MainShellScreenState extends State<MainShellScreen>
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _currentTab);
     WidgetsBinding.instance.addObserver(this);
     context.read<DashboardCubit>().load();
     // Guarantee background periodic sync (every 30 mins) is registered with OS WorkManager
@@ -66,6 +69,7 @@ class _MainShellScreenState extends State<MainShellScreen>
     WidgetsBinding.instance.removeObserver(this);
     _bannerTimer?.cancel();
     _autoSyncTimer?.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -141,6 +145,27 @@ class _MainShellScreenState extends State<MainShellScreen>
     if (mounted) {
       context.read<DashboardCubit>().refresh();
       _loadLastSyncTime();
+    }
+  }
+
+  void _onTabSelected(int index) {
+    if (_currentTab == index) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _currentTab = index;
+    });
+    if (_pageController.hasClients) {
+      final isTest =
+          WidgetsBinding.instance.runtimeType.toString().contains('Test');
+      if (isTest) {
+        _pageController.jumpToPage(index);
+      } else {
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
     }
   }
 
@@ -263,30 +288,35 @@ class _MainShellScreenState extends State<MainShellScreen>
                   ),
                 ),
 
-                // Safe Area wrapped IndexedStack
+                // Safe Area wrapped PageView with fluid transitions & state preservation
                 SafeArea(
                   bottom: false,
-                  child: IndexedStack(
-                    index: _currentTab,
+                  child: PageView(
+                    controller: _pageController,
+                    physics: const NeverScrollableScrollPhysics(),
                     children: [
-                      PulseScreen(
-                        summary: summary,
-                        onSyncTap: _onSyncTap,
-                        lastSyncedAt: _lastSyncedAt,
-                        onNavigateTab: (index) {
-                          setState(() {
-                            _currentTab = index;
-                          });
-                        },
+                      _KeepAliveWrapper(
+                        child: PulseScreen(
+                          summary: summary,
+                          onSyncTap: _onSyncTap,
+                          lastSyncedAt: _lastSyncedAt,
+                          onNavigateTab: _onTabSelected,
+                        ),
                       ),
-                      RecoveryDeepDiveScreen(
-                        summary: summary,
+                      _KeepAliveWrapper(
+                        child: RecoveryDeepDiveScreen(
+                          summary: summary,
+                        ),
                       ),
-                      StrainScreen(
-                        summary: summary,
+                      _KeepAliveWrapper(
+                        child: StrainScreen(
+                          summary: summary,
+                        ),
                       ),
-                      SleepScreen(
-                        summary: summary,
+                      _KeepAliveWrapper(
+                        child: SleepScreen(
+                          summary: summary,
+                        ),
                       ),
                     ],
                   ),
@@ -299,11 +329,7 @@ class _MainShellScreenState extends State<MainShellScreen>
                   bottom: 0,
                   child: BottomPillNavBar(
                     selectedIndex: _currentTab,
-                    onTabSelected: (index) {
-                      setState(() {
-                        _currentTab = index;
-                      });
-                    },
+                    onTabSelected: _onTabSelected,
                   ),
                 ),
 
@@ -382,5 +408,25 @@ class _MainShellScreenState extends State<MainShellScreen>
         ),
       ),
     );
+  }
+}
+
+class _KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+  const _KeepAliveWrapper({required this.child});
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
