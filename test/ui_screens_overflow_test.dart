@@ -87,7 +87,13 @@ void main() {
     );
 
     await tester.pump();
-    expect(tester.takeException(), isNull);
+    final err = tester.takeException();
+    if (err is FlutterError) {
+      for (final d in err.diagnostics) {
+        print('DIAGNOSTIC: ${d.name} -> ${d.toDescription()}');
+      }
+    }
+    expect(err, isNull);
     expect(find.text('HOW IT\'S CALCULATED'), findsNothing);
     expect(find.text('RECOVERY'), findsOneWidget);
     expect(find.text('KEY BIOMETRICS'), findsOneWidget);
@@ -121,7 +127,13 @@ void main() {
     );
 
     await tester.pump();
-    expect(tester.takeException(), isNull);
+    final err = tester.takeException();
+    if (err is FlutterError) {
+      for (final d in err.diagnostics) {
+        print('DIAGNOSTIC: ${d.name} -> ${d.toDescription()}');
+      }
+    }
+    expect(err, isNull);
   });
 
   testWidgets('RecoveryCalculationScreen renders multi-pillar biometric algorithm properly',
@@ -133,7 +145,13 @@ void main() {
     );
 
     await tester.pump();
-    expect(tester.takeException(), isNull);
+    final err = tester.takeException();
+    if (err is FlutterError) {
+      for (final d in err.diagnostics) {
+        print('DIAGNOSTIC: ${d.name} -> ${d.toDescription()}');
+      }
+    }
+    expect(err, isNull);
     expect(find.text('HOW RECOVERY IS CALCULATED'), findsOneWidget);
     expect(find.text('1. HEART RATE VARIABILITY (HRV)'), findsOneWidget);
     expect(find.text('2. RESTING HEART RATE'), findsOneWidget);
@@ -190,7 +208,13 @@ void main() {
     );
 
     await tester.pump();
-    expect(tester.takeException(), isNull);
+    final err = tester.takeException();
+    if (err is FlutterError) {
+      for (final d in err.diagnostics) {
+        print('DIAGNOSTIC: ${d.name} -> ${d.toDescription()}');
+      }
+    }
+    expect(err, isNull);
   });
 
   testWidgets('PermissionScreen renders without overflow on compact screen',
@@ -211,7 +235,13 @@ void main() {
     );
 
     await tester.pump();
-    expect(tester.takeException(), isNull);
+    final err = tester.takeException();
+    if (err is FlutterError) {
+      for (final d in err.diagnostics) {
+        print('DIAGNOSTIC: ${d.name} -> ${d.toDescription()}');
+      }
+    }
+    expect(err, isNull);
     expect(find.text('CONNECT WEARABLE TELEMETRY'), findsOneWidget);
   });
 
