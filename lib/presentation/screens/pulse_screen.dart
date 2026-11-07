@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/theme/design_tokens.dart';
-import '../../core/theme/recova_colors.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../../features/body_age/data/repositories/body_age_repository_impl.dart';
 import '../../features/body_age/domain/entities/body_age_factor.dart';
@@ -13,6 +12,7 @@ import '../../features/body_age/presentation/screens/body_age_fitness_screen.dar
 import '../../services/background_sync_service.dart';
 import '../../services/user_profile_service.dart';
 import '../components/edit_body_fat_dialog.dart';
+import '../components/glass_card.dart';
 import '../components/liquid_glass.dart';
 import '../components/motion.dart';
 import '../components/radial_score_gauge.dart';
@@ -494,36 +494,27 @@ class _PulseScreenState extends State<PulseScreen> {
         const SizedBox(height: 10),
 
         if (_loadingBodyAge)
-          Container(
+          const SizedBox(
             height: 100,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: RecovaColors.surfaceElevation1,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: RecovaColors.borderSubtle),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Tok.neonAccent.withValues(alpha: 0.7),
-                  ),
+            child: GlassCard(
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GlassLoadingSpinner(size: 16, color: Tok.neonAccent),
+                    SizedBox(width: 10),
+                    Text(
+                      'CALCULATING BODY AGE...',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                        color: Tok.textTertiary,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                const Text(
-                  'CALCULATING BODY AGE...',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.8,
-                    color: Tok.textTertiary,
-                  ),
-                ),
-              ],
+              ),
             ),
           )
         else if (_bodyAgeResult != null)
@@ -540,40 +531,25 @@ class _PulseScreenState extends State<PulseScreen> {
     final isSame = diff == 0;
 
     final badgeBg = isYounger
-        ? Colors.green.withValues(alpha: 0.15)
+        ? Tok.neonAccent.withValues(alpha: 0.15)
         : isSame
             ? Tok.glassFillRecessed
-            : Colors.orange.withValues(alpha: 0.15);
+            : Tok.accentAmber.withValues(alpha: 0.15);
     final badgeBorder = isYounger
-        ? Colors.green
+        ? Tok.neonAccent.withValues(alpha: 0.4)
         : isSame
             ? Tok.glassBorder
-            : Colors.orange;
+            : Tok.accentAmber.withValues(alpha: 0.5);
     final badgeTextColor = isYounger
-        ? Colors.greenAccent
+        ? Tok.neonAccent
         : isSame
             ? Tok.textSecondary
-            : Colors.orangeAccent;
+            : Tok.accentAmber;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: RecovaColors.surfaceElevation1,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isYounger
-              ? Tok.neonAccent.withValues(alpha: 0.3)
-              : RecovaColors.borderSubtle,
-        ),
-        boxShadow: [
-          if (isYounger)
-            BoxShadow(
-              color: Tok.neonAccent.withValues(alpha: 0.08),
-              blurRadius: 18,
-              spreadRadius: 1,
-            ),
-        ],
-      ),
+    return GlassCard(
+      onTap: _openFullBodyAgeScreen,
+      accentGlow: isYounger ? Tok.neonAccent : null,
+      padding: const EdgeInsets.all(Tok.space16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -591,7 +567,7 @@ class _PulseScreenState extends State<PulseScreen> {
                       fontSize: 9.5,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.8,
-                      color: RecovaColors.textSecondary,
+                      color: Tok.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -605,7 +581,8 @@ class _PulseScreenState extends State<PulseScreen> {
                           fontSize: 34,
                           fontWeight: FontWeight.w300,
                           letterSpacing: -1.0,
-                          color: RecovaColors.textPrimary,
+                          color: Tok.textPrimary,
+                          fontFeatures: [FontFeature.tabularFigures()],
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -626,9 +603,9 @@ class _PulseScreenState extends State<PulseScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: RecovaColors.surfaceElevation2,
+                    color: Tok.glassFillRecessed,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: RecovaColors.borderSubtle),
+                    border: Border.all(color: Tok.glassBorder, width: 0.5),
                   ),
                   child: Column(
                     children: [
@@ -690,9 +667,9 @@ class _PulseScreenState extends State<PulseScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 3),
                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                   decoration: BoxDecoration(
-                    color: RecovaColors.surfaceElevation2,
+                    color: Tok.glassFillRecessed,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: RecovaColors.borderSubtle),
+                    border: Border.all(color: Tok.glassBorder, width: 0.5),
                   ),
                   child: Column(
                     children: [
@@ -708,7 +685,7 @@ class _PulseScreenState extends State<PulseScreen> {
                           fontSize: 7.5,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.4,
-                          color: RecovaColors.textSecondary,
+                          color: Tok.textSecondary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -720,8 +697,8 @@ class _PulseScreenState extends State<PulseScreen> {
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
                           color: age != null
-                              ? RecovaColors.textPrimary
-                              : RecovaColors.textTertiary,
+                              ? Tok.textPrimary
+                              : Tok.textTertiary,
                         ),
                       ),
                     ],
@@ -783,13 +760,8 @@ class _PulseScreenState extends State<PulseScreen> {
   }
 
   Widget _buildBodyAgeEmptyCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: RecovaColors.surfaceElevation1,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RecovaColors.borderSubtle),
-      ),
+    return GlassCard(
+      padding: const EdgeInsets.all(Tok.space16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -804,7 +776,7 @@ class _PulseScreenState extends State<PulseScreen> {
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
-                    color: RecovaColors.textPrimary,
+                    color: Tok.textPrimary,
                   ),
                 ),
               ),
@@ -816,23 +788,23 @@ class _PulseScreenState extends State<PulseScreen> {
             style: TextStyle(
               fontSize: 11,
               height: 1.4,
-              color: RecovaColors.textSecondary,
+              color: Tok.textSecondary,
             ),
           ),
           const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: _openCheckinModal,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Tok.neonAccent,
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+          LiquidGlassButton(
+            onTap: _openCheckinModal,
+            label: 'SET PROFILE & MEASUREMENTS',
+            accentColor: Tok.neonAccent,
+            padding: const EdgeInsets.symmetric(
+              horizontal: Tok.space14,
+              vertical: Tok.space10,
             ),
-            child: const Text(
-              'SET PROFILE & MEASUREMENTS',
-              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700),
+            textStyle: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+              color: Tok.textPrimary,
             ),
           ),
         ],
