@@ -1,5 +1,4 @@
 import 'dart:math';
-import '../../data/database/app_database.dart';
 
 /// Calculates Heart Rate Variability (HRV - specifically rMSSD)
 /// from optical Photoplethysmography (PPG) pulse and heart rate telemetry.
@@ -13,14 +12,14 @@ import '../../data/database/app_database.dart';
 class PpgHrvCalculator {
   PpgHrvCalculator._();
 
-  static double? computeRmssdFromHeartRates(List<RawHealthRecord> hrRecords) {
+  static double? computeRmssdFromHeartRates(List<dynamic> hrRecords) {
     if (hrRecords.length < 3) return null;
 
-    final sorted = List<RawHealthRecord>.from(hrRecords)
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    final sorted = List<dynamic>.from(hrRecords)
+      ..sort((a, b) => (a.startTime as DateTime).compareTo(b.startTime as DateTime));
 
     final validRecords = sorted
-        .where((r) => r.value >= 35.0 && r.value <= 220.0)
+        .where((r) => (r.value as num) >= 35.0 && (r.value as num) <= 220.0)
         .toList();
 
     final validDiffs = <double>[];

@@ -1,5 +1,4 @@
 import 'dart:math';
-import '../../data/database/app_database.dart';
 
 /// Clean, deduplicated overnight sleep metrics.
 class CleanNightSleep {
@@ -32,16 +31,17 @@ class SleepDataSanitizer {
 
   /// Merge overlapping or duplicate time intervals for the same sleep stage.
   /// This prevents double-counting when multiple apps report to Health Connect.
-  static int calculateMergedMinutes(List<RawHealthRecord> records) {
+  static int calculateMergedMinutes(List<dynamic> records) {
     if (records.isEmpty) return 0;
 
     // Convert to sorted intervals
     final intervals = records
         .map((r) => (
-              start: r.startTime,
-              end: r.endTime.isAfter(r.startTime)
-                  ? r.endTime
-                  : r.startTime.add(Duration(minutes: max(1, r.value.round()))),
+              start: r.startTime as DateTime,
+              end: (r.endTime as DateTime).isAfter(r.startTime as DateTime)
+                  ? (r.endTime as DateTime)
+                  : (r.startTime as DateTime)
+                      .add(Duration(minutes: max(1, (r.value as num).round()))),
             ))
         .toList()
       ..sort((a, b) => a.start.compareTo(b.start));
@@ -78,8 +78,8 @@ class SleepDataSanitizer {
   /// Extracts clean, deduplicated sleep stages for a specific overnight sleep.
   /// Filters out duplicate records across multiple sync sources (e.g. Nothing + Google Fit).
   static CleanNightSleep sanitizeOvernightStages({
-    required List<RawHealthRecord> stageRecords,
-    RawHealthRecord? sessionRecord,
+    required List<dynamic> stageRecords,
+    dynamic sessionRecord,
     double? fallbackHours,
   }) {
     if (stageRecords.isEmpty && sessionRecord == null) {
@@ -109,13 +109,13 @@ class SleepDataSanitizer {
     }
 
     // 1. Group records by source
-    final bySource = <String, List<RawHealthRecord>>{};
+    final bySource = <String, List<dynamic>>{};
     for (final r in stageRecords) {
-      bySource.putIfAbsent(r.sourceId, () => []).add(r);
+      bySource.putIfAbsent(r.sourceId as String, () => []).add(r);
     }
 
     // Pick preferred wearable source if multiple exist to avoid double-counting
-    List<RawHealthRecord> activeStageRecords = stageRecords;
+    List<dynamic> activeStageRecords = stageRecords;
     if (bySource.length > 1) {
       String? bestSource;
       for (final src in bySource.keys) {
@@ -235,8 +235,8 @@ class SleepDataSanitizer {
 
   /// Extracts and classifies distributed sleep sessions (night sleep and naps) across a 24-hour cycle.
   static CleanDistributedSleep extractDistributedSessions({
-    required List<RawHealthRecord> stageRecords,
-    required List<RawHealthRecord> sessionRecords,
+    required List<dynamic> stageRecords,
+    required List<dynamic> sessionRecords,
     double? fallbackHours,
   }) {
     if (stageRecords.isEmpty && sessionRecords.isEmpty) {
@@ -257,31 +257,32 @@ class SleepDataSanitizer {
       );
     }
 
-    final rawSessions = <({DateTime start, DateTime end, RawHealthRecord? record})>[];
+    final rawSessions = <({DateTime start, DateTime end, dynamic record})>[];
 
     if (sessionRecords.isNotEmpty) {
-      final sorted = List<RawHealthRecord>.from(sessionRecords)
-        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+      final sorted = List<dynamic>.from(sessionRecords)
+        ..sort((a, b) => (a.startTime as DateTime).compareTo(b.startTime as DateTime));
 
       DateTime? curStart;
       DateTime? curEnd;
-      RawHealthRecord? curRec;
+      dynamic curRec;
 
       for (final s in sorted) {
-        final sEnd = s.endTime.isAfter(s.startTime)
-            ? s.endTime
-            : s.startTime.add(Duration(minutes: max(1, s.value.round())));
+        final sStart = s.startTime as DateTime;
+        final sEnd = (s.endTime as DateTime).isAfter(sStart)
+            ? (s.endTime as DateTime)
+            : sStart.add(Duration(minutes: max(1, (s.value as num).round())));
 
         if (curStart == null) {
-          curStart = s.startTime;
+          curStart = sStart;
           curEnd = sEnd;
           curRec = s;
-        } else if (s.startTime.difference(curEnd!).inMinutes <= 35) {
+        } else if (sStart.difference(curEnd!).inMinutes <= 35) {
           // Merge closely adjacent session segments
           if (sEnd.isAfter(curEnd)) curEnd = sEnd;
         } else {
           rawSessions.add((start: curStart, end: curEnd, record: curRec));
-          curStart = s.startTime;
+          curStart = sStart;
           curEnd = sEnd;
           curRec = s;
         }
@@ -291,8 +292,8 @@ class SleepDataSanitizer {
       }
     } else {
       // Group contiguous stage records into distinct sessions
-      final sortedStages = List<RawHealthRecord>.from(stageRecords)
-        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+      final sortedStages = List<dynamic>.from(stageRecords)
+        ..sort((a, b) => (a.startTime as DateTime).compareTo(b.startTime as DateTime));
 
       DateTime? curStart;
       DateTime? curEnd;
