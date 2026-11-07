@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'core/di/injection.dart';
 import 'core/theme/app_theme.dart';
-import 'data/database/app_database.dart';
-import 'data/datasources/health_platform_datasource.dart';
-import 'data/repositories/health_repository_impl.dart';
 import 'domain/repositories/health_source_repository.dart';
 import 'presentation/cubits/health_permission/health_permission_cubit.dart';
 import 'presentation/cubits/health_permission/health_permission_state.dart';
@@ -18,6 +16,9 @@ import 'services/background_sync_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Configure GetIt dependency injection
+  await configureDependencies();
+
   // Initialize Workmanager for background sync
   await Workmanager().initialize(callbackDispatcher);
 
@@ -29,13 +30,7 @@ class RecovaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Create shared dependencies
-    final db = AppDatabase.instance;
-    final platform = HealthPlatformDatasource();
-    final HealthSourceRepository repository = HealthRepositoryImpl(
-      platform: platform,
-      db: db,
-    );
+    final repository = sl<HealthSourceRepository>();
 
     return MultiRepositoryProvider(
       providers: [
@@ -44,14 +39,13 @@ class RecovaApp extends StatelessWidget {
       child: MultiBlocProvider(
         providers: [
           BlocProvider(
-            create: (_) => HealthPermissionCubit(repository: repository)
-              ..checkPermissions(),
+            create: (_) => sl<HealthPermissionCubit>()..checkPermissions(),
           ),
           BlocProvider(
-            create: (_) => HealthSyncCubit(repository: repository),
+            create: (_) => sl<HealthSyncCubit>(),
           ),
           BlocProvider(
-            create: (_) => DashboardCubit(repository: repository),
+            create: (_) => sl<DashboardCubit>(),
           ),
         ],
         child: MaterialApp(
