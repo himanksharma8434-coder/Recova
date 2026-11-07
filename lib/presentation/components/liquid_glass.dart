@@ -204,14 +204,18 @@ class LiquidGlassButton extends StatelessWidget {
             icon!,
             const SizedBox(width: Tok.space8),
           ],
-          Text(
-            label,
-            style: textStyle ??
-                TokType.cardTitle.copyWith(
-                  color: Tok.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
+          Flexible(
+            child: Text(
+              label,
+              style: textStyle ??
+                  TokType.cardTitle.copyWith(
+                    color: Tok.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
