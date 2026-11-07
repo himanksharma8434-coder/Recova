@@ -12,6 +12,10 @@ class RawHealthRecords extends Table {
   DateTimeColumn get startTime => dateTime()();
   DateTimeColumn get endTime => dateTime()();
   TextColumn get sourceId => text()(); // device/app source identifier
+  TextColumn get qualityFlag =>
+      text().nullable()(); // 'good', 'low_signal', 'interpolated'
+  IntColumn get timeZoneOffsetMinutes =>
+      integer().nullable()();
   DateTimeColumn get syncedAt => dateTime()(); // when we pulled this record
 
   @override
