@@ -63,29 +63,32 @@ class VitalMetricTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: Tok.space6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                value,
-                style: TokType.metricMedium.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 22,
-                ),
-              ),
-              if (unit.isNotEmpty) ...[
-                const SizedBox(width: Tok.space2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
                 Text(
-                  unit,
-                  style: TokType.unit.copyWith(
-                    color: Tok.textSecondary,
-                    fontSize: 10,
+                  value,
+                  style: TokType.metricMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 22,
                   ),
                 ),
+                if (unit.isNotEmpty) ...[
+                  const SizedBox(width: Tok.space2),
+                  Text(
+                    unit,
+                    style: TokType.unit.copyWith(
+                      color: Tok.textSecondary,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
           const SizedBox(height: Tok.space4),
           Row(

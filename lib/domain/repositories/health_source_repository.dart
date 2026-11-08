@@ -1,3 +1,4 @@
+import '../body_engine/body_engine.dart';
 import '../entities/body_age_result.dart';
 import '../entities/health_record.dart';
 import '../services/vo2_max_estimator.dart';
@@ -54,6 +55,21 @@ abstract class HealthSourceRepository {
     int? stressLevel,
     double? bodyFatPct,
   });
+
+  /// Log a workout session with Karvonen HR zones, TRIMP strain, and recovery cost.
+  Future<void> logWorkout(WorkoutInput input);
+
+  /// Toggle a daily behavioral journal tag (e.g., 'alcohol', 'late_meal', 'magnesium').
+  Future<bool> toggleJournalTag(String tag, {DateTime? date, String? value, String? notes});
+
+  /// Compute habit correlations against next-day recovery across 30–60 days of data.
+  Future<List<BehaviorCorrelation>> getHabitCorrelations();
+
+  /// Retrieve or generate explainable daily physiological insights.
+  Future<List<EngineInsight>> getDailyInsights({DateTime? date});
+
+  /// Mark an insight as read.
+  Future<void> markInsightRead(int insightId);
 }
 
 /// Breakdown of sleep architecture stages from wearable sensors.
@@ -122,24 +138,39 @@ class DistributedSleepSession {
   });
 }
 
-/// Real workout session logged by wearable / Health Connect.
+/// Real workout session logged by wearable / Health Connect or manual entry.
 class WorkoutSessionSummary {
   final String title;
+  final String sport;
   final int durationMinutes;
   final double? calories;
   final DateTime startTime;
+  final double? avgHeartRate;
+  final double? maxHeartRate;
+  final double? strain;
+  final double? recoveryCostHours;
+  final HeartRateZoneBreakdown? zones;
 
   const WorkoutSessionSummary({
     required this.title,
+    this.sport = 'general',
     required this.durationMinutes,
     this.calories,
     required this.startTime,
+    this.avgHeartRate,
+    this.maxHeartRate,
+    this.strain,
+    this.recoveryCostHours,
+    this.zones,
   });
 
   DateTime get endTime => startTime.add(Duration(minutes: durationMinutes));
 
   double get estimatedStrain =>
-      (durationMinutes * 0.15).clamp(1.0, 18.0);
+      strain ?? (durationMinutes * 0.15).clamp(1.0, 18.0);
+
+  double get effectiveRecoveryCost =>
+      recoveryCostHours ?? (estimatedStrain < 10.0 ? 12.0 : 24.0);
 
   String get formattedDuration {
     if (durationMinutes >= 60) {
@@ -189,6 +220,8 @@ class DerivedMetricSummary {
   final double? baselineHrv;
   final double? respiratoryRate;
   final double? baselineRespiratoryRate;
+  final double? skinTempDeviation;
+  final double? baselineSkinTemp;
   final double? dayStrain;
   final double? targetStrain;
   final double? activeCalories;
@@ -203,6 +236,13 @@ class DerivedMetricSummary {
   final List<HistoricalScorePoint> recoveryHistory14d;
   final int totalRecords;
   final DateTime? lastSyncedAt;
+  final DailyEngineOutput? engineOutput;
+  final int daysOfData;
+  final bool isHrvEstimated;
+  final String? qualityFlag;
+  final List<BehaviorCorrelation> habitCorrelations;
+  final List<EngineInsight> dailyInsights;
+  final List<String> todayLoggedTags;
 
   const DerivedMetricSummary({
     this.recoveryScore,
@@ -233,6 +273,8 @@ class DerivedMetricSummary {
     this.baselineHrv,
     this.respiratoryRate,
     this.baselineRespiratoryRate,
+    this.skinTempDeviation,
+    this.baselineSkinTemp,
     this.dayStrain,
     this.targetStrain,
     this.activeCalories,
@@ -247,5 +289,176 @@ class DerivedMetricSummary {
     this.recoveryHistory14d = const [],
     this.totalRecords = 0,
     this.lastSyncedAt,
+    this.engineOutput,
+    this.daysOfData = 14,
+    this.isHrvEstimated = false,
+    this.qualityFlag,
+    this.habitCorrelations = const [],
+    this.dailyInsights = const [],
+    this.todayLoggedTags = const [],
   });
+
+  /// Effective number of recorded biometric days.
+  int get effectiveDaysOfData => engineOutput?.readiness.daysOfData ?? daysOfData;
+
+  /// Confidence rating of the physiological evaluation.
+  ReadinessConfidence get confidence {
+    if (engineOutput != null) return engineOutput!.readiness.confidence;
+    if (effectiveDaysOfData < 4) return ReadinessConfidence.calibrating;
+    if (effectiveDaysOfData < 14) return ReadinessConfidence.calibrating;
+    if (isHrvEstimated) return ReadinessConfidence.medium;
+    return ReadinessConfidence.high;
+  }
+
+  /// Readiness tier (optimal, moderate, low, or collecting).
+  ReadinessTier get readinessTier {
+    if (engineOutput != null) return engineOutput!.readiness.tier;
+    if (effectiveDaysOfData < 4 && recoveryScore == null) {
+      return ReadinessTier.collecting;
+    }
+    final score = recoveryScore ?? 50.0;
+    if (score >= 67.0) return ReadinessTier.optimal;
+    if (score >= 34.0) return ReadinessTier.moderate;
+    return ReadinessTier.low;
+  }
+
+  /// Explainable top drivers shifting the readiness score.
+  List<ReadinessDriver> get topDrivers {
+    if (engineOutput != null && engineOutput!.readiness.topDrivers.isNotEmpty) {
+      return engineOutput!.readiness.topDrivers;
+    }
+    final list = <ReadinessDriver>[];
+    if (hrvMs != null && baselineHrv != null) {
+      final isPos = hrvMs! >= baselineHrv!;
+      final pct = (((hrvMs! - baselineHrv!) / baselineHrv!) * 100).round();
+      list.add(ReadinessDriver(
+        metricKey: 'hrv',
+        label: 'Heart Rate Variability',
+        impactZ: isPos ? 1.0 : -1.0,
+        direction: isPos ? 'positive' : 'negative',
+        description: isPos
+            ? 'HRV is ${pct.abs()}% above normal, signaling strong parasympathetic recovery.'
+            : 'HRV is ${pct.abs()}% below normal, indicating autonomic fatigue.',
+      ));
+    }
+    if (restingHr != null && baselineRestingHr != null) {
+      final isPos = restingHr! <= baselineRestingHr!;
+      final diff = (restingHr! - baselineRestingHr!).round().abs();
+      list.add(ReadinessDriver(
+        metricKey: 'resting_hr',
+        label: 'Resting Heart Rate',
+        impactZ: isPos ? 1.0 : -1.0,
+        direction: isPos ? 'positive' : 'negative',
+        description: isPos
+            ? 'Resting HR is $diff bpm below baseline (efficient).'
+            : 'Resting HR is $diff bpm elevated above baseline.',
+      ));
+    }
+    if (sleepHours != null && baselineSleepHours != null) {
+      final isPos = sleepHours! >= baselineSleepHours!;
+      final pct = ((sleepHours! / baselineSleepHours!) * 100).round();
+      list.add(ReadinessDriver(
+        metricKey: 'sleep',
+        label: 'Sleep Restoration',
+        impactZ: isPos ? 1.0 : -1.0,
+        direction: isPos ? 'positive' : 'negative',
+        description: isPos
+            ? 'Sleep met $pct% of your nightly requirement.'
+            : 'Sleep duration fell short ($pct% of requirement).',
+      ));
+    }
+    return list;
+  }
+
+  /// Target load lower bound based on morning readiness.
+  double get targetLoadLower {
+    if (engineOutput?.load != null) return engineOutput!.load!.targetLoadLower;
+    final rec = recoveryScore ?? 50.0;
+    if (rec >= 67) return 14.0;
+    if (rec >= 34) return 10.0;
+    return 6.0;
+  }
+
+  /// Target load upper bound based on morning readiness.
+  double get targetLoadUpper {
+    if (engineOutput?.load != null) return engineOutput!.load!.targetLoadUpper;
+    final rec = recoveryScore ?? 50.0;
+    if (rec >= 67) return 18.0;
+    if (rec >= 34) return 13.9;
+    return 9.9;
+  }
+
+  /// Tonight's personalized sleep need in minutes.
+  int get personalizedSleepNeedMinutes {
+    if (engineOutput?.sleep != null) {
+      return engineOutput!.sleep!.sleepNeedMinutes;
+    }
+    final baseMin = ((baselineSleepHours ?? 8.0) * 60).round();
+    final strainAdd = (dayStrain != null && dayStrain! > 10.0)
+        ? ((dayStrain! - 10.0) * 2.5).round()
+        : 0;
+    return (baseMin + strainAdd).clamp(420, 600);
+  }
+
+  /// Actionable plain-language training headline.
+  String get trainingHeadline {
+    if (engineOutput != null) return engineOutput!.trainingReadiness.headline;
+    final rec = recoveryScore;
+    if (rec == null) return 'Collecting Baseline';
+    if (rec >= 80.0) return 'Prime Day to Push';
+    if (rec >= 67.0) return 'Good Day to Push';
+    if (rec >= 34.0) return 'Maintain Moderate Training';
+    return 'Recovery Priority';
+  }
+
+  /// Detailed coaching advice from the Science Engine.
+  String get trainingAdvice {
+    if (engineOutput != null) {
+      return engineOutput!.trainingReadiness.coachingAdvice;
+    }
+    final rec = recoveryScore;
+    if (rec == null) {
+      return 'Biometric history is still accumulating. Maintain intuitive training volume.';
+    }
+    if (rec >= 67.0) {
+      return 'Your autonomic nervous system is well-recovered. High-strain workouts or interval sessions are recommended.';
+    }
+    if (rec >= 34.0) {
+      return 'Your body is in balance. Steady aerobic training or maintenance volume is recommended today.';
+    }
+    return 'Key biometrics indicate autonomic fatigue or elevated cardiac load. Prioritize light mobility and rest.';
+  }
+
+  /// Current energy reserve score (0 to 100), or null if calibrating.
+  double? get energyReserveScore => engineOutput?.energyReserve?.currentReserve;
+
+  /// Whether energy reserve is still in the 10-day calibration period.
+  bool get isEnergyReserveCalibrating =>
+      engineOutput?.energyReserve?.isCalibrating ?? (effectiveDaysOfData < 10);
+
+  /// Current daytime autonomic stress category.
+  StressBand get daytimeStressBand =>
+      engineOutput?.stress?.band ?? StressBand.balanced;
+
+  /// Comprehensive 5-vital Health Monitor report from the Science Engine.
+  HealthMonitorReport get healthMonitorReport {
+    if (engineOutput?.healthMonitor != null) {
+      return engineOutput!.healthMonitor!;
+    }
+    const engine = HealthMonitorEngine();
+    return engine.evaluateReport(
+      daysOfData: effectiveDaysOfData,
+      todayHrvMs: hrvMs,
+      baselineHrvMs: baselineHrv,
+      isHrvEstimated: isHrvEstimated,
+      todayRhrBpm: restingHr,
+      baselineRhrBpm: baselineRestingHr,
+      todayRespiratoryRate: respiratoryRate,
+      baselineRespiratoryRate: baselineRespiratoryRate,
+      todaySpo2: spo2,
+      baselineSpo2: baselineSpo2,
+      todaySkinTempDeviationCelsius: skinTempDeviation,
+      baselineSkinTempDeviationCelsius: baselineSkinTemp,
+    );
+  }
 }

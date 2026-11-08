@@ -44,7 +44,12 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
-    )..repeat(reverse: true);
+    );
+    if (!_isInTest) {
+      _controller.repeat(reverse: true);
+    } else {
+      _controller.value = 1.0;
+    }
 
     _pulseAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
@@ -90,15 +95,21 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
         final displayScore =
             _isInTest ? effectiveScore.toInt() : animatedScore.round();
 
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: widget.onTap != null
-              ? () {
-                  HapticFeedback.lightImpact();
-                  widget.onTap!();
-                }
-              : null,
-          child: SizedBox(
+        return Semantics(
+          label: 'Daily Recovery Score',
+          value: widget.score != null
+              ? '$displayScore percent, $statusText'
+              : 'Calibrating baseline',
+          button: widget.onTap != null,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onTap != null
+                ? () {
+                    HapticFeedback.lightImpact();
+                    widget.onTap!();
+                  }
+                : null,
+            child: SizedBox(
             width: widget.size,
             height: widget.size,
             child: Stack(
@@ -249,8 +260,9 @@ class _RadialScoreGaugeState extends State<RadialScoreGauge>
               ],
             ),
           ),
-        );
-      },
+        ),
+      );
+    },
     );
   }
 }
