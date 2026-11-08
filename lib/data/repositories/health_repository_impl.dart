@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../core/constants/health_types.dart';
 import '../../core/utils/date_utils.dart';
+import '../../domain/body_engine/body_engine.dart';
 import '../../domain/entities/health_record.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../../domain/usecases/compute_baselines.dart';
@@ -557,6 +558,57 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       activeOnly: true,
     );
 
+    // ── Real Workouts from Drift WorkoutSessions ──
+    final dbWorkoutsToday = await _db.workoutSessionDao.getWorkoutsForWindow(
+      start: todayStart,
+      end: now,
+    );
+    for (final dw in dbWorkoutsToday) {
+      workouts.add(WorkoutSessionSummary(
+        title: dw.title,
+        sport: dw.sport,
+        durationMinutes: dw.durationMinutes,
+        calories: dw.caloriesBurned,
+        startTime: dw.startTime,
+        avgHeartRate: dw.avgHeartRate,
+        maxHeartRate: dw.maxHeartRate,
+        strain: dw.strainScore,
+        recoveryCostHours: dw.recoveryCost,
+        zones: HeartRateZoneBreakdown(
+          zone1Minutes: dw.zone1Minutes,
+          zone2Minutes: dw.zone2Minutes,
+          zone3Minutes: dw.zone3Minutes,
+          zone4Minutes: dw.zone4Minutes,
+          zone5Minutes: dw.zone5Minutes,
+        ),
+      ));
+    }
+
+    final dbWorkouts7d = await _db.workoutSessionDao.getWorkoutsForWindow(
+      start: start7d,
+      end: now,
+    );
+    for (final dw in dbWorkouts7d) {
+      workouts7d.add(WorkoutSessionSummary(
+        title: dw.title,
+        sport: dw.sport,
+        durationMinutes: dw.durationMinutes,
+        calories: dw.caloriesBurned,
+        startTime: dw.startTime,
+        avgHeartRate: dw.avgHeartRate,
+        maxHeartRate: dw.maxHeartRate,
+        strain: dw.strainScore,
+        recoveryCostHours: dw.recoveryCost,
+        zones: HeartRateZoneBreakdown(
+          zone1Minutes: dw.zone1Minutes,
+          zone2Minutes: dw.zone2Minutes,
+          zone3Minutes: dw.zone3Minutes,
+          zone4Minutes: dw.zone4Minutes,
+          zone5Minutes: dw.zone5Minutes,
+        ),
+      ));
+    }
+
     // ── Real HRV (SDNN) ──
     final latestHrv = await _db.healthRecordDao.getLatestHrv(
       start: AppDateUtils.daysAgo(1, from: now),
@@ -711,6 +763,10 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       end: now,
     );
 
+    // ── Today's Skin Temperature Deviation from Night Sleep ──
+    final latestNightSleep = await _db.sleepSessionDao.getLatestNightSleep();
+    final todaySkinTemp = latestNightSleep?.skinTempDeviation;
+
     // ── Baselines (7-day / 14-day with clinical defaults) ──
     final hrvHistory = await _db.healthRecordDao.getHrvBaselineRecords(
       start: AppDateUtils.daysAgo(14, from: now),
@@ -849,6 +905,57 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       ));
     }
 
+    // Evaluate through pure Dart Body Science Engine
+    final historicalMetrics = await _db.derivedMetricDao.getHistory(60);
+    final daysOfData = historicalMetrics.isNotEmpty ? historicalMetrics.length : 14;
+
+    final hrvHistory7d = hrvHistory.map((r) => r.value).toList();
+    final hrvHistory60d = (await _db.healthRecordDao.getHrvBaselineRecords(
+      start: AppDateUtils.daysAgo(60, from: now),
+      end: now,
+    )).map((r) => r.value).toList();
+
+    final rhrHistory60d = (await _db.healthRecordDao.getDailyRestingHeartRates(60))
+        .map((p) => p.value)
+        .toList();
+
+    final pipelineInput = EnginePipelineInput(
+      daysOfData: daysOfData,
+      todayRmssdMs: latestHrv,
+      hrvSource: HrvSource.vendor,
+      hrvHistory7d: hrvHistory7d.isNotEmpty ? hrvHistory7d : null,
+      hrvHistory60d: hrvHistory60d.isNotEmpty ? hrvHistory60d : null,
+      todayRhrBpm: todayRhr ?? baseline?.restingHrBaseline7d,
+      rhrHistory7d: rhrHistory60d.take(7).toList(),
+      rhrHistory60d: rhrHistory60d.isNotEmpty ? rhrHistory60d : null,
+      lastNightAsleepMinutes:
+          actualSleepHours != null ? (actualSleepHours * 60).round() : null,
+      deepMinutes: cleanSleep.hasStageData ? cleanSleep.deepMinutes : null,
+      remMinutes: cleanSleep.hasStageData ? cleanSleep.remMinutes : null,
+      lightMinutes: cleanSleep.hasStageData ? cleanSleep.lightMinutes : null,
+      awakeMinutes: cleanSleep.hasStageData ? cleanSleep.awakeMinutes : null,
+      baselineNeedMinutes: sleepBaselineMinutes.round(),
+      todayRespiratoryRate: todayResp,
+      baselineRespiratoryRate: baselineResp,
+      todaySpo2: todaySpo2 ?? baseline?.spo2Baseline7d,
+      baselineSpo2: spo2Baseline,
+      todaySkinTempDeviationCelsius: todaySkinTemp,
+      userMaxHr: maxHr7d,
+      todaySteps: todaySteps,
+    );
+    final engineOutput = await EngineIsolateRunner.run(pipelineInput);
+
+    // ── Phase 5: Journal Tags, Habit Correlations & Rule-Based Insights ──
+    final todayJournalEntries = await _db.journalDao.getEntriesForDay(now);
+    final todayLoggedTags = todayJournalEntries.map((e) => e.tag).toList();
+    final habitCorrelations = await getHabitCorrelations();
+    final dailyInsights = const InsightsEngine().generateInsights(
+      todayOutput: engineOutput,
+      date: now,
+      habitCorrelations: habitCorrelations,
+      recentBehaviorTags: todayLoggedTags.toSet(),
+    );
+
     final summaryResult = DerivedMetricSummary(
       recoveryScore: liveRecovery.score,
       baselineRecoveryScore: liveRecovery.baselineScore,
@@ -878,6 +985,8 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       baselineHrv: baselineHrv,
       respiratoryRate: todayResp,
       baselineRespiratoryRate: baselineResp,
+      skinTempDeviation: todaySkinTemp,
+      baselineSkinTemp: 0.0,
       dayStrain: dayStrain > 0.0 ? dayStrain : null,
       targetStrain: targetStrain,
       activeCalories: activeCals > 0.0 ? activeCals : null,
@@ -891,6 +1000,11 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       recoveryHistory14d: historyPoints,
       totalRecords: recordCount,
       lastSyncedAt: lastSync,
+      engineOutput: engineOutput,
+      daysOfData: daysOfData,
+      habitCorrelations: habitCorrelations,
+      dailyInsights: dailyInsights,
+      todayLoggedTags: todayLoggedTags,
     );
 
     _cachedSummary = summaryResult;
@@ -1104,5 +1218,120 @@ class HealthRepositoryImpl implements HealthSourceRepository {
     );
 
     return _computeBodyAge(input);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WORKOUTS, BEHAVIORAL JOURNAL & INSIGHTS (PHASE 5)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @override
+  Future<void> logWorkout(WorkoutInput input) async {
+    const engine = WorkoutEngine();
+    final result = engine.analyze(input);
+
+    await _db.workoutSessionDao.upsertWorkout(
+      WorkoutSessionsCompanion(
+        userId: const Value('local_user'),
+        sport: Value(result.sport),
+        title: Value(result.title),
+        startTime: Value(result.startTime),
+        endTime: Value(result.endTime),
+        durationMinutes: Value(result.durationMinutes),
+        avgHeartRate: Value(result.avgHeartRate),
+        maxHeartRate: Value(result.maxHeartRate),
+        caloriesBurned: Value(result.calories),
+        distanceMeters: Value(result.distanceMeters),
+        elevationGainMeters: Value(result.elevationGainMeters),
+        zone1Minutes: Value(result.zones.zone1Minutes),
+        zone2Minutes: Value(result.zones.zone2Minutes),
+        zone3Minutes: Value(result.zones.zone3Minutes),
+        zone4Minutes: Value(result.zones.zone4Minutes),
+        zone5Minutes: Value(result.zones.zone5Minutes),
+        strainScore: Value(result.strainScore),
+        recoveryCost: Value(result.recoveryCostHours),
+        qualityFlag: Value(result.isZoneEstimated ? 'estimated' : 'good'),
+        syncedAt: Value(DateTime.now()),
+      ),
+    );
+
+    // Refresh summary cache
+    await getLatestSummary(persistToday: true);
+  }
+
+  @override
+  Future<bool> toggleJournalTag(String tag, {DateTime? date, String? value, String? notes}) async {
+    final targetDate = date ?? DateTime.now();
+    final added = await _db.journalDao.toggleTag(
+      date: targetDate,
+      tag: tag,
+      value: value,
+      notes: notes,
+    );
+    await getLatestSummary(persistToday: false);
+    return added;
+  }
+
+  @override
+  Future<List<BehaviorCorrelation>> getHabitCorrelations() async {
+    final recentEntries = await _db.journalDao.getRecentEntries(days: 60);
+    final recentMetrics = await _db.derivedMetricDao.getHistory(60);
+
+    final dailyTags = <DateTime, Set<String>>{};
+    for (final e in recentEntries) {
+      final d = DateTime(e.date.year, e.date.month, e.date.day);
+      dailyTags.putIfAbsent(d, () => <String>{}).add(e.tag);
+    }
+
+    final recoveries = <DayRecoveryRecord>[];
+    for (final m in recentMetrics) {
+      if (m.recoveryScore == null) continue;
+      recoveries.add(DayRecoveryRecord(
+        date: m.date,
+        readinessScore: m.recoveryScore!,
+        sleepScore: m.sleepScore,
+      ));
+    }
+
+    const engine = JournalEngine();
+    return engine.computeCorrelations(
+      dailyTags: dailyTags,
+      recoveryRecords: recoveries,
+    );
+  }
+
+  @override
+  Future<List<EngineInsight>> getDailyInsights({DateTime? date}) async {
+    final targetDate = date ?? DateTime.now();
+    final summary = _cachedSummary;
+    if (summary == null || summary.engineOutput == null) return const [];
+
+    final correlations = await getHabitCorrelations();
+    final todayEntries = await _db.journalDao.getEntriesForDay(targetDate);
+    final tags = todayEntries.map((e) => e.tag).toSet();
+
+    // Acute:Chronic Workload Ratio calculation
+    double? acwr;
+    if (summary.workouts7d.isNotEmpty) {
+      final total7d = summary.workouts7d.fold<double>(0.0, (acc, w) => acc + w.estimatedStrain);
+      final avgAcute = total7d / 7.0;
+      final chronicEst = summary.targetStrain != null && summary.targetStrain! > 0 ? (summary.targetStrain! / 1.5) : 10.0;
+      acwr = chronicEst > 0 ? double.parse((avgAcute / chronicEst).toStringAsFixed(2)) : null;
+    }
+
+    const engine = InsightsEngine();
+    final insights = engine.generateInsights(
+      todayOutput: summary.engineOutput!,
+      date: targetDate,
+      acwr: acwr,
+      habitCorrelations: correlations,
+      recentBehaviorTags: tags,
+    );
+
+    return insights;
+  }
+
+  @override
+  Future<void> markInsightRead(int insightId) async {
+    await _db.insightDao.markAsRead(insightId);
   }
 }

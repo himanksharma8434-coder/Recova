@@ -24,6 +24,7 @@ class CleanNightSleep {
 
   int get totalAsleepMinutes => deepMinutes + coreMinutes + remMinutes;
   int get totalTrackedMinutes => totalAsleepMinutes + awakeMinutes;
+  int get lightMinutes => coreMinutes;
 }
 
 class SleepDataSanitizer {
