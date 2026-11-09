@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/di/injection.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
 import '../../domain/repositories/health_source_repository.dart';
@@ -105,10 +106,12 @@ class _MainShellScreenState extends State<MainShellScreen>
   void _checkMonthlyCheckin() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      final checkinCubit = BodyAgeCheckinCubit(
-        measurementRepo: BodyMeasurementRepositoryImpl(),
-        bodyAgeRepo: BodyAgeRepositoryImpl(),
-      );
+      final checkinCubit = sl.isRegistered<BodyAgeCheckinCubit>()
+          ? sl<BodyAgeCheckinCubit>()
+          : BodyAgeCheckinCubit(
+              measurementRepo: BodyMeasurementRepositoryImpl(),
+              bodyAgeRepo: BodyAgeRepositoryImpl(),
+            );
       await checkinCubit.evaluateEligibility(isWorkoutActive: false);
       if (checkinCubit.state is BodyAgeCheckinPrompt && mounted) {
         final promptState = checkinCubit.state as BodyAgeCheckinPrompt;

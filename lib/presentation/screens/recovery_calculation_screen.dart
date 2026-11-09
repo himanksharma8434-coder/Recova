@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../core/config/engine_config.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../components/ambient_glow_backdrop.dart';
 import '../components/glass_card.dart';
+import 'methodology_sheet.dart';
 
 /// Scientific Explainer Screen detailing how Recova calculates
 /// the daily recovery score using the 3-pillar biometric algorithm.
@@ -377,6 +379,98 @@ class RecoveryCalculationScreen extends StatelessWidget {
                                 fontSize: 11.5,
                                 height: 1.5,
                                 color: RecovaColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // ── Science Engine Version & Methodology Viewer ──
+                      GlassCard(
+                        borderRadius: 14,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: const [
+                                    Icon(Icons.menu_book_rounded,
+                                        size: 15, color: Tok.neonAccent),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'SCIENCE METHODOLOGY',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1.2,
+                                        color: RecovaColors.textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Tok.neonAccent.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(100),
+                                    border: Border.all(
+                                      color: Tok.neonAccent.withValues(alpha: 0.35),
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'VERSION ${EngineConfig.algorithmVersion}',
+                                    style: TextStyle(
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.6,
+                                      color: Tok.neonAccent,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Our physiological algorithms are transparent, versioned, and cited directly from peer-reviewed sports cardiology. Tap below to inspect formulas, normal range derivations, and sensor caveats.',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                height: 1.5,
+                                color: RecovaColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () => MethodologySheet.show(context),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Tok.neonAccent.withValues(alpha: 0.15),
+                                  foregroundColor: Tok.neonAccent,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(Tok.radiusSm),
+                                    side: BorderSide(
+                                      color: Tok.neonAccent.withValues(alpha: 0.4),
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.science_outlined, size: 16),
+                                label: const Text(
+                                  'VIEW COMPLETE METHODOLOGY & CITATIONS',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
                               ),
                             ),
                           ],

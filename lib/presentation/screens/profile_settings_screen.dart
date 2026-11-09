@@ -13,6 +13,7 @@ import '../../services/background_sync_service.dart';
 import '../components/ambient_glow_backdrop.dart';
 import '../components/glass_card.dart';
 import '../components/liquid_glass.dart';
+import 'trust_center_screen.dart';
 
 /// Screen allowing the user to configure their baseline biometrics
 /// (body weight, height, age, body fat %, and gender) for body age and recovery.
@@ -751,6 +752,47 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: Tok.space14),
+
+            // Trust & Data Privacy Center Link
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TrustCenterScreen()),
+                );
+              },
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Tok.glassFillRecessed,
+                  borderRadius: BorderRadius.circular(Tok.radiusSm),
+                  border: Border.all(color: Tok.glassBorder, width: 0.8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.shield_outlined, color: Tok.neonAccent, size: 18),
+                        SizedBox(width: 10),
+                        Text(
+                          'TRUST, PRIVACY & DATA EXPORT',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                            color: Tok.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, color: Tok.textSecondary, size: 14),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: Tok.space20),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/di/injection.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../domain/repositories/health_source_repository.dart';
 import '../../features/body_age/data/repositories/body_age_repository_impl.dart';
@@ -17,6 +18,13 @@ import '../components/liquid_glass.dart';
 import '../components/motion.dart';
 import '../components/radial_score_gauge.dart';
 import '../components/vital_metric_tile.dart';
+import '../components/load_target_bar.dart';
+import '../components/sleep_advisor_card.dart';
+import '../components/energy_stress_card.dart';
+import '../components/health_monitor_pod.dart';
+import '../components/explainable_insight_card.dart';
+import '../components/journal_quick_tap_pod.dart';
+import '../../domain/body_engine/body_engine.dart';
 import '../cubits/health_sync/health_sync_cubit.dart';
 import '../cubits/health_sync/health_sync_state.dart';
 import 'recovery_calculation_screen.dart';
@@ -54,7 +62,9 @@ class _PulseScreenState extends State<PulseScreen> {
   @override
   void initState() {
     super.initState();
-    _bodyAgeRepo = BodyAgeRepositoryImpl();
+    _bodyAgeRepo = sl.isRegistered<BodyAgeRepository>()
+        ? sl<BodyAgeRepository>()
+        : BodyAgeRepositoryImpl();
     _loadBodyAgeData();
   }
 
@@ -318,7 +328,71 @@ class _PulseScreenState extends State<PulseScreen> {
               ),
             ],
           ),
-          const SizedBox(height: Tok.space20),
+          const SizedBox(height: Tok.space16),
+
+          // ── Confidence & Calibration Pill ──
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Builder(builder: (context) {
+                final effectiveDays = summary?.effectiveDaysOfData;
+                final isCalibrating = effectiveDays != null && effectiveDays < 4;
+                final isProvisional = effectiveDays != null && effectiveDays < 14;
+                final isEstimated = summary?.isHrvEstimated == true;
+                final Color badgeColor;
+                final String badgeLabel;
+                if (isCalibrating) {
+                  badgeColor = Tok.accentAmber;
+                  badgeLabel = 'CALIBRATING • DAY $effectiveDays/3';
+                } else if (isProvisional) {
+                  badgeColor = Tok.accentBlue;
+                  badgeLabel = 'PROVISIONAL • DAY $effectiveDays/14';
+                } else if (isEstimated) {
+                  badgeColor = Tok.accentViolet;
+                  badgeLabel = 'ESTIMATED (NOCTURNAL PPG)';
+                } else {
+                  badgeColor = Tok.recoveryOptimal;
+                  badgeLabel = 'HIGH CONFIDENCE';
+                }
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(
+                      color: badgeColor.withValues(alpha: 0.35),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: badgeColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        badgeLabel,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          color: badgeColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+          const SizedBox(height: Tok.space12),
 
           // ── Recovery Gauge ──
           RadialScoreGauge(
@@ -326,6 +400,156 @@ class _PulseScreenState extends State<PulseScreen> {
             baselineScore: summary?.baselineRecoveryScore,
             size: 220,
             onTap: () => _openRecoveryCalculation(),
+          ),
+          const SizedBox(height: Tok.space12),
+
+          // ── Actionable Coaching Headline ──
+          Text(
+            (summary?.trainingHeadline ?? 'STEADY RECOVERY').toUpperCase(),
+            style: TokType.sectionLabel.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+              color: (summary?.recoveryScore != null && summary!.recoveryScore! >= 67)
+                  ? Tok.recoveryOptimal
+                  : ((summary?.recoveryScore != null && summary!.recoveryScore! >= 34)
+                      ? Tok.accentAmber
+                      : Tok.recoverySuppressed),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+
+          // ── Top Explainable Drivers ──
+          Builder(builder: (context) {
+            final drivers = summary?.topDrivers;
+            if (drivers == null || drivers.isEmpty) return const SizedBox.shrink();
+            return Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              alignment: WrapAlignment.center,
+              children: drivers.take(3).map((driver) {
+                final isPos = driver.direction == 'positive';
+                final color = isPos ? Tok.recoveryOptimal : Tok.accentAmber;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(Tok.radiusSm),
+                    border: Border.all(
+                      color: color.withValues(alpha: 0.25),
+                      width: 0.7,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isPos ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                        size: 10,
+                        color: color,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        driver.label,
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: Tok.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            );
+          }),
+          const SizedBox(height: 10),
+
+          // ── "Why this score?" Deep Dive Link ──
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openRecoveryCalculation(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.auto_awesome_outlined,
+                    size: 12,
+                    color: Tok.neonAccent.withValues(alpha: 0.9),
+                  ),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      'Why this score? Tap for science breakdown',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                        color: Tok.neonAccent.withValues(alpha: 0.95),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 8,
+                    color: Tok.neonAccent.withValues(alpha: 0.7),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: Tok.space16),
+
+          // ── Card 2: Cardiovascular Load vs Live Target ──
+          LoadTargetBar(
+            currentLoad: summary?.dayStrain ?? 0.0,
+            targetLower: summary?.targetLoadLower ?? 10.0,
+            targetUpper: summary?.targetLoadUpper ?? 14.0,
+            workoutMinutes: summary?.workouts.fold<int>(0, (sum, w) => sum + w.durationMinutes) ?? 0,
+            todaySteps: summary?.todaySteps ?? 0,
+            onTap: () => widget.onNavigateTab?.call(2),
+          ),
+          const SizedBox(height: Tok.space14),
+
+          // ── Card 3: Tonight's Sleep Need & Bedtime Target ──
+          SleepAdvisorCard(
+            sleepNeedMinutes: summary?.personalizedSleepNeedMinutes ?? 480,
+            lastNightSleepHours: summary?.sleepHours,
+            onTap: () => widget.onNavigateTab?.call(3),
+          ),
+          const SizedBox(height: Tok.space14),
+
+          // ── Card 4: Energy Reserve & Daytime Stress ──
+          EnergyStressCard(
+            energyReserve: summary?.energyReserveScore,
+            isEnergyReserveCalibrating: summary?.isEnergyReserveCalibrating ?? true,
+            daysOfData: summary?.effectiveDaysOfData ?? 14,
+            stressBand: summary?.daytimeStressBand ?? StressBand.balanced,
+            stressScore: summary?.engineOutput?.stress?.score ?? 35.0,
+          ),
+          const SizedBox(height: Tok.space16),
+
+          // ── Health Monitor Pod (5 Core Overnight Vitals) ──
+          HealthMonitorPod(summary: summary),
+          const SizedBox(height: Tok.space16),
+
+          // ── Explainable Insight Card (if available) ──
+          if (summary?.dailyInsights.isNotEmpty == true) ...[
+            ExplainableInsightCard(insight: summary!.dailyInsights.first),
+            const SizedBox(height: Tok.space16),
+          ],
+
+          // ── Daily Behavior Journal Pod ──
+          JournalQuickTapPod(
+            summary: summary,
+            onTagToggled: widget.onSyncTap,
           ),
           const SizedBox(height: Tok.space20),
 
@@ -335,14 +559,19 @@ class _PulseScreenState extends State<PulseScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'KEY BIOMETRICS',
-                  style: TokType.sectionLabel.copyWith(
-                    letterSpacing: 1.4,
-                    fontSize: 10,
-                    color: Tok.textTertiary,
+                Expanded(
+                  child: Text(
+                    'KEY BIOMETRICS',
+                    style: TokType.sectionLabel.copyWith(
+                      letterSpacing: 1.2,
+                      fontSize: 10,
+                      color: Tok.textTertiary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   'BASAL BASELINE',
                   style: TokType.caption.copyWith(
@@ -500,16 +729,21 @@ class _PulseScreenState extends State<PulseScreen> {
               child: Center(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     GlassLoadingSpinner(size: 16, color: Tok.neonAccent),
-                    SizedBox(width: 10),
-                    Text(
-                      'CALCULATING BODY AGE...',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.8,
-                        color: Tok.textTertiary,
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'CALCULATING BODY AGE...',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.8,
+                          color: Tok.textTertiary,
+                        ),
                       ),
                     ),
                   ],

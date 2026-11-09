@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/theme/recova_colors.dart';
 import '../../domain/repositories/health_source_repository.dart';
+import '../components/workout_logging_modal.dart';
 
 /// Activity categories for classifying workouts and athletic sessions.
 enum ActivityCategory {
@@ -259,67 +260,117 @@ class _StrainScreenState extends State<StrainScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text(
-                    _timeHorizonIndex == 0
-                        ? 'TODAY\'S ACTIVITIES'
-                        : '7-DAY ACTIVITIES',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                      color: RecovaColors.textTertiary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: RecovaColors.surfaceElevation3,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: RecovaColors.borderSubtle),
-                    ),
-                    child: Text(
-                      '${currentWorkouts.length} TOTAL',
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w700,
-                        color: currentWorkouts.isNotEmpty
-                            ? Tok.neonAccent
-                            : RecovaColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              // Option to see all activities
-              GestureDetector(
-                onTap: () => _showAllActivitiesModal(
-                  context,
-                  allWorkouts: workouts7d.isNotEmpty ? workouts7d : workoutsToday,
-                ),
-                behavior: HitTestBehavior.opaque,
+              Expanded(
                 child: Row(
-                  children: const [
-                    Text(
-                      'ALL ACTIVITIES',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: Tok.neonAccent,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _timeHorizonIndex == 0
+                            ? 'TODAY\'S ACTIVITIES'
+                            : '7-DAY ACTIVITIES',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: RecovaColors.textTertiary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    SizedBox(width: 4),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 9,
-                      color: Tok.neonAccent,
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: RecovaColors.surfaceElevation3,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: RecovaColors.borderSubtle),
+                      ),
+                      child: Text(
+                        '${currentWorkouts.length} TOTAL',
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                          color: currentWorkouts.isNotEmpty
+                              ? Tok.neonAccent
+                              : RecovaColors.textSecondary,
+                        ),
+                      ),
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              // Actions: Log Workout & See All Activities
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      WorkoutLoggingModal.show(context, onWorkoutLogged: () {
+                        setState(() {});
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Tok.neonAccent.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Tok.neonAccent.withValues(alpha: 0.4),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.add_rounded, size: 11, color: Tok.neonAccent),
+                          SizedBox(width: 2),
+                          Text(
+                            'LOG',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                              color: Tok.neonAccent,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _showAllActivitiesModal(
+                      context,
+                      allWorkouts:
+                          workouts7d.isNotEmpty ? workouts7d : workoutsToday,
+                    ),
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Text(
+                          'ALL ACTIVITIES',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                            color: Tok.neonAccent,
+                          ),
+                        ),
+                        SizedBox(width: 3),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 9,
+                          color: Tok.neonAccent,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
