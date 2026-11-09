@@ -1,0 +1,102 @@
+{
+  "version": "2.0.0",
+  "generated_date": "2026-11-07",
+  "description": "Golden reference test vectors for BodyEngine physiology math. Do not modify without updating algorithmVersion.",
+  "rr_cleaning_fixtures": [
+    {
+      "name": "Ectopic rejection and out-of-bounds filter",
+      "raw_rr_ms": [800.0, 810.0, 250.0, 820.0, 2500.0, 815.0, 1100.0, 825.0],
+      "expected_clean_count": 5,
+      "expected_cleaned_sample": [800.0, 810.0, 820.0, 815.0, 825.0]
+    }
+  ],
+  "hrv_fixtures": [
+    {
+      "name": "Stable baseline inside normal band",
+      "today_rmssd": 65.0,
+      "history_7d": [62.0, 64.0, 66.0, 65.0, 63.0, 67.0, 65.0],
+      "history_60d_count": 35,
+      "expected_trend": "stable",
+      "expected_source": "vendor"
+    },
+    {
+      "name": "Acute suppression following alcohol or severe stress",
+      "today_rmssd": 28.0,
+      "history_7d": [62.0, 64.0, 66.0, 65.0, 63.0, 67.0, 65.0],
+      "history_60d_count": 35,
+      "expected_trend": "acuteSuppression",
+      "expected_source": "vendor"
+    },
+    {
+      "name": "Calibrating state under 4 days",
+      "today_rmssd": 55.0,
+      "history_60d_count": 2,
+      "expected_trend": "calibrating"
+    }
+  ],
+  "trimp_to_load_scale_fixtures": [
+    {
+      "trimp": 0.0,
+      "expected_load_score": 0.0
+    },
+    {
+      "trimp": 9.0,
+      "expected_load_score": 8.3
+    },
+    {
+      "trimp": 18.0,
+      "expected_load_score": 13.3
+    },
+    {
+      "trimp": 36.0,
+      "expected_load_score": 18.2
+    },
+    {
+      "trimp": 72.0,
+      "expected_load_score": 20.6
+    }
+  ],
+  "readiness_sigmoid_fixtures": [
+    {
+      "composite_z": 0.0,
+      "expected_score": 50.0
+    },
+    {
+      "composite_z": 1.0,
+      "expected_score": 75.0
+    },
+    {
+      "composite_z": -1.0,
+      "expected_score": 25.0
+    },
+    {
+      "composite_z": 2.0,
+      "expected_score": 90.0
+    },
+    {
+      "composite_z": -2.0,
+      "expected_score": 10.0
+    }
+  ],
+  "sleep_governor_fixtures": [
+    {
+      "name": "Normal sleep 8h (480m) allows full optimal score",
+      "sleep_minutes": 480,
+      "hrv_z": 2.0,
+      "rhr_inv_z": 2.0,
+      "sleep_z": 2.0,
+      "governor_applied": false,
+      "expected_tier": "optimal"
+    },
+    {
+      "name": "Severe sleep restriction 5h (300m) capped below 67.0 even with high HRV",
+      "sleep_minutes": 300,
+      "hrv_z": 2.5,
+      "rhr_inv_z": 2.5,
+      "sleep_z": -2.0,
+      "governor_applied": true,
+      "ceiling_applied_max": 66.0
+    }
+  ]
+}
+
