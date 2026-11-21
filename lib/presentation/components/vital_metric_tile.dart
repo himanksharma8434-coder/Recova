@@ -33,6 +33,7 @@ class VitalMetricTile extends StatelessWidget {
     return GlassCard(
       onTap: onTap,
       accentGlow: accentGlow,
+      hasBlur: false,
       padding: const EdgeInsets.symmetric(
         horizontal: Tok.space10,
         vertical: Tok.space14,

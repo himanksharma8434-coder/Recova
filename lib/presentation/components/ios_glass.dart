@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/theme/scroll_performance_manager.dart';
 
 /// Apple iOS material types matching Human Interface Guidelines (HIG).
 enum IosGlassMaterial {
@@ -96,9 +97,10 @@ class _IosGlassState extends State<IosGlass> {
 
   /// Composes backdrop blur with saturation boost filter.
   ImageFilter _buildBackdropFilter() {
+    final effectiveSigma = widget.material.sigma * ScrollPerformanceManager.blurSigmaScale;
     final blur = ImageFilter.blur(
-      sigmaX: widget.material.sigma,
-      sigmaY: widget.material.sigma,
+      sigmaX: effectiveSigma,
+      sigmaY: effectiveSigma,
       tileMode: TileMode.clamp,
     );
     // Compose with 1.7x saturation boost matrix
@@ -159,11 +161,21 @@ class _IosGlassState extends State<IosGlass> {
           fit: StackFit.passthrough,
           children: [
             // Layer 1 & 2 — Backdrop Blur + Saturation Matrix (if blur enabled & transparency not reduced)
-            if (widget.hasBlur && !isReduceTransparency)
+            if (widget.hasBlur && !isReduceTransparency && ScrollPerformanceManager.enableBackdropBlur)
               Positioned.fill(
-                child: BackdropFilter(
-                  filter: _buildBackdropFilter(),
-                  child: const SizedBox.shrink(),
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: ScrollPerformanceManager.isScrolling,
+                  builder: (context, isScrolling, _) {
+                    if (isScrolling) {
+                      // While user is actively flinging/scrolling, skip expensive GPU blur shader
+                      // and render a lightweight frosted tint. This eliminates frame drops for 120 FPS.
+                      return const SizedBox.shrink();
+                    }
+                    return BackdropFilter(
+                      filter: _buildBackdropFilter(),
+                      child: const SizedBox.shrink(),
+                    );
+                  },
                 ),
               ),
 

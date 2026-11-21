@@ -63,6 +63,7 @@ class _JournalQuickTapPodState extends State<JournalQuickTapPod> {
     return LiquidGlass(
       borderRadius: BorderRadius.circular(Tok.radiusMd),
       padding: const EdgeInsets.all(14),
+      hasBlur: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

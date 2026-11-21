@@ -34,45 +34,47 @@ class BottomPillNavBar extends StatelessWidget {
 
     return SafeArea(
       child: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 380),
-          padding: const EdgeInsets.only(
-            bottom: Tok.space12,
-            left: Tok.space20,
-            right: Tok.space20,
-          ),
-          child: _LiquidGlassPremium(
-            accentColor: activeColor,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Tok.space8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavItem(
-                    index: 0,
-                    icon: Icons.monitor_heart_outlined,
-                    activeIcon: Icons.monitor_heart,
-                    label: 'Pulse',
-                  ),
-                  _buildNavItem(
-                    index: 1,
-                    icon: Icons.accessibility_new_outlined,
-                    activeIcon: Icons.accessibility_new_rounded,
-                    label: 'Body Data',
-                  ),
-                  _buildNavItem(
-                    index: 2,
-                    icon: Icons.bolt_outlined,
-                    activeIcon: Icons.bolt,
-                    label: 'Strain',
-                  ),
-                  _buildNavItem(
-                    index: 3,
-                    icon: Icons.bedtime_outlined,
-                    activeIcon: Icons.bedtime,
-                    label: 'Sleep',
-                  ),
-                ],
+        child: RepaintBoundary(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 380),
+            padding: const EdgeInsets.only(
+              bottom: Tok.space12,
+              left: Tok.space20,
+              right: Tok.space20,
+            ),
+            child: _LiquidGlassPremium(
+              accentColor: activeColor,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Tok.space8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(
+                      index: 0,
+                      icon: Icons.monitor_heart_outlined,
+                      activeIcon: Icons.monitor_heart,
+                      label: 'Pulse',
+                    ),
+                    _buildNavItem(
+                      index: 1,
+                      icon: Icons.accessibility_new_outlined,
+                      activeIcon: Icons.accessibility_new_rounded,
+                      label: 'Body Data',
+                    ),
+                    _buildNavItem(
+                      index: 2,
+                      icon: Icons.bolt_outlined,
+                      activeIcon: Icons.bolt,
+                      label: 'Strain',
+                    ),
+                    _buildNavItem(
+                      index: 3,
+                      icon: Icons.bedtime_outlined,
+                      activeIcon: Icons.bedtime,
+                      label: 'Sleep',
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

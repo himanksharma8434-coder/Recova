@@ -63,6 +63,7 @@ class _ExplainableInsightCardState extends State<ExplainableInsightCard> {
     return LiquidGlass(
       borderRadius: BorderRadius.circular(Tok.radiusMd),
       accentGlow: accentColor,
+      hasBlur: false,
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

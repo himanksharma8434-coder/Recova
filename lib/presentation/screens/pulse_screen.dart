@@ -12,6 +12,7 @@ import '../../features/body_age/presentation/components/monthly_checkin_dialog.d
 import '../../features/body_age/presentation/screens/body_age_fitness_screen.dart';
 import '../../services/background_sync_service.dart';
 import '../../services/user_profile_service.dart';
+import '../../core/theme/scroll_performance_manager.dart';
 import '../components/edit_body_fat_dialog.dart';
 import '../components/glass_card.dart';
 import '../components/liquid_glass.dart';
@@ -228,15 +229,20 @@ class _PulseScreenState extends State<PulseScreen> {
       }
     }
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-      padding: const EdgeInsets.only(
-        left: Tok.space16,
-        right: Tok.space16,
-        top: Tok.space12,
-        bottom: 110,
-      ),
-      child: Column(
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        ScrollPerformanceManager.onScrollNotification(notification);
+        return false;
+      },
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        padding: const EdgeInsets.only(
+          left: Tok.space16,
+          right: Tok.space16,
+          top: Tok.space12,
+          bottom: 110,
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // ── Header ──
@@ -395,11 +401,13 @@ class _PulseScreenState extends State<PulseScreen> {
           const SizedBox(height: Tok.space12),
 
           // ── Recovery Gauge ──
-          RadialScoreGauge(
-            score: summary?.recoveryScore,
-            baselineScore: summary?.baselineRecoveryScore,
-            size: 220,
-            onTap: () => _openRecoveryCalculation(),
+          RepaintBoundary(
+            child: RadialScoreGauge(
+              score: summary?.recoveryScore,
+              baselineScore: summary?.baselineRecoveryScore,
+              size: 220,
+              onTap: () => _openRecoveryCalculation(),
+            ),
           ),
           const SizedBox(height: Tok.space12),
 
@@ -661,6 +669,7 @@ class _PulseScreenState extends State<PulseScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

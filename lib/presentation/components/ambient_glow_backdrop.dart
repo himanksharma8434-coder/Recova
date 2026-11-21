@@ -64,7 +64,10 @@ class AmbientGlowBackdrop extends StatelessWidget {
                 ),
 
                 // 3. Child content (e.g. scrollable screens)
-                if (child != null) Positioned.fill(child: child!),
+                if (child != null)
+                  Positioned.fill(
+                    child: RepaintBoundary(child: child!),
+                  ),
               ],
             );
           },

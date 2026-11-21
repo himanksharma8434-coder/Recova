@@ -12,6 +12,7 @@ import 'presentation/cubits/dashboard/dashboard_cubit.dart';
 import 'presentation/screens/permission_screen.dart';
 import 'presentation/screens/main_shell_screen.dart';
 import 'services/background_sync_service.dart';
+import 'services/display_refresh_rate_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +22,9 @@ void main() async {
 
   // Initialize Workmanager for background sync
   await Workmanager().initialize(callbackDispatcher);
+
+  // Enable highest supported refresh rate (120Hz/90Hz) on supported hardware
+  await DisplayRefreshRateService.enableHighRefreshRate();
 
   runApp(const RecovaApp());
 }
