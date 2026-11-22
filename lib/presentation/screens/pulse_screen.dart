@@ -79,19 +79,34 @@ class _PulseScreenState extends State<PulseScreen> {
   }
 
   Future<void> _loadBodyAgeData() async {
+    // Show cached result first if available so UI updates instantaneously
+    try {
+      final cachedSnapshot = await _bodyAgeRepo.getLatestSnapshot();
+      if (cachedSnapshot != null && mounted && _bodyAgeResult == null) {
+        setState(() {
+          _bodyAgeResult = cachedSnapshot;
+        });
+      }
+    } catch (_) {}
+
     setState(() => _loadingBodyAge = true);
     try {
-      final result = await _bodyAgeRepo.calculateCurrentBodyAge().timeout(
-            const Duration(seconds: 2),
-            onTimeout: () => null,
-          );
-      final profile = await UserProfileService.getProfile().timeout(
-            const Duration(seconds: 2),
-            onTimeout: () => const UserProfile(),
-          );
+      final results = await Future.wait([
+        _bodyAgeRepo.calculateCurrentBodyAge().timeout(
+              const Duration(seconds: 2),
+              onTimeout: () => null,
+            ),
+        UserProfileService.getProfile().timeout(
+              const Duration(seconds: 2),
+              onTimeout: () => const UserProfile(),
+            ),
+      ]);
+      final result = results[0] as FitnessBodyAgeResult?;
+      final profile = results[1] as UserProfile?;
+
       if (mounted) {
         setState(() {
-          _bodyAgeResult = result;
+          _bodyAgeResult = result ?? _bodyAgeResult;
           _userProfile = profile;
           _loadingBodyAge = false;
         });

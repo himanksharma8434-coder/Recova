@@ -104,11 +104,13 @@ class HealthRepositoryImpl implements HealthSourceRepository {
         // A standard delta sync from lastSynced (e.g. 3 AM) would cause Health Connect
         // TimeRangeFilter to miss sessions that started before lastSynced (e.g. 11 PM).
         // Therefore, always query at least 48 hours back for sleep data to ensure full coverage.
+        // For routine daytime delta syncs, query only from lastSynced (or 7 days max if uninitialized)
+        // to keep health queries ultra rapid and instant.
         final startTime = isSleepType
             ? (lastSynced != null
                 ? now.subtract(const Duration(hours: 48))
-                : now.subtract(HealthTypes.initialLookback))
-            : (lastSynced ?? now.subtract(HealthTypes.initialLookback));
+                : now.subtract(const Duration(days: 7)))
+            : (lastSynced ?? now.subtract(const Duration(days: 7)));
         final endTime = isSleepType ? now.add(const Duration(hours: 4)) : now;
 
         try {

@@ -17,16 +17,19 @@ class HealthPlatformDatasource {
     await health.configure();
   }
 
+  List<HealthDataType>? _cachedAvailableTypes;
+  List<HealthDataType>? _cachedAvailableCoreTypes;
+
   /// Get the subset of requested types that are valid and supported on this platform.
   List<HealthDataType> getAvailableTypes() {
-    return HealthTypes.platformRequestedTypes
+    return _cachedAvailableTypes ??= HealthTypes.platformRequestedTypes
         .where((type) => health.isDataTypeAvailable(type))
         .toList();
   }
 
   /// Get the subset of core types that are valid on this platform.
   List<HealthDataType> getAvailableCoreTypes() {
-    return HealthTypes.coreTypes
+    return _cachedAvailableCoreTypes ??= HealthTypes.coreTypes
         .where((type) => health.isDataTypeAvailable(type))
         .toList();
   }
