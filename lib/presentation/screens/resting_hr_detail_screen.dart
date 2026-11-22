@@ -231,7 +231,7 @@ class _RestingHrDetailScreenState extends State<RestingHrDetailScreen> {
     final baseline = widget.summary?.baselineRestingHr;
     final avg = _averageHr;
 
-    // Baseline delta comparison
+    // Baseline delta comparison (Lower RHR reflects cardiac efficiency & higher VO2 Max)
     String deltaText = 'Within baseline range';
     Color deltaColor = RecovaColors.textTertiary;
     if (avg != null && baseline != null) {
@@ -240,12 +240,15 @@ class _RestingHrDetailScreenState extends State<RestingHrDetailScreen> {
         deltaText = 'Stable vs 14D baseline';
         deltaColor = RecovaColors.monochromeSilver;
       } else if (diff < 0) {
-        deltaText = '${diff.abs().toStringAsFixed(1)} bpm below baseline (Optimal)';
-        deltaColor = RecovaColors.monochromeWhite;
+        deltaText = '${diff.abs().toStringAsFixed(1)} bpm below baseline (Optimal • Higher VO₂ Max)';
+        deltaColor = Tok.recoveryOptimal;
       } else {
-        deltaText = '+${diff.toStringAsFixed(1)} bpm above baseline (Elevated)';
+        deltaText = '+${diff.toStringAsFixed(1)} bpm above baseline (Elevated Stress)';
         deltaColor = RecovaColors.nothingRed;
       }
+    } else if (avg != null && avg <= 58) {
+      deltaText = 'Athletic Conditioning • Optimal VO₂ Max';
+      deltaColor = Tok.recoveryOptimal;
     }
 
     return Scaffold(
@@ -659,7 +662,7 @@ class _RestingHrDetailScreenState extends State<RestingHrDetailScreen> {
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Resting Heart Rate (RHR) is one of the most reliable autonomic health biomarkers. A suppressed RHR indicates optimal parasympathetic recovery, larger cardiac stroke volume, and minimal physiological stress.',
+                        'Resting Heart Rate (RHR) is one of the most reliable autonomic health and conditioning biomarkers. A lower RHR directly correlates with a higher VO₂ Max (via the Uth-Sørensen ratio: 15.3 × [Max HR / RHR]), indicating superior cardiac stroke volume, high parasympathetic tone, and elite aerobic efficiency.',
                         style: TextStyle(
                           fontSize: 11.5,
                           height: 1.5,
@@ -668,20 +671,26 @@ class _RestingHrDetailScreenState extends State<RestingHrDetailScreen> {
                       ),
                       const SizedBox(height: 14),
                       _buildRangeLegendRow(
-                        label: 'Athletic / Conditioning',
-                        range: '40 – 55 bpm',
-                        dotColor: Tok.neonAccent,
+                        label: 'Athletic / High VO₂ Max (Optimal)',
+                        range: '< 55 bpm',
+                        dotColor: Tok.recoveryOptimal,
                       ),
                       const SizedBox(height: 8),
                       _buildRangeLegendRow(
-                        label: 'Normal Healthy Baseline',
-                        range: '56 – 70 bpm',
+                        label: 'Conditioned / Good Fitness',
+                        range: '55 – 65 bpm',
                         dotColor: Tok.accentBlue,
                       ),
                       const SizedBox(height: 8),
                       _buildRangeLegendRow(
+                        label: 'Average Baseline',
+                        range: '66 – 75 bpm',
+                        dotColor: Tok.accentAmber,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildRangeLegendRow(
                         label: 'Elevated (Fatigue / Stress)',
-                        range: '> 70 bpm',
+                        range: '> 75 bpm',
                         dotColor: Tok.recoverySuppressed,
                       ),
                     ],
