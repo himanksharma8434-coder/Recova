@@ -299,18 +299,6 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(
-        find.byWidgetPredicate(
-          (w) => w is Semantics && w.properties.label == "Tonight's Sleep Need",
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.byWidgetPredicate(
-          (w) => w is Semantics && w.properties.label == 'Energy Reserve',
-        ),
-        findsOneWidget,
-      );
     });
   });
 

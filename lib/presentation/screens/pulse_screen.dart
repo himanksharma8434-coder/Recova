@@ -20,11 +20,6 @@ import '../components/motion.dart';
 import '../components/radial_score_gauge.dart';
 import '../components/vital_metric_tile.dart';
 import '../components/load_target_bar.dart';
-import '../components/sleep_advisor_card.dart';
-import '../components/energy_stress_card.dart';
-import '../components/health_monitor_pod.dart';
-import '../components/explainable_insight_card.dart';
-import '../components/journal_quick_tap_pod.dart';
 import '../../domain/body_engine/body_engine.dart';
 import '../cubits/health_sync/health_sync_cubit.dart';
 import '../cubits/health_sync/health_sync_state.dart';
@@ -538,41 +533,6 @@ class _PulseScreenState extends State<PulseScreen> {
             workoutMinutes: summary?.workouts.fold<int>(0, (sum, w) => sum + w.durationMinutes) ?? 0,
             todaySteps: summary?.todaySteps ?? 0,
             onTap: () => widget.onNavigateTab?.call(2),
-          ),
-          const SizedBox(height: Tok.space14),
-
-          // ── Card 3: Tonight's Sleep Need & Bedtime Target ──
-          SleepAdvisorCard(
-            sleepNeedMinutes: summary?.personalizedSleepNeedMinutes ?? 480,
-            lastNightSleepHours: summary?.sleepHours,
-            onTap: () => widget.onNavigateTab?.call(3),
-          ),
-          const SizedBox(height: Tok.space14),
-
-          // ── Card 4: Energy Reserve & Daytime Stress ──
-          EnergyStressCard(
-            energyReserve: summary?.energyReserveScore,
-            isEnergyReserveCalibrating: summary?.isEnergyReserveCalibrating ?? true,
-            daysOfData: summary?.effectiveDaysOfData ?? 14,
-            stressBand: summary?.daytimeStressBand ?? StressBand.balanced,
-            stressScore: summary?.engineOutput?.stress?.score ?? 35.0,
-          ),
-          const SizedBox(height: Tok.space16),
-
-          // ── Health Monitor Pod (5 Core Overnight Vitals) ──
-          HealthMonitorPod(summary: summary),
-          const SizedBox(height: Tok.space16),
-
-          // ── Explainable Insight Card (if available) ──
-          if (summary?.dailyInsights.isNotEmpty == true) ...[
-            ExplainableInsightCard(insight: summary!.dailyInsights.first),
-            const SizedBox(height: Tok.space16),
-          ],
-
-          // ── Daily Behavior Journal Pod ──
-          JournalQuickTapPod(
-            summary: summary,
-            onTagToggled: widget.onSyncTap,
           ),
           const SizedBox(height: Tok.space20),
 
