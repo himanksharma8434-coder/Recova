@@ -204,7 +204,7 @@ class _PulseScreenState extends State<PulseScreen> {
   Widget build(BuildContext context) {
     final summary = widget.summary;
 
-    // Dynamic RHR delta vs baseline
+    // Dynamic RHR delta vs baseline (Lower RHR indicates superior aerobic efficiency and higher VO2 Max)
     String rhrDeltaText = 'Awaiting sync';
     Color rhrDeltaColor = Tok.textSecondary;
     final restingHr = summary?.restingHr;
@@ -212,18 +212,24 @@ class _PulseScreenState extends State<PulseScreen> {
     if (restingHr != null && baseRhr != null) {
       final diff = (restingHr - baseRhr).round();
       if (diff < 0) {
-        rhrDeltaText = '$diff bpm basal';
-        rhrDeltaColor = Tok.textSecondary;
+        // Lower RHR is optimal for athletic recovery & higher VO2 Max
+        rhrDeltaText = '${diff.abs()} bpm lower (Optimal)';
+        rhrDeltaColor = Tok.recoveryOptimal;
       } else if (diff > 0) {
-        rhrDeltaText = '+$diff bpm basal';
+        rhrDeltaText = '+$diff bpm (Elevated)';
         rhrDeltaColor = Tok.recoverySuppressed;
       } else {
         rhrDeltaText = 'On baseline';
         rhrDeltaColor = Tok.textSecondary;
       }
     } else if (summary?.restingHr != null) {
-      rhrDeltaText = 'Current basal';
-      rhrDeltaColor = Tok.textSecondary;
+      if (summary!.restingHr! <= 58) {
+        rhrDeltaText = 'Athletic (High VO₂ Max)';
+        rhrDeltaColor = Tok.recoveryOptimal;
+      } else {
+        rhrDeltaText = 'Current baseline';
+        rhrDeltaColor = Tok.textSecondary;
+      }
     }
 
     // Dynamic SpO2 delta / state

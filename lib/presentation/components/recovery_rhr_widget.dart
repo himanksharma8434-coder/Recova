@@ -272,21 +272,24 @@ class _Vo2Rhr1x1WidgetState extends State<Vo2Rhr1x1Widget>
 
   @override
   Widget build(BuildContext context) {
-    // Dynamic RHR delta vs baseline
+    // Dynamic RHR delta vs baseline (Lower RHR = better athletic conditioning & higher VO2 Max)
     String rhrDeltaText = 'Basal';
     Color rhrDeltaColor = Tok.textSecondary;
     if (widget.restingHr != null && widget.baselineRhr != null) {
       final diff = (widget.restingHr! - widget.baselineRhr!).round();
       if (diff < 0) {
-        rhrDeltaText = '$diff bpm basal';
+        rhrDeltaText = '${diff.abs()} bpm lower (Optimal)';
         rhrDeltaColor = Tok.recoveryOptimal;
       } else if (diff > 0) {
-        rhrDeltaText = '+$diff bpm basal';
+        rhrDeltaText = '+$diff bpm (Elevated)';
         rhrDeltaColor = Tok.recoverySuppressed;
       } else {
         rhrDeltaText = 'On baseline';
         rhrDeltaColor = Tok.textSecondary;
       }
+    } else if (widget.restingHr != null && widget.restingHr! <= 58) {
+      rhrDeltaText = 'Athletic (High VO₂)';
+      rhrDeltaColor = Tok.recoveryOptimal;
     }
 
     return AspectRatio(
