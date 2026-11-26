@@ -4,6 +4,7 @@ import 'package:workmanager/workmanager.dart';
 
 import 'core/di/injection.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/scroll_performance_manager.dart';
 import 'domain/repositories/health_source_repository.dart';
 import 'presentation/cubits/health_permission/health_permission_cubit.dart';
 import 'presentation/cubits/health_permission/health_permission_state.dart';
@@ -60,6 +61,15 @@ class RecovaApp extends StatelessWidget {
             physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
             overscroll: false,
           ),
+          builder: (context, child) {
+            return NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                ScrollPerformanceManager.onScrollNotification(notification);
+                return false;
+              },
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           home: BlocBuilder<HealthPermissionCubit, HealthPermissionState>(
             builder: (context, state) {
               if (state is HealthPermissionGranted) {

@@ -17,8 +17,9 @@ class ScrollPerformanceManager {
   /// turns off multi-pass GPU shaders entirely.
   static bool enableBackdropBlur = true;
 
-  /// Global blur radius multiplier. Can be set to 0.75 for high performance.
-  static double blurSigmaScale = 0.85;
+  /// Global blur radius multiplier. Lowered to 0.55 for locked 120 FPS performance
+  /// while preserving smooth frosted glass aesthetics.
+  static double blurSigmaScale = 0.55;
 
   static void onScrollNotification(ScrollNotification notification) {
     if (notification is ScrollStartNotification) {
