@@ -155,6 +155,24 @@ class HealthPlatformDatasource {
     return prefs.getBool('backgroundReadGranted') ?? false;
   }
 
+  final Set<HealthDataType> _restrictedTypes = {};
+
+  /// O(N) fast deduplication replacing package:health's O(N^2) removeDuplicates.
+  List<HealthRecord> _dedupAndConvert(List<HealthDataPoint> dataPoints) {
+    if (dataPoints.isEmpty) return const [];
+    final seen = <String>{};
+    final result = <HealthRecord>[];
+    final syncedAt = DateTime.now();
+    for (final point in dataPoints) {
+      final key =
+          '${point.type.name}|${point.sourceName}|${point.dateFrom.microsecondsSinceEpoch}';
+      if (seen.add(key)) {
+        result.add(_toHealthRecord(point, syncedAt: syncedAt));
+      }
+    }
+    return result;
+  }
+
   /// Fetch health data from the platform store for a given time window.
   Future<List<HealthRecord>> fetchRecords({
     required DateTime startTime,
@@ -163,7 +181,7 @@ class HealthPlatformDatasource {
   }) async {
     final candidateTypes = types ?? getAvailableTypes();
     final validTypes = candidateTypes
-        .where((t) => health.isDataTypeAvailable(t))
+        .where((t) => health.isDataTypeAvailable(t) && !_restrictedTypes.contains(t))
         .toList();
 
     if (validTypes.isEmpty) return [];
@@ -175,20 +193,17 @@ class HealthPlatformDatasource {
         endTime: endTime,
       );
 
-      final unique = health.removeDuplicates(dataPoints);
-      return unique.map(_toHealthRecord).toList();
+      return _dedupAndConvert(dataPoints);
     } catch (e) {
-      // Fallback: fetch per-type so one restricted type does not fail the entire batch
-      final List<HealthRecord> allRecords = [];
-      for (final type in validTypes) {
-        final records = await fetchRecordsForType(
-          type: type,
-          startTime: startTime,
-          endTime: endTime,
-        );
-        allRecords.addAll(records);
-      }
-      return allRecords;
+      // Fallback: fetch per-type concurrently so one restricted type does not fail the batch
+      final results = await Future.wait(
+        validTypes.map((type) => fetchRecordsForType(
+              type: type,
+              startTime: startTime,
+              endTime: endTime,
+            )),
+      );
+      return results.expand((r) => r).toList();
     }
   }
 
@@ -198,7 +213,9 @@ class HealthPlatformDatasource {
     required DateTime startTime,
     required DateTime endTime,
   }) async {
-    if (!health.isDataTypeAvailable(type)) return [];
+    if (!health.isDataTypeAvailable(type) || _restrictedTypes.contains(type)) {
+      return [];
+    }
 
     try {
       final dataPoints = await health.getHealthDataFromTypes(
@@ -207,15 +224,15 @@ class HealthPlatformDatasource {
         endTime: endTime,
       );
 
-      final unique = health.removeDuplicates(dataPoints);
-      return unique.map(_toHealthRecord).toList();
+      return _dedupAndConvert(dataPoints);
     } catch (_) {
+      _restrictedTypes.add(type);
       return [];
     }
   }
 
   /// Convert a platform HealthDataPoint to our domain entity.
-  HealthRecord _toHealthRecord(HealthDataPoint point) {
+  HealthRecord _toHealthRecord(HealthDataPoint point, {DateTime? syncedAt}) {
     double value;
     double? valueSecondary;
     String unit = point.unit.name;
@@ -260,7 +277,7 @@ class HealthPlatformDatasource {
       startTime: point.dateFrom,
       endTime: point.dateTo,
       sourceId: point.sourceName,
-      syncedAt: DateTime.now(),
+      syncedAt: syncedAt ?? DateTime.now(),
     );
   }
 
