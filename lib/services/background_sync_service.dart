@@ -45,10 +45,10 @@ void callbackDispatcher() {
           return true;
         }
 
-        // Avoid redundant background sync if a sync occurred recently (< 10 minutes)
+        // Avoid redundant background sync if a sync occurred very recently (< 15 minutes)
         final lastGlobalSync = await db.syncDao.getLastSyncedAt('GLOBAL_SYNC');
         if (lastGlobalSync != null &&
-            DateTime.now().difference(lastGlobalSync) < const Duration(minutes: 10)) {
+            DateTime.now().difference(lastGlobalSync) < const Duration(minutes: 15)) {
           final summary = await repository.getLatestSummary();
           if (summary != null) {
             await HomeWidgetService.updateFromSummary(summary);
@@ -92,7 +92,7 @@ Future<void> registerPeriodicSync() async {
         networkType: NetworkType.notRequired,
         requiresBatteryNotLow: false,
       ),
-      existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
   } catch (_) {
     // Gracefully ignore on platforms/test environments where Workmanager is unmocked
