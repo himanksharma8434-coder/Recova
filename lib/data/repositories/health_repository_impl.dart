@@ -93,92 +93,106 @@ class HealthRepositoryImpl implements HealthSourceRepository {
       await _platform.configure();
 
       final typesToSync = _platform.getAvailableTypes();
+      final sleepTypes = typesToSync.where((t) => t.name.startsWith('SLEEP')).toList();
+      final daytimeTypes = typesToSync.where((t) => !t.name.startsWith('SLEEP')).toList();
 
-      // Delta sync all available types concurrently to minimize sync latency
-      final syncTasks = typesToSync.map((type) async {
-        final typeName = type.name;
-        final lastSynced = await syncDao.getLastSyncedAt(typeName);
+      // Determine delta windows using GLOBAL_SYNC (or per-type if uninitialized)
+      final lastGlobalSync = await syncDao.getLastSyncedAt('GLOBAL_SYNC');
 
-        final isSleepType = typeName.startsWith('SLEEP');
-        // For sleep records: sessions span across midnight into the morning.
-        // A standard delta sync from lastSynced (e.g. 3 AM) would cause Health Connect
-        // TimeRangeFilter to miss sessions that started before lastSynced (e.g. 11 PM).
-        // Therefore, always query at least 48 hours back for sleep data to ensure full coverage.
-        // For routine daytime delta syncs, query only from lastSynced (or 7 days max if uninitialized)
-        // to keep health queries ultra rapid and instant.
-        final startTime = isSleepType
-            ? (lastSynced != null
-                ? now.subtract(const Duration(hours: 48))
-                : now.subtract(const Duration(days: 7)))
-            : (lastSynced ?? now.subtract(const Duration(days: 7)));
-        final endTime = isSleepType ? now.add(const Duration(hours: 4)) : now;
+      // Check if all daytime types were already synced at least once;
+      // if so, use a single ultra-fast batch IPC call for all daytime types!
+      final daytimeStart = lastGlobalSync != null
+          ? lastGlobalSync.subtract(const Duration(minutes: 5))
+          : now.subtract(const Duration(days: 7));
 
-        try {
-          final records = await _platform.fetchRecordsForType(
-            type: type,
-            startTime: startTime,
-            endTime: endTime,
-          );
+      final sleepStart = lastGlobalSync != null
+          ? now.subtract(const Duration(hours: 36))
+          : now.subtract(const Duration(days: 7));
+      final sleepEnd = now.add(const Duration(hours: 4));
 
-          if (records.isNotEmpty) {
-            final companions = records
-                .map((r) => RawHealthRecordsCompanion(
-                      recordType: Value(r.recordType),
-                      value: Value(r.value),
-                      valueSecondary: Value(r.valueSecondary),
-                      unit: Value(r.unit),
-                      startTime: Value(r.startTime),
-                      endTime: Value(r.endTime),
-                      sourceId: Value(r.sourceId),
-                      syncedAt: Value(r.syncedAt),
-                    ))
-                .toList();
+      // Run daytime batch, sleep batch, and today's aggregate steps concurrently (3 IPC calls instead of 30!)
+      final stepsFuture = typesToSync.any((t) => t.name == 'STEPS')
+          ? _platform
+              .getTotalStepsInInterval(
+                startTime: AppDateUtils.startOfDay(now),
+                endTime: now,
+              )
+              .catchError((_) => null)
+          : Future<int?>.value(null);
 
-            await recordDao.upsertRecords(companions);
-            await syncDao.updateLastSyncedAt(typeName, now);
-            return records.length;
-          }
-        } catch (_) {}
-        return 0;
-      });
+      final results = await Future.wait([
+        daytimeTypes.isNotEmpty
+            ? _platform.fetchRecords(
+                types: daytimeTypes,
+                startTime: daytimeStart,
+                endTime: now,
+              )
+            : Future.value(const <HealthRecord>[]),
+        sleepTypes.isNotEmpty
+            ? _platform.fetchRecords(
+                types: sleepTypes,
+                startTime: sleepStart,
+                endTime: sleepEnd,
+              )
+            : Future.value(const <HealthRecord>[]),
+      ]);
 
-      final writtenCounts = await Future.wait(syncTasks);
-      totalWritten = writtenCounts.fold<int>(0, (sum, count) => sum + count);
+      final daytimeRecords = results[0];
+      final sleepRecords = results[1];
+      final allFetched = <HealthRecord>[...daytimeRecords, ...sleepRecords];
+      totalWritten = allFetched.length;
 
-      // For STEPS: Also fetch authoritative de-duplicated day total from platform aggregate
-      if (typesToSync.any((t) => t.name == 'STEPS')) {
-        try {
-          final dayStart = AppDateUtils.startOfDay(now);
-          final aggSteps = await _platform.getTotalStepsInInterval(
-            startTime: dayStart,
-            endTime: now,
-          );
-          if (aggSteps != null && aggSteps > 0) {
-            await recordDao.upsertRecord(RawHealthRecordsCompanion(
-              recordType: const Value('STEPS'),
-              value: Value(aggSteps.toDouble()),
-              unit: const Value('COUNT'),
-              startTime: Value(dayStart),
-              endTime: Value(now),
-              sourceId: const Value('health_connect_aggregate'),
-              syncedAt: Value(now),
-            ));
-          }
-        } catch (_) {}
+      if (allFetched.isNotEmpty) {
+        final companions = allFetched
+            .map((r) => RawHealthRecordsCompanion(
+                  recordType: Value(r.recordType),
+                  value: Value(r.value),
+                  valueSecondary: Value(r.valueSecondary),
+                  unit: Value(r.unit),
+                  startTime: Value(r.startTime),
+                  endTime: Value(r.endTime),
+                  sourceId: Value(r.sourceId),
+                  syncedAt: Value(r.syncedAt),
+                ))
+            .toList();
+        await recordDao.upsertRecords(companions);
+      }
+
+      // Mark all queried types as synced (even if 0 records) so empty types
+      // don't repeatedly query 7 days of history on every sync.
+      await Future.wait(
+        typesToSync.map((t) => syncDao.updateLastSyncedAt(t.name, now)),
+      );
+
+      // For STEPS: Also persist authoritative de-duplicated day total from platform aggregate
+      final aggSteps = await stepsFuture;
+      if (aggSteps != null && aggSteps > 0) {
+        final dayStart = AppDateUtils.startOfDay(now);
+        await recordDao.upsertRecord(RawHealthRecordsCompanion(
+          recordType: const Value('STEPS'),
+          value: Value(aggSteps.toDouble()),
+          unit: const Value('COUNT'),
+          startTime: Value(dayStart),
+          endTime: Value(now),
+          sourceId: const Value('health_connect_aggregate'),
+          syncedAt: Value(now),
+        ));
       }
 
       // Recompute baselines and derived metrics:
       // If historical metrics are completely empty (e.g. first sync on fresh install),
       // backfill recent 7 days so baselines and trends are established.
-      // On routine delta syncs, only recompute yesterday and today (sleep spans midnight),
-      // dropping query volume by 95%!
+      // On routine daytime delta syncs, only recompute today (and yesterday only if
+      // morning or sleep data changed) to keep sync near-instant.
       final recentHistory = await _db.derivedMetricDao.getHistory(3);
       if (recentHistory.isEmpty && totalWritten > 0) {
         await recomputeHistory(days: 7);
       } else {
-        final yesterday = now.subtract(const Duration(days: 1));
-        await _recomputeBaselines(yesterday);
-        await _recomputeDerivedMetrics(yesterday);
+        if (now.hour < 12 || sleepRecords.isNotEmpty) {
+          final yesterday = now.subtract(const Duration(days: 1));
+          await _recomputeBaselines(yesterday);
+          await _recomputeDerivedMetrics(yesterday);
+        }
         await _recomputeBaselines(now);
         await _recomputeDerivedMetrics(now);
       }
