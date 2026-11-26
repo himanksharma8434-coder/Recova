@@ -294,34 +294,36 @@ class _MainShellScreenState extends State<MainShellScreen>
                 // Safe Area wrapped PageView with fluid transitions & state preservation
                 SafeArea(
                   bottom: false,
-                  child: PageView(
-                    controller: _pageController,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      _KeepAliveWrapper(
-                        child: PulseScreen(
-                          summary: summary,
-                          onSyncTap: _onSyncTap,
-                          lastSyncedAt: _lastSyncedAt,
-                          onNavigateTab: _onTabSelected,
+                  child: RepaintBoundary(
+                    child: PageView(
+                      controller: _pageController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        _KeepAliveWrapper(
+                          child: PulseScreen(
+                            summary: summary,
+                            onSyncTap: _onSyncTap,
+                            lastSyncedAt: _lastSyncedAt,
+                            onNavigateTab: _onTabSelected,
+                          ),
                         ),
-                      ),
-                      _KeepAliveWrapper(
-                        child: RecoveryDeepDiveScreen(
-                          summary: summary,
+                        _KeepAliveWrapper(
+                          child: RecoveryDeepDiveScreen(
+                            summary: summary,
+                          ),
                         ),
-                      ),
-                      _KeepAliveWrapper(
-                        child: StrainScreen(
-                          summary: summary,
+                        _KeepAliveWrapper(
+                          child: StrainScreen(
+                            summary: summary,
+                          ),
                         ),
-                      ),
-                      _KeepAliveWrapper(
-                        child: SleepScreen(
-                          summary: summary,
+                        _KeepAliveWrapper(
+                          child: SleepScreen(
+                            summary: summary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
@@ -355,6 +357,7 @@ class _MainShellScreenState extends State<MainShellScreen>
                           child: GestureDetector(
                             onTap: _dismissBanner,
                             child: LiquidGlass(
+                              hasBlur: _showBanner,
                               borderRadius: BorderRadius.circular(Tok.radiusFull),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: Tok.space16,
