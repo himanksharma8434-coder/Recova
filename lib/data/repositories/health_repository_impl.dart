@@ -1,6 +1,5 @@
 import 'package:drift/drift.dart';
 
-import '../../core/constants/health_types.dart';
 import '../../core/utils/date_utils.dart';
 import '../../domain/body_engine/body_engine.dart';
 import '../../domain/entities/health_record.dart';
